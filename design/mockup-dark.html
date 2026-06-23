@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yaride — макет «Один туннель»</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#ffdd2d; --brand-foreground:#18170f; --brand-dark:#d4b400;
+  --gradient-brand:linear-gradient(135deg,#ffe14a 0%,#ffd000 100%);
+  --radius:18px; --radius-xl:24px; --radius-3xl:38px;
+  --font-sans:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+}
+.light{
+  --background:#f5f5f7; --foreground:#0f0f10; --surface:#fff; --elevated:#fff; --card:#fff;
+  --muted-foreground:#6e6e73; --secondary:#ebebed; --secondary-foreground:#0f0f10;
+  --accent:#fff4c2; --border:rgba(15,15,16,.09);
+  --shadow-elevated:0 10px 30px -18px rgba(0,0,0,.55);
+  --shadow-hero:0 14px 40px -16px rgba(255,221,45,.55);
+  --shadow-card:0 6px 22px -16px rgba(0,0,0,.30);
+  --success:#1f9d57;
+}
+.dark{
+  --background:#0f0f12; --foreground:#f5f5f7; --surface:#1a1a1f; --elevated:#202026; --card:#1c1c21;
+  --muted-foreground:#a3a3ad; --secondary:#26262d; --secondary-foreground:#f5f5f7;
+  --accent:#332f1c; --border:rgba(255,255,255,.09);
+  --shadow-elevated:0 14px 40px -18px rgba(0,0,0,.7);
+  --shadow-hero:0 12px 32px -18px rgba(255,221,45,.38);
+  --shadow-card:0 12px 32px -24px rgba(0,0,0,.85);
+  --success:#4cc38a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#0b0b0d;font-family:var(--font-sans);color:#e9e9ee;padding:40px 28px 64px;
+  background-image:radial-gradient(900px 500px at 18% -6%,rgba(255,221,45,.06),transparent),radial-gradient(900px 520px at 102% 8%,rgba(255,221,45,.04),transparent)}
+.head{max-width:1320px;margin:0 auto 30px;display:flex;align-items:center;gap:16px}
+.logo{width:34px;height:34px;border-radius:10px;background:var(--gradient-brand);display:grid;place-items:center;font-weight:800;color:#18170f;flex:none}
+.head h1{font-size:20px;margin:0;font-weight:800;letter-spacing:-.02em}
+.head p{margin:0;color:#8a8a93;font-size:13px}
+.grid{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:30px 26px}
+.cell{display:flex;flex-direction:column;gap:10px}
+.cap{font-size:12px;color:#8a8a93;font-weight:600;padding-left:4px;display:flex;gap:8px;align-items:center}
+.tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:rgba(255,221,45,.14);color:#ffdd2d}
+.tag.lt{background:rgba(255,255,255,.08);color:#cfcfd6}
+
+/* icons */
+.ic{width:1.05em;height:1.05em;vertical-align:-2px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none;display:inline-block}
+.ic.fill{fill:currentColor;stroke:none}
+
+/* phone */
+.phone{width:300px;border-radius:42px;padding:9px;background:#050506;
+  box-shadow:0 34px 70px -34px rgba(0,0,0,.95),0 0 0 1px rgba(255,255,255,.06),inset 0 0 0 2px rgba(255,255,255,.02)}
+.scr{border-radius:34px;overflow:hidden;background:var(--background);color:var(--foreground);height:626px;display:flex;flex-direction:column;position:relative}
+.status{height:38px;display:flex;align-items:center;justify-content:space-between;padding:2px 22px 0;font-size:13px;font-weight:700}
+.status .time{letter-spacing:-.01em}
+.status .sys{display:flex;align-items:center;gap:6px}
+.sb{height:11px;width:auto;fill:currentColor}
+.body{flex:1;overflow:hidden;padding:6px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.muted{color:var(--muted-foreground)}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:6px 2px;gap:8px}
+.topbar .t{font-weight:800;font-size:15px;letter-spacing:-.01em}
+.topbar .s{font-size:11px;color:var(--muted-foreground);margin-top:1px}
+.ico{width:32px;height:32px;border-radius:11px;background:var(--secondary);display:grid;place-items:center;color:var(--foreground);font-size:16px;flex:none}
+.spacer{width:32px;flex:none}
+
+.hero{position:relative;overflow:hidden;border-radius:var(--radius-3xl);background:var(--gradient-brand);color:#18170f;
+  padding:16px 18px;min-height:126px;display:flex;flex-direction:column;justify-content:center;
+  border:1px solid rgba(212,180,0,.22);box-shadow:var(--shadow-hero)}
+.hero .k{font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;opacity:.65;position:relative}
+.hero h2{font-size:24px;line-height:1.06;font-weight:700;letter-spacing:-.02em;margin:6px 0 0;position:relative}
+.hero .pill{margin-top:14px;display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 15px;border-radius:999px;background:#18170f;color:#fff;font-size:13px;font-weight:600;position:relative;width:fit-content}
+.hero svg.art{position:absolute;right:-12px;bottom:-12px;width:142px;height:142px;color:rgba(0,0,0,.14);pointer-events:none;stroke-width:2}
+
+.card{background:var(--elevated);border-radius:var(--radius-xl);padding:13px 14px;border:1px solid var(--border);box-shadow:var(--shadow-card)}
+.trip{display:flex;gap:11px;align-items:flex-start}
+.av{width:42px;height:42px;border-radius:14px;background:var(--gradient-brand);display:grid;place-items:center;font-weight:800;color:#18170f;font-size:16px;flex:none;position:relative}
+.rb{position:absolute;right:-6px;bottom:-6px;background:var(--card);color:var(--foreground);border:1px solid var(--border);border-radius:999px;height:17px;padding:0 5px;display:flex;align-items:center;gap:2px;font-size:9.5px;font-weight:800;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.22)}
+.rb .ic{width:9px;height:9px;stroke:none;fill:#f4b400}
+.trip .nm .star{display:none}
+.trip .nm{font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.trip .cnt{display:none}
+.star{color:#f4b400;font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:2px}
+.cnt{color:var(--muted-foreground);font-weight:600;font-size:12px}
+.meta{font-size:12px;color:var(--muted-foreground);margin-top:3px;line-height:1.55}
+.meta b{color:var(--foreground);font-weight:700}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px}
+.mid{flex:1;min-width:0;overflow:hidden}
+.rt{flex:none;width:54px;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.time{font-weight:800;font-size:16px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.card.regular{background:color-mix(in oklab, var(--brand) 16%, var(--card));border-color:color-mix(in oklab, var(--brand) 42%, transparent)}
+.trip .meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seats{font-size:11px;font-weight:700;color:#18170f;background:var(--brand);padding:3px 10px;border-radius:999px;white-space:nowrap}
+.seats.ok{background:var(--success);color:#0f0f12}
+.link{font-size:12px;font-weight:700;color:var(--foreground);opacity:.62;display:inline-flex;align-items:center;gap:3px}
+.verif{color:var(--success);font-weight:700;display:inline-flex;align-items:center;gap:4px;font-size:12px}
+
+.cta{display:flex;flex-direction:column;gap:9px;margin-top:auto;padding-top:6px}
+.btn{min-height:48px;padding:8px 16px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:14px;line-height:1.15;text-align:center}
+.btn.brand{background:var(--gradient-brand);color:#18170f;box-shadow:var(--shadow-hero)}
+.btn.ghost{background:var(--secondary);color:var(--secondary-foreground)}
+.btn.dark{background:#18170f;color:#fff}
+.btn.sos{background:linear-gradient(135deg,#ff6a5a,#e53935);color:#fff;box-shadow:0 16px 40px -14px rgba(229,57,53,.55)}
+.btn.sm{min-height:44px;font-size:13px;border-radius:15px}
+
+.title{font-weight:800;font-size:17px;letter-spacing:-.01em}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-foreground);font-weight:700;margin-bottom:6px}
+.field{min-height:46px;border-radius:15px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;padding:0 14px;font-size:14px;font-weight:600}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{height:38px;min-width:52px;padding:0 14px;border-radius:13px;background:var(--secondary);display:grid;place-items:center;font-weight:600;font-size:13px}
+.chip.on{background:var(--gradient-brand);color:#18170f;font-weight:700}
+.opt{display:flex;align-items:center;gap:12px;min-height:54px;padding:0 15px;border-radius:17px;background:var(--surface);border:1px solid var(--border);font-weight:700}
+.dot{width:18px;height:18px;border-radius:999px;border:2px solid var(--muted-foreground);flex:none}
+.opt.on{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+.opt.on .dot{border-color:var(--brand);background:var(--brand)}
+.route{display:flex;flex-direction:column;gap:1px;margin:4px 0}
+.rl{display:flex;align-items:center;gap:11px;font-size:13px;font-weight:600;min-height:24px}
+.rl .pt{width:11px;height:11px;border-radius:999px;border:2px solid var(--brand);flex:none}
+.rl.fill .pt{background:var(--brand)}
+.rline{height:16px;border-left:2px dotted var(--muted-foreground);margin-left:4.5px}
+.note{font-size:11px;color:var(--muted-foreground);text-align:center;line-height:1.5}
+.big-emoji{font-size:32px;text-align:center;color:var(--brand)}
+.center{text-align:center}
+.divider{height:1px;background:var(--border);margin:2px 0}
+
+.check-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;padding:34px 0 8px}
+.check{width:88px;height:88px;border-radius:999px;background:var(--gradient-brand);display:grid;place-items:center;position:relative;
+  box-shadow:0 18px 46px -10px rgba(255,221,45,.55),0 0 0 8px rgba(255,221,45,.10)}
+.check::after{content:"";position:absolute;inset:-15px;border-radius:999px;border:1px solid rgba(255,221,45,.20)}
+.check .ic{width:42px;height:42px;color:#18170f;stroke-width:2.6}
+.check-wrap .t{font-weight:800;font-size:21px;letter-spacing:-.02em;margin-top:6px}
+.check-wrap .s{font-size:13px;color:var(--muted-foreground)}
+.info{display:flex;gap:12px;align-items:center;background:var(--accent);border-radius:var(--radius-xl);padding:13px 14px;
+  box-shadow:inset 0 0 0 1px rgba(255,221,45,.12),var(--shadow-card)}
+.info .ib{width:36px;height:36px;border-radius:12px;background:var(--gradient-brand);display:grid;place-items:center;color:#18170f;flex:none;box-shadow:0 8px 20px -10px rgba(255,221,45,.6)}
+.info .ib .ic{width:18px;height:18px;stroke-width:2}
+.info .it{font-size:12px;line-height:1.5;color:var(--foreground)}
+
+.map{height:122px;border-radius:var(--radius-xl);background:radial-gradient(120% 120% at 80% 10%,#2a2a31,#17171c);border:1px solid var(--border);position:relative;overflow:hidden}
+.map svg.route-svg{position:absolute;inset:0;width:100%;height:100%}
+.map .mbadge{position:absolute;left:12px;bottom:11px;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:5px 11px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px}
+
+.stars{display:flex;justify-content:center;gap:9px;color:var(--brand);filter:drop-shadow(0 8px 20px rgba(255,221,45,.35))}
+.stars .ic{width:34px;height:34px}
+.statrow{display:flex;gap:10px}
+.stat{flex:1;background:var(--elevated);border:1px solid var(--border);border-radius:var(--radius-xl);padding:12px 14px;box-shadow:var(--shadow-card)}
+.stat .v{font-size:22px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:4px}
+.stat .v .ic{width:18px;height:18px;color:var(--brand)}
+.stat .l{font-size:11px;color:var(--muted-foreground);font-weight:600;margin-top:2px}
+.menu{display:flex;align-items:center;gap:13px;min-height:52px;padding:0 6px;font-weight:600;font-size:14px}
+.menu .mi{width:36px;height:36px;border-radius:12px;background:var(--secondary);display:grid;place-items:center;color:var(--foreground)}
+.menu .mi .ic{width:18px;height:18px}
+.menu .ch{margin-left:auto;color:var(--muted-foreground)}
+.pushcard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:13px 14px;box-shadow:var(--shadow-elevated);display:flex;gap:11px;align-items:flex-start}
+.otp{display:flex;gap:9px;justify-content:center}
+.otp .d{width:48px;height:56px;border-radius:15px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;font-size:23px;font-weight:800}
+.otp .d.on{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+.tg{width:44px;height:26px;border-radius:999px;background:var(--secondary);position:relative;flex:none}
+.tg.on{background:var(--brand)}
+.tg::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:999px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3);transition:.2s}
+.tg.on::after{left:21px;background:#18170f}
+.srow{display:flex;align-items:center;gap:13px;min-height:54px;padding:0 6px;font-weight:600;font-size:14px}
+.srow .mi{width:36px;height:36px;border-radius:12px;background:var(--secondary);display:grid;place-items:center;flex:none}
+.srow .mi .ic{width:18px;height:18px}
+.srow .tg{margin-left:auto}
+.seg{display:flex;background:var(--secondary);border-radius:15px;padding:4px;gap:4px}
+.seg .t{flex:1;height:36px;border-radius:12px;display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--muted-foreground)}
+.seg .t.on{background:var(--card);color:var(--foreground);box-shadow:var(--shadow-card)}
+.upload{height:98px;border-radius:17px;border:1.5px dashed color-mix(in oklab,var(--muted-foreground) 50%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--muted-foreground);font-size:12px;font-weight:600}
+.upload .ic{width:22px;height:22px;color:var(--brand)}
+.seats.wait{background:var(--accent);color:var(--foreground);box-shadow:inset 0 0 0 1px rgba(255,221,45,.35)}
+.check.wait{background:var(--accent);box-shadow:0 18px 46px -16px rgba(255,221,45,.3),0 0 0 8px rgba(255,221,45,.08)}
+.check.wait .ic{color:var(--brand)}
+</style>
+</head>
+<body>
+
+<!-- icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+ <symbol id="i-car" viewBox="0 0 24 24"><path d="M5 11l1.7-4.3A2 2 0 0 1 8.6 5.4h6.8a2 2 0 0 1 1.9 1.3L19 11"/><rect x="3" y="11" width="18" height="6" rx="2.2"/><circle cx="7.5" cy="17.5" r="1.4"/><circle cx="16.5" cy="17.5" r="1.4"/></symbol>
+ <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+ <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.3l3 1.7"/></symbol>
+ <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></symbol>
+ <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
+ <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17.5 7H20M4 17h2.5M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="8.5" cy="17" r="2.2"/></symbol>
+ <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></symbol>
+ <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></symbol>
+ <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+ <symbol id="i-msg" viewBox="0 0 24 24"><path d="M5 5.5h14a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1H9.5L5 19.5V6.5a1 1 0 0 1 1-1z"/></symbol>
+ <symbol id="i-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.4"/><circle cx="17" cy="6" r="2.4"/><circle cx="17" cy="18" r="2.4"/><path d="M8.1 10.9l6.8-3.8M8.1 13.1l6.8 3.8"/></symbol>
+ <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 2.8v5.2c0 4.6-3.2 7.7-7 8.8-3.8-1.1-7-4.2-7-8.8V5.8z"/></symbol>
+ <symbol id="i-sos" viewBox="0 0 24 24"><path d="M12 3l7 2.8v5.2c0 4.6-3.2 7.7-7 8.8-3.8-1.1-7-4.2-7-8.8V5.8z"/><path d="M12 8.5v4M12 15.4v.2"/></symbol>
+ <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 10a6 6 0 0 1 12 0c0 4 1.6 5.2 2.2 5.7H3.8C4.4 15.2 6 14 6 10z"/><path d="M10 18.5a2 2 0 0 0 4 0"/></symbol>
+ <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-5.4 7-11a7 7 0 0 0-14 0c0 5.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+ <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6.5 4h11a1 1 0 0 1 1 1v15.2l-6.5-4-6.5 4V5a1 1 0 0 1 1-1z"/></symbol>
+ <symbol id="i-mega" viewBox="0 0 24 24"><path d="M4 10v4h3l9 4.5v-13L7 10z"/><path d="M18.5 9.5a3.2 3.2 0 0 1 0 5"/></symbol>
+ <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3.5h12V20l-2-1.2L14 20l-2-1.2L10 20l-2-1.2L6 20z"/><path d="M9 8.5h6M9 12.5h6"/></symbol>
+ <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></symbol>
+ <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.2l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 16.7 6.7 19.5l1.1-5.9L3.4 9.5l6-.8z"/></symbol>
+ <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4 4 10-10"/></symbol>
+ <symbol id="i-arrow-r" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+ <symbol id="i-id" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2"/><path d="M5.8 16a2.8 2.8 0 0 1 5.4 0"/><path d="M14 9.5h4M14 13h3"/></symbol>
+ <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.4-2h7.2L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.2"/></symbol>
+ <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="3" width="11" height="18" rx="2.2"/><path d="M11 18h2"/></symbol>
+</svg>
+
+<div class="head">
+  <div class="logo">Y</div>
+  <div>
+    <h1>Yaride — макет «Один туннель»</h1>
+    <p>Дизайн-система проекта · Manrope · #ffdd2d · deep-black. Иконки — SVG (lucide-стиль). Коридор Брагино → Центр, 7:30–8:40. Данные — рыба.</p>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- 1 -->
+  <div class="cell">
+    <div class="cap">1 · Первый вход <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg class="sb" viewBox="0 0 16 12" style="fill:none;stroke:currentColor;stroke-width:1.4"><path d="M1 4.2a11 11 0 0 1 14 0M3.5 6.7a7 7 0 0 1 9 0M6 9.2a3 3 0 0 1 4 0"/><circle cx="8" cy="11" r=".7" fill="currentColor"/></svg><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div style="margin-top:8px"><div class="logo" style="width:40px;height:40px;border-radius:12px;font-size:18px">Y</div></div>
+        <div class="title" style="font-size:26px;line-height:1.12;margin-top:4px">Попутчики по дороге<br>на работу. Без давки.</div>
+        <div class="muted" style="font-size:13px;margin-top:-2px">Утром по одному маршруту — дешевле и живее автобуса.</div>
+        <div style="margin-top:10px" class="lbl">Куда едешь утром?</div>
+        <div class="opt on"><span class="dot"></span><div>Брагино → Центр<div class="muted" style="font-weight:500;font-size:11px">7:30–8:40 · будни</div></div></div>
+        <div class="opt"><span class="dot"></span><div>Центр → Брагино<div class="muted" style="font-weight:500;font-size:11px">17:30–19:00 · будни</div></div></div>
+        <div class="cta">
+          <div class="btn brand">Показать поездки <svg class="ic"><use href="#i-arrow-r"/></svg></div>
+          <div class="note">Регистрация не нужна, чтобы посмотреть</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 2 -->
+  <div class="cell">
+    <div class="cap">2 · Главный — есть поездки <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div><div class="t">Брагино → Центр</div><div class="s">среда, утро 7:30–8:40</div></div><div class="ico"><svg class="ic"><use href="#i-sliders"/></svg></div></div>
+        <div class="hero">
+          <svg class="art" viewBox="0 0 120 120" fill="none"><path d="M10 80 Q40 50 60 70 T110 50" stroke="currentColor" stroke-linecap="round" stroke-dasharray="4 6"/><circle cx="60" cy="70" r="3" fill="currentColor"/><circle cx="98" cy="56" r="14" stroke="currentColor"/><path d="M108 66 L116 74" stroke="currentColor" stroke-linecap="round"/></svg>
+          <div class="k">Сегодня по маршруту</div>
+          <h2>3 поездки<br>в твою сторону</h2>
+          <div class="pill"><svg class="ic"><use href="#i-clock"/></svg> Ближайшая в 7:40</div>
+        </div>
+        <div class="card trip">
+          <div class="av">А<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>4.9</span></div>
+          <div class="mid">
+            <div class="nm">Андрей К. <span class="star"><svg class="ic fill"><use href="#i-star"/></svg>4.9</span> <span class="cnt">37</span></div>
+            <div class="meta">ул. Урицкого, 12 · Kia Rio · ≈80 ₽</div>
+          </div>
+          <div class="rt"><div class="time">7:40</div><span class="seats">2 места</span></div>
+        </div>
+        <div class="card trip">
+          <div class="av">М<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span></div>
+          <div class="mid">
+            <div class="nm">Марина С. <span class="star"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span> <span class="cnt">12</span></div>
+            <div class="meta">пр-т Дзержинского, 8 · VW Polo · ≈70 ₽</div>
+          </div>
+          <div class="rt"><div class="time">7:55</div><span class="seats">3 места</span></div>
+        </div>
+        <div class="cta">
+          <div class="btn brand sm"><svg class="ic"><use href="#i-car"/></svg> Возьму попутчиков</div>
+          <div class="btn ghost sm"><svg class="ic"><use href="#i-search"/></svg> Ищу, кто подвезёт</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 3 -->
+  <div class="cell">
+    <div class="cap">3 · Карточка поездки <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Поездка 7:40</div><div class="ico"><svg class="ic"><use href="#i-share"/></svg></div></div>
+        <div class="card" style="display:flex;gap:12px;align-items:center">
+          <div class="av" style="width:54px;height:54px;border-radius:18px;font-size:20px">А</div>
+          <div><div class="nm" style="font-size:17px">Андрей К.</div>
+            <div class="meta" style="margin-top:3px"><span class="star"><svg class="ic fill"><use href="#i-star"/></svg>4.9</span> · 37&nbsp;поездок · 34&nbsp;года</div>
+            <div class="verif"><svg class="ic"><use href="#i-check"/></svg> ВУ подтверждено · с мая 2026</div></div>
+        </div>
+        <div class="card">
+          <div class="lbl">Маршрут · ~22 мин</div>
+          <div class="route">
+            <div class="rl fill"><span class="pt"></span> Брагино, ул. Урицкого, 12</div>
+            <div class="rline"></div>
+            <div class="rl"><span class="pt"></span> Центр, пл. Волкова</div>
+          </div>
+          <div class="divider"></div>
+          <div class="meta" style="margin-top:9px">Выезд&nbsp;&nbsp;<b>среда, 7:40</b><br>Машина&nbsp;&nbsp;<b>Kia Rio, белая</b><br>Бензин&nbsp;&nbsp;<b>≈ 80 ₽</b> <span class="muted">(пополам · не оплата)</span></div>
+        </div>
+        <div class="cta">
+          <div class="btn brand">Забронировать</div>
+          <div class="btn ghost sm"><svg class="ic"><use href="#i-share"/></svg> Поделиться поездкой</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 4 -->
+  <div class="cell">
+    <div class="cap">4 · Пусто — не тупик <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div><div class="t" style="font-size:14px">Брагино → Центр</div><div class="s">сегодня · 7:30–8:40</div></div><div class="ico"><svg class="ic"><use href="#i-sliders"/></svg></div></div>
+        <div class="card center" style="padding:22px 16px">
+          <div class="big-emoji"><svg class="ic" style="width:34px;height:34px;stroke-width:1.6"><use href="#i-search"/></svg></div>
+          <div class="title" style="margin-top:6px">Пока пусто</div>
+          <div class="muted" style="font-size:13px;margin-top:4px">Поездок на это время нет. Не уходи — сделай так, чтобы тебя нашли.</div>
+        </div>
+        <div class="card" style="display:flex;gap:11px;align-items:center"><svg class="ic" style="width:19px;color:var(--brand)"><use href="#i-bookmark"/></svg><div><div style="font-weight:700;font-size:14px">Оставить заявку</div><div class="meta" style="margin-top:0">«Нужно к 8:30 в центр» — увидят водители</div></div></div>
+        <div class="card" style="display:flex;gap:11px;align-items:center"><svg class="ic" style="width:19px;color:var(--brand)"><use href="#i-bell"/></svg><div><div style="font-weight:700;font-size:14px">Сообщить, когда появится</div><div class="meta" style="margin-top:0">Пуш, как только выложат поездку</div></div></div>
+        <div class="card" style="display:flex;gap:11px;align-items:center"><svg class="ic" style="width:19px;color:var(--brand)"><use href="#i-mega"/></svg><div><div style="font-weight:700;font-size:14px">Позвать в чат района</div><div class="meta" style="margin-top:0">Поделиться маршрутом в Telegram</div></div></div>
+        <div class="cta"><div class="btn brand sm">Оставить заявку</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 5 -->
+  <div class="cell">
+    <div class="cap">5 · Профиль на брони (JIT) <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Почти готово</div><div class="spacer"></div></div>
+        <div class="card trip">
+          <div class="av">А<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>4.9</span></div>
+          <div><div class="nm">Бронируешь 7:40</div><div class="meta">с Андреем К. · Kia Rio · ул. Урицкого, 12</div></div>
+        </div>
+        <div style="margin-top:4px"><div class="lbl">Имя</div>
+          <div class="field">Дмитрий <span class="muted" style="margin-left:auto;font-size:11px;font-weight:600">из Telegram</span></div></div>
+        <div><div class="lbl">Телефон · подтверждение</div>
+          <div class="field">+7 905 ··· 44 12 <span class="seats ok" style="margin-left:auto"><svg class="ic" style="width:13px"><use href="#i-check"/></svg></span></div></div>
+        <div class="info"><div class="ib"><svg class="ic"><use href="#i-shield"/></svg></div><div class="it">В поездке будут кнопка <b>SOS</b> и «поделиться с близким».</div></div>
+        <div class="cta">
+          <div class="btn brand">Подтвердить бронь</div>
+          <div class="note">Оплаты в приложении нет — за бензин рассчитаетесь сами</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 6 -->
+  <div class="cell">
+    <div class="cap">6 · Водитель: опубликовать <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Я за рулём</div><div class="spacer"></div></div>
+        <div class="card">
+          <div class="lbl">Маршрут · из шаблона</div>
+          <div class="route">
+            <div class="rl fill"><span class="pt"></span> Брагино, ул. Урицкого, 12</div>
+            <div class="rline"></div>
+            <div class="rl fill"><span class="pt"></span> Центр, пл. Волкова</div>
+          </div>
+          <div class="link" style="margin-top:4px">изменить</div>
+        </div>
+        <div><div class="lbl">Когда выезжаешь?</div>
+          <div class="chips"><span class="chip">7:30</span><span class="chip on">7:40</span><span class="chip">7:55</span><span class="chip">8:10</span><span class="chip">другое</span></div></div>
+        <div><div class="lbl">Сколько возьмёшь?</div>
+          <div class="chips"><span class="chip">1</span><span class="chip on">2</span><span class="chip">3</span></div></div>
+        <div><div class="lbl">Точка сбора</div><div class="field">ул. Урицкого, 12</div></div>
+        <div class="cta"><div class="btn brand">Опубликовать поездку</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 7 -->
+  <div class="cell">
+    <div class="cap">7 · Бронь подтверждена <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Бронь</div><div class="spacer"></div></div>
+        <div class="check-wrap">
+          <div class="check"><svg class="ic"><use href="#i-check"/></svg></div>
+          <div class="t">Ты в поездке!</div>
+          <div class="s">Завтра, среда · выезд 7:40</div>
+        </div>
+        <div class="card">
+          <div style="display:flex;gap:13px;align-items:center">
+            <div class="av">А<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>4.9</span></div>
+            <div class="mid"><div class="nm" style="font-size:15px">Андрей К.</div><div class="meta">Kia Rio, белая · <b>123</b></div></div>
+          </div>
+          <div class="route" style="margin-top:11px"><div class="rl fill"><span class="pt"></span> ул. Урицкого, 12</div></div>
+        </div>
+        <div class="btn dark sm"><svg class="ic"><use href="#i-msg"/></svg> Написать Андрею</div>
+        <div class="btn ghost sm"><svg class="ic"><use href="#i-share"/></svg> Поделиться с близким</div>
+        <div class="info"><div class="ib"><svg class="ic"><use href="#i-bell"/></svg></div><div class="it">Напомним вечером накануне. <b>SOS</b> доступен в поездке.</div></div>
+        <div class="cta"><div class="link center" style="opacity:.6;justify-content:center">Отменить бронь</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 8 light -->
+  <div class="cell">
+    <div class="cap">8 · Главный — другие поездки <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div><div class="t">Брагино → Центр</div><div class="s">среда, утро 7:30–8:40</div></div><div class="ico"><svg class="ic"><use href="#i-sliders"/></svg></div></div>
+        <div class="hero">
+          <svg class="art" viewBox="0 0 120 120" fill="none"><path d="M10 80 Q40 50 60 70 T110 50" stroke="currentColor" stroke-linecap="round" stroke-dasharray="4 6"/><circle cx="60" cy="70" r="3" fill="currentColor"/><circle cx="98" cy="56" r="14" stroke="currentColor"/><path d="M108 66 L116 74" stroke="currentColor" stroke-linecap="round"/></svg>
+          <div class="k">Сегодня по маршруту</div>
+          <h2>3 поездки<br>в твою сторону</h2>
+          <div class="pill"><svg class="ic"><use href="#i-clock"/></svg> Ближайшая в 7:40</div>
+        </div>
+        <div class="card trip">
+          <div class="av">А<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>4.9</span></div>
+          <div class="mid">
+            <div class="nm">Андрей К. <span class="star"><svg class="ic fill"><use href="#i-star"/></svg>4.9</span> <span class="cnt">37</span></div>
+            <div class="meta">ул. Урицкого, 12 · Kia Rio · ≈80 ₽</div>
+          </div>
+          <div class="rt"><div class="time">7:40</div><span class="seats">2 места</span></div>
+        </div>
+        <div class="card trip">
+          <div class="av">И<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>4.7</span></div>
+          <div class="mid">
+            <div class="nm">Игорь П. <span class="star"><svg class="ic fill"><use href="#i-star"/></svg>4.7</span> <span class="cnt">54</span></div>
+            <div class="meta">ул. Свободы, 60 · Skoda Octavia · ≈90 ₽</div>
+          </div>
+          <div class="rt"><div class="time">8:10</div><span class="seats">1 место</span></div>
+        </div>
+        <div class="cta">
+          <div class="btn brand sm"><svg class="ic"><use href="#i-car"/></svg> Возьму попутчиков</div>
+          <div class="btn ghost sm"><svg class="ic"><use href="#i-search"/></svg> Ищу, кто подвезёт</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 9 -->
+  <div class="cell">
+    <div class="cap">9 · В пути · SOS <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">7:43</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div><div class="t" style="font-size:14px">В пути</div><div class="s">Брагино → Центр</div></div><div class="ico"><svg class="ic"><use href="#i-more"/></svg></div></div>
+        <div class="map">
+          <svg class="route-svg" viewBox="0 0 280 122" fill="none"><path d="M20 98 C80 72 120 52 160 56 S240 42 262 24" stroke="#ffdd2d" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><circle cx="20" cy="98" r="5" fill="#ffdd2d"/><circle cx="262" cy="24" r="5" fill="#fff"/></svg>
+          <div class="mbadge"><svg class="ic" style="width:13px;color:var(--brand)"><use href="#i-clock"/></svg> ~18 мин до места</div>
+        </div>
+        <div class="card trip">
+          <div class="av">А<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>4.9</span></div>
+          <div><div class="nm">Андрей К. <span class="star"><svg class="ic fill"><use href="#i-star"/></svg>4.9</span></div><div class="meta">Kia Rio, белая · в пути</div></div>
+        </div>
+        <div class="info"><div class="ib"><svg class="ic"><use href="#i-pin"/></svg></div><div class="it">Поездкой можно поделиться — близкий видит маршрут и машину в реальном времени.</div></div>
+        <div class="cta">
+          <div class="btn ghost sm"><svg class="ic"><use href="#i-share"/></svg> Поделиться поездкой</div>
+          <div class="btn sos"><svg class="ic"><use href="#i-sos"/></svg> SOS — вызвать помощь</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 10 -->
+  <div class="cell">
+    <div class="cap">10 · Водитель: брони на рейс <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div><div class="t" style="font-size:14px">Моя поездка 7:40</div><div class="s">Брагино → Центр · 2 из 3 занято</div></div><div class="ico"><svg class="ic"><use href="#i-edit"/></svg></div></div>
+        <div class="card trip">
+          <div class="av">Д<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>4.8</span></div>
+          <div style="flex:1"><div class="nm">Дмитрий <span class="star"><svg class="ic fill"><use href="#i-star"/></svg>4.8</span> <span class="cnt">21</span></div>
+            <div class="meta">ул. Урицкого, 12</div>
+            <div class="row"><span class="seats ok"><svg class="ic" style="width:12px"><use href="#i-check"/></svg> принят</span><span class="link"><svg class="ic"><use href="#i-msg"/></svg> написать</span></div></div>
+        </div>
+        <div class="card trip">
+          <div class="av">Е<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span></div>
+          <div style="flex:1"><div class="nm">Елена <span class="star"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span> <span class="cnt">9</span></div>
+            <div class="meta">пр-т Дзержинского, 8</div>
+            <div class="row"><span class="link">Отклонить</span><span class="seats">Принять</span></div></div>
+        </div>
+        <div class="info"><div class="ib"><svg class="ic"><use href="#i-bell"/></svg></div><div class="it">Новые заявки приходят пушем. Осталось <b>1 место</b>.</div></div>
+        <div class="cta"><div class="btn ghost sm">Снять поездку с публикации</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 11 -->
+  <div class="cell">
+    <div class="cap">11 · Оценка после поездки <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">8:05</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="spacer"></div><div class="t" style="font-size:14px">Поездка завершена</div><div class="ico"><svg class="ic"><use href="#i-close"/></svg></div></div>
+        <div class="center" style="margin-top:6px">
+          <div class="av" style="width:60px;height:60px;border-radius:20px;font-size:22px;margin:0 auto">А</div>
+          <div class="title" style="margin-top:10px">Как доехали с Андреем?</div>
+          <div class="muted" style="font-size:12px">Оценка видна другим попутчикам</div>
+        </div>
+        <div class="stars"><svg class="ic fill"><use href="#i-star"/></svg><svg class="ic fill"><use href="#i-star"/></svg><svg class="ic fill"><use href="#i-star"/></svg><svg class="ic fill"><use href="#i-star"/></svg><svg class="ic fill"><use href="#i-star"/></svg></div>
+        <div class="chips" style="justify-content:center">
+          <span class="chip on" style="height:34px">Пунктуальный</span><span class="chip" style="height:34px">Вежливый</span><span class="chip" style="height:34px">Чисто в авто</span>
+        </div>
+        <div class="field" style="min-height:64px;padding:12px 14px;align-items:flex-start;color:var(--muted-foreground);font-weight:500">Добавить отзыв (по желанию)…</div>
+        <div class="cta"><div class="btn brand">Отправить оценку</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 12 -->
+  <div class="cell">
+    <div class="cap">12 · Заявка пассажира <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Оставить заявку</div><div class="spacer"></div></div>
+        <div class="muted" style="font-size:13px">Поездок сейчас нет — оставь заявку, и водители этого маршрута увидят, что ты ищешь.</div>
+        <div class="card">
+          <div class="lbl">Маршрут</div>
+          <div class="route">
+            <div class="rl fill"><span class="pt"></span> Брагино, ул. Урицкого, 12</div>
+            <div class="rline"></div>
+            <div class="rl fill"><span class="pt"></span> Центр, пл. Волкова</div>
+          </div>
+        </div>
+        <div><div class="lbl">Когда нужно быть на месте</div>
+          <div class="chips"><span class="chip">8:00</span><span class="chip on">8:30</span><span class="chip">9:00</span><span class="chip">другое</span></div></div>
+        <div><div class="lbl">Сколько вас</div>
+          <div class="chips"><span class="chip on">1</span><span class="chip">2</span></div></div>
+        <div class="cta">
+          <div class="btn brand">Опубликовать заявку</div>
+          <div class="note">Пришлём пуш, как только кто-то откликнется</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 13 -->
+  <div class="cell">
+    <div class="cap">13 · Профиль <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Профиль</div><div class="ico"><svg class="ic"><use href="#i-sliders"/></svg></div></div>
+        <div class="card" style="display:flex;gap:12px;align-items:center">
+          <div class="av" style="width:54px;height:54px;border-radius:18px;font-size:20px">Д</div>
+          <div><div class="nm" style="font-size:17px">Дмитрий, 28</div>
+            <div class="meta">@dmitry · на платформе с июня</div>
+            <div class="verif"><svg class="ic"><use href="#i-check"/></svg> телефон подтверждён</div></div>
+        </div>
+        <div class="statrow">
+          <div class="stat"><div class="v"><svg class="ic fill"><use href="#i-star"/></svg>4.8</div><div class="l">рейтинг · 21 оценка</div></div>
+          <div class="stat"><div class="v">34</div><div class="l">поездки</div></div>
+        </div>
+        <div class="card" style="padding:4px 10px">
+          <div class="menu"><div class="mi"><svg class="ic"><use href="#i-car"/></svg></div>Стать водителем<span class="ch"><svg class="ic"><use href="#i-chev-r"/></svg></span></div>
+          <div class="divider"></div>
+          <div class="menu"><div class="mi"><svg class="ic"><use href="#i-receipt"/></svg></div>Мои поездки<span class="ch"><svg class="ic"><use href="#i-chev-r"/></svg></span></div>
+          <div class="divider"></div>
+          <div class="menu"><div class="mi"><svg class="ic"><use href="#i-shield"/></svg></div>Безопасность и SOS<span class="ch"><svg class="ic"><use href="#i-chev-r"/></svg></span></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 14 -->
+  <div class="cell">
+    <div class="cap">14 · Алерт сработал (пуш) <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">17:12</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body" style="justify-content:flex-start">
+        <div class="pushcard">
+          <div class="logo" style="width:34px;height:34px;border-radius:11px;font-size:15px">Y</div>
+          <div><div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px"><svg class="ic" style="width:14px;color:var(--brand)"><use href="#i-bell"/></svg> Yaride · сейчас</div>
+            <div class="meta" style="margin-top:3px;color:var(--foreground)">Появилась поездка по твоему маршруту <b>Центр → Брагино</b> на 17:40</div></div>
+        </div>
+        <div style="margin-top:14px" class="lbl">По твоей заявке</div>
+        <div class="card trip">
+          <div class="av">М<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span></div>
+          <div class="mid"><div class="nm">Марина С. <span class="star"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span> <span class="cnt">12</span></div>
+            <div class="meta">от пл. Волкова · VW Polo · ≈70 ₽</div></div>
+          <div class="rt"><div class="time">17:40</div><span class="seats">3 места</span></div>
+        </div>
+        <div class="cta"><div class="btn brand">Открыть и забронировать</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 15 -->
+  <div class="cell">
+    <div class="cap">15 · Стать водителем · ВУ <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Стать водителем</div><div class="spacer"></div></div>
+        <div class="muted" style="font-size:13px">Чтобы создавать поездки, подтвердите водительское удостоверение. Это разовая проверка.</div>
+        <div><div class="lbl">Серия и номер ВУ</div><div class="field">9916 АВ 123456</div></div>
+        <div><div class="lbl">Действительно до</div><div class="field">03 / 2030</div></div>
+        <div><div class="lbl">Фото ВУ</div><div class="upload"><svg class="ic"><use href="#i-camera"/></svg>Загрузить фото удостоверения</div></div>
+        <div class="cta"><div class="btn brand">Отправить на проверку</div><div class="note">Обычно проверяем за пару часов</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 16 -->
+  <div class="cell">
+    <div class="cap">16 · ВУ на проверке <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Заявка водителя</div><div class="spacer"></div></div>
+        <div class="check-wrap"><div class="check wait"><svg class="ic"><use href="#i-clock"/></svg></div><div class="t">Заявка на проверке</div><div class="s">обычно одобряем за пару часов</div></div>
+        <div class="card"><div class="lbl">Отправлено</div><div class="meta" style="color:var(--foreground)">ВУ 9916 АВ ···456 · до 03/2030<br>Фото загружено</div></div>
+        <div class="info"><div class="ib"><svg class="ic"><use href="#i-bell"/></svg></div><div class="it">Пришлём пуш, когда одобрим. Пока можно искать поездки как пассажир.</div></div>
+        <div class="cta"><div class="btn ghost sm"><svg class="ic"><use href="#i-search"/></svg> Найти поездку</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 17 -->
+  <div class="cell">
+    <div class="cap">17 · Мои поездки <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Мои поездки</div><div class="spacer"></div></div>
+        <div class="seg"><div class="t on">Предстоящие</div><div class="t">Прошлые</div></div>
+        <div class="card" style="display:flex;flex-direction:column;gap:9px">
+          <div class="row" style="margin:0"><div class="nm">Андрей К. <span class="cnt">· пассажир</span></div><span class="seats ok"><svg class="ic" style="width:12px"><use href="#i-check"/></svg> бронь</span></div>
+          <div class="time">Завтра, 7:40</div>
+          <div class="route"><div class="rl fill"><span class="pt"></span> Брагино, ул. Урицкого, 12</div><div class="rline"></div><div class="rl"><span class="pt"></span> Центр, пл. Волкова</div></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:9px">
+          <div class="row" style="margin:0"><div class="nm">Моя поездка <span class="cnt">· водитель</span></div><span class="seats wait">ожидает</span></div>
+          <div class="time">Сегодня, 17:40</div>
+          <div class="route"><div class="rl fill"><span class="pt"></span> Центр, пл. Волкова</div><div class="rline"></div><div class="rl"><span class="pt"></span> Брагино, ул. Урицкого, 12</div></div>
+        </div>
+        <div class="cta"><div class="btn brand sm"><svg class="ic"><use href="#i-plus"/></svg> Создать поездку</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 18 -->
+  <div class="cell">
+    <div class="cap">18 · Подтверждение телефона <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Телефон</div><div class="spacer"></div></div>
+        <div class="center" style="margin-top:10px">
+          <div class="ico" style="width:58px;height:58px;border-radius:19px;margin:0 auto;background:var(--accent)"><svg class="ic" style="width:25px;color:var(--brand)"><use href="#i-phone"/></svg></div>
+          <div class="title" style="margin-top:12px">Введите код из SMS</div>
+          <div class="muted" style="font-size:13px;margin-top:2px">Отправили на +7 905 ··· 44 12</div></div>
+        <div class="otp" style="margin-top:8px"><div class="d on">4</div><div class="d on">7</div><div class="d"></div><div class="d"></div></div>
+        <div class="note">Отправить код повторно через 0:42</div>
+        <div class="cta"><div class="btn brand">Подтвердить</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 19 -->
+  <div class="cell">
+    <div class="cap">19 · Безопасность и SOS <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Безопасность</div><div class="spacer"></div></div>
+        <div class="card" style="padding:4px 10px">
+          <div class="srow"><div class="mi"><svg class="ic"><use href="#i-sos"/></svg></div>Кнопка SOS в поездке<div class="tg on"></div></div>
+          <div class="divider"></div>
+          <div class="srow"><div class="mi"><svg class="ic"><use href="#i-pin"/></svg></div>Авто-делиться поездкой<div class="tg"></div></div>
+          <div class="divider"></div>
+          <div class="srow"><div class="mi"><svg class="ic"><use href="#i-user"/></svg></div>Только женский состав<div class="tg on"></div></div>
+        </div>
+        <div><div class="lbl">Доверенный контакт</div>
+          <div class="card trip" style="align-items:center"><div class="av">М<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span></div><div><div class="nm">Мама</div><div class="meta">+7 920 ··· 88 30</div></div><span class="link" style="margin-left:auto">изменить</span></div></div>
+        <div class="info"><div class="ib"><svg class="ic"><use href="#i-shield"/></svg></div><div class="it">При SOS звоним 112 и шлём геопозицию доверенному контакту.</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 20 -->
+  <div class="cell">
+    <div class="cap">20 · Заявка опубликована <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">9:41</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Заявка</div><div class="spacer"></div></div>
+        <div class="check-wrap"><div class="check"><svg class="ic"><use href="#i-bookmark"/></svg></div><div class="t">Заявка опубликована</div><div class="s">ищем тебе попутку</div></div>
+        <div class="card"><div class="lbl">Что ищем</div>
+          <div class="route"><div class="rl fill"><span class="pt"></span> Брагино, ул. Урицкого, 12</div><div class="rline"></div><div class="rl fill"><span class="pt"></span> Центр, пл. Волкова</div></div>
+          <div class="divider"></div>
+          <div class="meta" style="margin-top:8px">К <b>8:30</b> · 1 пассажир</div></div>
+        <div class="info"><div class="ib"><svg class="ic"><use href="#i-bell"/></svg></div><div class="it">Водители маршрута видят заявку. Пуш придёт, как только выложат подходящую поездку.</div></div>
+        <div class="cta"><div class="btn ghost sm">Изменить заявку</div><div class="link center" style="opacity:.6;justify-content:center">Отменить</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 21 -->
+  <div class="cell">
+    <div class="cap">21 · Вечер · главный <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">17:18</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div><div class="t">Центр → Брагино</div><div class="s">среда, вечер 17:30–19:00</div></div><div class="ico"><svg class="ic"><use href="#i-sliders"/></svg></div></div>
+        <div class="hero">
+          <svg class="art" viewBox="0 0 120 120" fill="none"><path d="M10 80 Q40 50 60 70 T110 50" stroke="currentColor" stroke-linecap="round" stroke-dasharray="4 6"/><circle cx="60" cy="70" r="3" fill="currentColor"/><circle cx="98" cy="56" r="14" stroke="currentColor"/><path d="M108 66 L116 74" stroke="currentColor" stroke-linecap="round"/></svg>
+          <div class="k">Сегодня домой</div>
+          <h2>4 поездки<br>в твою сторону</h2>
+          <div class="pill"><svg class="ic"><use href="#i-clock"/></svg> Ближайшая в 17:35</div>
+        </div>
+        <div class="card trip">
+          <div class="av">М<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span></div>
+          <div class="mid">
+            <div class="nm">Марина С. <span class="star"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span> <span class="cnt">12</span></div>
+            <div class="meta">от пл. Волкова · VW Polo · ≈70 ₽</div>
+          </div>
+          <div class="rt"><div class="time">17:40</div><span class="seats">2 места</span></div>
+        </div>
+        <div class="card trip">
+          <div class="av">О<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>4.8</span></div>
+          <div class="mid">
+            <div class="nm">Олег В. <span class="star"><svg class="ic fill"><use href="#i-star"/></svg>4.8</span> <span class="cnt">43</span></div>
+            <div class="meta">ул. Свободы, 60 · Hyundai Solaris · ≈80 ₽</div>
+          </div>
+          <div class="rt"><div class="time">18:05</div><span class="seats">3 места</span></div>
+        </div>
+        <div class="cta">
+          <div class="btn brand sm"><svg class="ic"><use href="#i-car"/></svg> Возьму попутчиков</div>
+          <div class="btn ghost sm"><svg class="ic"><use href="#i-search"/></svg> Ищу, кто подвезёт</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 22 -->
+  <div class="cell">
+    <div class="cap">22 · Вечер · карточка <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">17:18</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Поездка 17:40</div><div class="ico"><svg class="ic"><use href="#i-share"/></svg></div></div>
+        <div class="card" style="display:flex;gap:12px;align-items:center">
+          <div class="av" style="width:54px;height:54px;border-radius:18px;font-size:20px">М</div>
+          <div><div class="nm" style="font-size:17px">Марина С.</div>
+            <div class="meta" style="margin-top:2px"><span class="star"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span> · 29 лет · 12 поездок</div>
+            <div class="verif"><svg class="ic"><use href="#i-check"/></svg> ВУ подтверждено · с апреля 2026</div></div>
+        </div>
+        <div class="card">
+          <div class="lbl">Маршрут · ~24 мин</div>
+          <div class="route">
+            <div class="rl fill"><span class="pt"></span> Центр, пл. Волкова</div>
+            <div class="rline"></div>
+            <div class="rl"><span class="pt"></span> Брагино, ул. Урицкого, 12</div>
+          </div>
+          <div class="divider"></div>
+          <div class="meta" style="margin-top:9px">Выезд&nbsp;&nbsp;<b>среда, 17:40</b><br>Машина&nbsp;&nbsp;<b>VW Polo, синяя</b><br>Бензин&nbsp;&nbsp;<b>≈ 70 ₽</b> <span class="muted">(пополам · не оплата)</span></div>
+        </div>
+        <div class="cta">
+          <div class="btn brand">Забронировать</div>
+          <div class="btn ghost sm"><svg class="ic"><use href="#i-share"/></svg> Поделиться поездкой</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 23 -->
+  <div class="cell">
+    <div class="cap">23 · Вечер · водитель публикует <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">17:18</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div class="ico"><svg class="ic"><use href="#i-chev-l"/></svg></div><div class="t" style="font-size:14px">Я за рулём · домой</div><div class="spacer"></div></div>
+        <div class="card">
+          <div class="lbl">Маршрут · обратный, из шаблона</div>
+          <div class="route">
+            <div class="rl fill"><span class="pt"></span> Центр, пл. Волкова</div>
+            <div class="rline"></div>
+            <div class="rl fill"><span class="pt"></span> Брагино, ул. Урицкого, 12</div>
+          </div>
+          <div class="link" style="margin-top:4px">изменить</div>
+        </div>
+        <div><div class="lbl">Когда выезжаешь?</div>
+          <div class="chips"><span class="chip">17:30</span><span class="chip on">17:40</span><span class="chip">18:00</span><span class="chip">18:30</span><span class="chip">другое</span></div></div>
+        <div><div class="lbl">Сколько возьмёшь?</div>
+          <div class="chips"><span class="chip">1</span><span class="chip on">2</span><span class="chip">3</span></div></div>
+        <div><div class="lbl">Точка сбора</div><div class="field">пл. Волкова, у фонтана</div></div>
+        <div class="cta"><div class="btn brand">Опубликовать поездку</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 24 -->
+  <div class="cell">
+    <div class="cap">24 · Вечер · «домой как вчера» (привычка) <span class="tag">dark</span></div>
+    <div class="phone"><div class="scr dark">
+      <div class="status"><span class="time">17:18</span><span class="sys"><svg class="sb" viewBox="0 0 26 12"><rect x="0.6" y="0.6" width="22" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2" y="2" width="17" height="8" rx="1.6"/><rect x="23.6" y="4" width="1.8" height="4" rx="1"/></svg></span></div>
+      <div class="body">
+        <div class="topbar"><div><div class="t">Добрый вечер, Дмитрий</div><div class="s">пора домой?</div></div><div class="ico"><svg class="ic"><use href="#i-sliders"/></svg></div></div>
+        <div class="hero">
+          <svg class="art" viewBox="0 0 120 120" fill="none"><path d="M10 80 Q40 50 60 70 T110 50" stroke="currentColor" stroke-linecap="round" stroke-dasharray="4 6"/><circle cx="60" cy="70" r="3" fill="currentColor"/><circle cx="98" cy="56" r="14" stroke="currentColor"/><path d="M108 66 L116 74" stroke="currentColor" stroke-linecap="round"/></svg>
+          <div class="k">Твой вечерний маршрут</div>
+          <h2>Центр →<br>Брагино</h2>
+          <div class="pill"><svg class="ic"><use href="#i-clock"/></svg> обычно 18:00 · Пн–Пт</div>
+        </div>
+        <div class="card trip regular">
+          <div class="av">М<span class="rb"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span></div>
+          <div class="mid">
+            <div class="nm">Марина С. <span class="star"><svg class="ic fill"><use href="#i-star"/></svg>5.0</span></div>
+            <div class="meta">по пути · VW Polo · ≈70 ₽</div>
+          </div>
+          <div class="rt"><div class="time">18:00</div><span class="seats">2 места</span></div>
+        </div>
+        <div class="cta">
+          <div class="btn brand">Поехать домой как вчера</div>
+          <div class="btn ghost sm">Другие поездки на сегодня</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+</div>
+</body>
+</html>
