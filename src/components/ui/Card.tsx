@@ -1,10 +1,23 @@
-interface CardProps {
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   variant?: 'default' | 'accent';
   style?: React.CSSProperties;
+  role?: string;
+  tabIndex?: number;
+  'aria-expanded'?: boolean;
+  'aria-label'?: string;
 }
 
-const Card: React.FC<CardProps> = ({ children, variant = 'default', style }) => {
+const Card: React.FC<CardProps> = ({
+  children,
+  variant = 'default',
+  style,
+  role,
+  tabIndex,
+  'aria-expanded': ariaExpanded,
+  'aria-label': ariaLabel,
+  ...props
+}) => {
   const baseStyle: React.CSSProperties = {
     background: variant === 'accent' ? 'var(--accent)' : 'var(--elevated)',
     borderRadius: 'var(--radius-xl)',
@@ -13,7 +26,18 @@ const Card: React.FC<CardProps> = ({ children, variant = 'default', style }) => 
     boxShadow: 'var(--shadow-card)',
   };
 
-  return <div style={{ ...baseStyle, ...style }}>{children}</div>;
+  return (
+    <div
+      role={role}
+      tabIndex={tabIndex}
+      aria-expanded={ariaExpanded}
+      aria-label={ariaLabel}
+      style={{ ...baseStyle, ...style }}
+      {...props}
+    >
+      {children}
+    </div>
+  );
 };
 
 export default Card;

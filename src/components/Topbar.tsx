@@ -38,10 +38,11 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
           </div>
         )}
       </div>
-      <div
+      <button
+        aria-label="Фильтры"
         style={{
-          width: '32px',
-          height: '32px',
+          minWidth: '44px',
+          minHeight: '44px',
           borderRadius: '11px',
           background: 'var(--secondary)',
           display: 'grid',
@@ -49,10 +50,36 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
           color: 'var(--foreground)',
           fontSize: '16px',
           flexShrink: 0,
+          border: 'none',
+          cursor: 'pointer',
+          fontFamily: 'var(--font-sans)',
+          transition: 'transform 0.08s ease, filter 0.12s ease',
+          outline: 'none',
+        }}
+        onMouseDown={(e) => {
+          e.currentTarget.style.transform = 'scale(0.97)';
+        }}
+        onMouseUp={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.filter = 'brightness(1.08)';
+          e.currentTarget.style.outline = '2px solid var(--brand)';
+          e.currentTarget.style.outlineOffset = '2px';
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.filter = 'none';
+          e.currentTarget.style.outline = 'none';
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.filter = 'brightness(1.05)';
         }}
       >
         <Icon id="i-sliders" />
-      </div>
+      </button>
     </div>
   );
 };
