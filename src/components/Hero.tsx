@@ -4,9 +4,10 @@ interface HeroProps {
   title: React.ReactNode;
   subtitle?: string;
   ctaText?: string;
+  onCtaClick?: () => void;
 }
 
-const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText }) => {
+const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => {
   return (
     <div
       style={{
@@ -76,7 +77,8 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText }) => {
         {title}
       </h2>
       {ctaText && (
-        <div
+        <button
+          onClick={onCtaClick}
           style={{
             marginTop: '14px',
             display: 'inline-flex',
@@ -91,11 +93,38 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText }) => {
             fontWeight: 600,
             position: 'relative',
             width: 'fit-content',
+            border: 'none',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-sans)',
+            transition: 'transform 0.08s ease, filter 0.12s ease',
+            outline: 'none',
           }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.transform = 'scale(0.97)';
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.filter = 'brightness(1.08)';
+            e.currentTarget.style.outline = '2px solid var(--brand)';
+            e.currentTarget.style.outlineOffset = '2px';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.filter = 'none';
+            e.currentTarget.style.outline = 'none';
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.filter = 'brightness(1.05)';
+          }}
+          aria-label={`Перейти к поездке: ${ctaText}`}
         >
           <Icon id="i-clock" />
           {ctaText}
-        </div>
+        </button>
       )}
     </div>
   );
