@@ -1,4 +1,7 @@
 import { Icon } from './Icons';
+import Card from './ui/Card';
+import Avatar from './ui/Avatar';
+import Chip from './ui/Chip';
 
 interface TripCardProps {
   driver: {
@@ -16,63 +19,14 @@ interface TripCardProps {
 
 const TripCard: React.FC<TripCardProps> = ({ driver, address, car, price, time, seats }) => {
   return (
-    <div
+    <Card
       style={{
-        background: 'var(--elevated)',
-        borderRadius: 'var(--radius-xl)',
-        padding: '13px 14px',
-        border: '1px solid var(--border)',
-        boxShadow: 'var(--shadow-card)',
         display: 'flex',
         gap: '11px',
         alignItems: 'flex-start',
       }}
     >
-      <div
-        style={{
-          width: '42px',
-          height: '42px',
-          borderRadius: '14px',
-          background: 'var(--gradient-brand)',
-          display: 'grid',
-          placeItems: 'center',
-          fontWeight: 800,
-          color: '#18170f',
-          fontSize: '16px',
-          flexShrink: 0,
-          position: 'relative',
-        }}
-      >
-        {driver.avatar}
-        <span
-          style={{
-            position: 'absolute',
-            right: '-6px',
-            bottom: '-6px',
-            background: 'var(--card)',
-            color: 'var(--foreground)',
-            border: '1px solid var(--border)',
-            borderRadius: '999px',
-            height: '17px',
-            padding: '0 5px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '2px',
-            fontSize: '9.5px',
-            fontWeight: 800,
-            lineHeight: 1,
-            boxShadow: '0 2px 6px rgba(0, 0, 0, .22)',
-          }}
-        >
-          <Icon
-            id="i-star"
-            fill
-            className="fill"
-            style={{ width: '9px', height: '9px', fill: '#f4b400' }}
-          />
-          {driver.rating}
-        </span>
-      </div>
+      <Avatar label={driver.avatar} rating={driver.rating} />
       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         <div
           style={{
@@ -89,7 +43,7 @@ const TripCard: React.FC<TripCardProps> = ({ driver, address, car, price, time, 
           {driver.name}{' '}
           <span
             style={{
-              color: '#f4b400',
+              color: 'var(--star)',
               fontWeight: 700,
               fontSize: '12px',
               display: 'inline-flex',
@@ -97,7 +51,7 @@ const TripCard: React.FC<TripCardProps> = ({ driver, address, car, price, time, 
               gap: '2px',
             }}
           >
-            <Icon id="i-star" fill style={{ width: '9px', height: '9px', fill: '#f4b400' }} />
+            <Icon id="i-star" fill style={{ width: '9px', height: '9px', fill: 'var(--star)' }} />
             {driver.rating}
           </span>{' '}
           <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '12px' }}>
@@ -138,21 +92,11 @@ const TripCard: React.FC<TripCardProps> = ({ driver, address, car, price, time, 
         >
           {time}
         </div>
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: 700,
-            color: '#18170f',
-            background: 'var(--brand)',
-            padding: '3px 10px',
-            borderRadius: '999px',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        <Chip variant="brand">
           {seats} {seats === 1 ? 'место' : seats < 5 ? 'места' : 'мест'}
-        </span>
+        </Chip>
       </div>
-    </div>
+    </Card>
   );
 };
 

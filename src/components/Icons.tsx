@@ -22,6 +22,9 @@ export const Icons = () => (
       <circle cx="15" cy="7" r="2.2" />
       <circle cx="8.5" cy="17" r="2.2" />
     </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24">
+      <polyline points="20 6 9 17 4 12" />
+    </symbol>
   </svg>
 );
 
