@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Icons, Icon } from './components/Icons';
+import { Icons } from './components/Icons';
 import StatusBar from './components/StatusBar';
 import Topbar from './components/Topbar';
 import Hero from './components/Hero';
 import TripCard from './components/TripCard';
+import Button from './components/ui/Button';
 
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
@@ -85,69 +86,23 @@ function App() {
               paddingTop: '6px',
             }}
           >
-            <button
-              style={{
-                minHeight: '44px',
-                padding: '8px 16px',
-                borderRadius: '15px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                fontWeight: 600,
-                fontSize: '13px',
-                lineHeight: 1.15,
-                textAlign: 'center',
-                background: 'var(--gradient-brand)',
-                color: '#18170f',
-                boxShadow: 'var(--shadow-hero)',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
-              <Icon id="i-car" /> Возьму попутчиков
-            </button>
-            <button
-              style={{
-                minHeight: '44px',
-                padding: '8px 16px',
-                borderRadius: '15px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                fontWeight: 600,
-                fontSize: '13px',
-                lineHeight: 1.15,
-                textAlign: 'center',
-                background: 'var(--secondary)',
-                color: 'var(--secondary-foreground)',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
-              <Icon id="i-search" /> Ищу, кто подвезёт
-            </button>
-            <button
+            <Button variant="primary" icon="i-car">
+              Возьму попутчиков
+            </Button>
+            <Button variant="secondary" icon="i-search">
+              Ищу, кто подвезёт
+            </Button>
+            <Button
+              variant="ghost"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               style={{
                 minHeight: '36px',
-                padding: '6px 14px',
-                borderRadius: '12px',
                 fontSize: '12px',
-                fontWeight: 600,
-                background: 'var(--accent)',
-                color: 'var(--foreground)',
-                border: '1px solid var(--border)',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
                 marginTop: '8px',
               }}
             >
               Переключить тему ({theme === 'dark' ? 'светлая' : 'тёмная'})
-            </button>
+            </Button>
           </div>
         </div>
       </div>

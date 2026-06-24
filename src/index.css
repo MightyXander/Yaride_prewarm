@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
-
 :root {
   --brand: #ffdd2d;
   --brand-foreground: #18170f;
@@ -26,6 +24,7 @@
   --shadow-hero: 0 14px 40px -16px rgba(255, 221, 45, .55);
   --shadow-card: 0 6px 22px -16px rgba(0, 0, 0, .30);
   --success: #1f9d57;
+  --star: #f4b400;
 }
 
 .dark {
@@ -43,6 +42,7 @@
   --shadow-hero: 0 12px 32px -18px rgba(255, 221, 45, .38);
   --shadow-card: 0 12px 32px -24px rgba(0, 0, 0, .85);
   --success: #4cc38a;
+  --star: #ffc107;
 }
 
 * {
