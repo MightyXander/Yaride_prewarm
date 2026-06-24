@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --brand: #ffdd2d;
+  --brand-foreground: #18170f;
+  --brand-dark: #d4b400;
+  --gradient-brand: linear-gradient(135deg, #ffe14a 0%, #ffd000 100%);
+  --radius: 18px;
+  --radius-xl: 24px;
+  --radius-3xl: 38px;
+  --font-sans: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+}
+
+.light {
+  --background: #f5f5f7;
+  --foreground: #0f0f10;
+  --surface: #fff;
+  --elevated: #fff;
+  --card: #fff;
+  --muted-foreground: #6e6e73;
+  --secondary: #ebebed;
+  --secondary-foreground: #0f0f10;
+  --accent: #fff4c2;
+  --border: rgba(15, 15, 16, .09);
+  --shadow-elevated: 0 10px 30px -18px rgba(0, 0, 0, .55);
+  --shadow-hero: 0 14px 40px -16px rgba(255, 221, 45, .55);
+  --shadow-card: 0 6px 22px -16px rgba(0, 0, 0, .30);
+  --success: #1f9d57;
+}
+
+.dark {
+  --background: #0f0f12;
+  --foreground: #f5f5f7;
+  --surface: #1a1a1f;
+  --elevated: #202026;
+  --card: #1c1c21;
+  --muted-foreground: #a3a3ad;
+  --secondary: #26262d;
+  --secondary-foreground: #f5f5f7;
+  --accent: #332f1c;
+  --border: rgba(255, 255, 255, .09);
+  --shadow-elevated: 0 14px 40px -18px rgba(0, 0, 0, .7);
+  --shadow-hero: 0 12px 32px -18px rgba(255, 221, 45, .38);
+  --shadow-card: 0 12px 32px -24px rgba(0, 0, 0, .85);
+  --success: #4cc38a;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
