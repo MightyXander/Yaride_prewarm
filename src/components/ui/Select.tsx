@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import { Icon } from '../Icons';
 
 export interface SelectOption {
@@ -12,6 +12,8 @@ interface SelectProps {
   onChange?: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  label?: string;
+  'aria-label'?: string;
 }
 
 const Select: React.FC<SelectProps> = ({
@@ -20,12 +22,15 @@ const Select: React.FC<SelectProps> = ({
   onChange,
   placeholder = 'Выбрать...',
   disabled = false,
+  label,
+  'aria-label': ariaLabel,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
   const optionRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const labelId = useId();
 
   const selectedOption = options.find((opt) => opt.value === value);
 
@@ -38,7 +43,10 @@ const Select: React.FC<SelectProps> = ({
   }, [activeIndex, isOpen]);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      // При открытии переводим фокус на listbox для клавиатурной навигации
+      listboxRef.current?.focus();
+    } else {
       setActiveIndex(-1);
     }
   }, [isOpen]);
@@ -136,15 +144,32 @@ const Select: React.FC<SelectProps> = ({
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
+      {label && (
+        <label
+          id={labelId}
+          htmlFor={`${labelId}-trigger`}
+          style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '13px',
+            fontWeight: 600,
+            color: 'var(--foreground)',
+          }}
+        >
+          {label}
+        </label>
+      )}
       <button
         ref={triggerRef}
         type="button"
+        id={`${labelId}-trigger`}
         onClick={handleTriggerClick}
         onKeyDown={handleTriggerKeyDown}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        aria-labelledby="select-label"
+        aria-labelledby={label ? labelId : undefined}
+        aria-label={!label ? ariaLabel : undefined}
         style={{
           width: '100%',
           minHeight: '44px',
@@ -197,11 +222,12 @@ const Select: React.FC<SelectProps> = ({
         <ul
           ref={listboxRef}
           role="listbox"
-          tabIndex={-1}
+          tabIndex={0}
           onKeyDown={handleListboxKeyDown}
-          aria-labelledby="select-label"
+          aria-labelledby={label ? labelId : undefined}
+          aria-label={!label ? ariaLabel : undefined}
           aria-activedescendant={
-            activeIndex >= 0 ? `select-option-${activeIndex}` : undefined
+            activeIndex >= 0 ? `${labelId}-option-${activeIndex}` : undefined
           }
           style={{
             position: 'absolute',
@@ -228,7 +254,7 @@ const Select: React.FC<SelectProps> = ({
               <li
                 key={option.value}
                 ref={(el) => { optionRefs.current[index] = el; }}
-                id={`select-option-${index}`}
+                id={`${labelId}-option-${index}`}
                 role="option"
                 aria-selected={isSelected}
                 onClick={() => handleOptionClick(option.value)}
