@@ -6,7 +6,7 @@
  * привязываются к текущей дате (today), чтобы вход «список на сегодня» был непустым.
  */
 
-import type Database from 'better-sqlite3';
+import type { Pool } from 'pg';
 
 /** Текущая дата в формате YYYY-MM-DD (локальная зона сервера). */
 export function todayISO(d: Date = new Date()): string {
@@ -161,91 +161,122 @@ const SEED_TRIPS: readonly SeedTrip[] = [
   },
 ];
 
-/** Засеять коридор/водителей/поездки, если БД ещё пуста (route_points). */
-export function seedIfEmpty(db: Database.Database): void {
-  const existing = db
-    .prepare('SELECT COUNT(*) AS cnt FROM route_points')
-    .get() as { cnt: number };
-  if (existing.cnt > 0) {
+/**
+ * Засеять коридор/водителей/поездки, если БД ещё пуста (route_points).
+ *
+ * Идемпотентно: гард по пустому route_points + INSERT ... ON CONFLICT DO NOTHING
+ * на точках/пользователях (естественные ключи uq_route_point и tg_user_id), так
+ * что повторный запуск на уже засеянной БД ничего не дублирует. Рыба-trips
+ * вставляется только в ветке первичного сида (нет естественного ключа).
+ */
+export async function seedIfEmpty(pool: Pool): Promise<void> {
+  const existing = await pool.query<{ cnt: string }>(
+    'SELECT COUNT(*) AS cnt FROM route_points',
+  );
+  if (Number(existing.rows[0].cnt) > 0) {
     return;
   }
 
-  const tx = db.transaction(() => {
-    const insertPoint = db.prepare(
-      `INSERT INTO route_points(locality, district, admin_area, title, latitude, longitude, kind)
-       VALUES (?, ?, '', ?, ?, ?, 'stop')`,
-    );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
     const pointIdByTitle = new Map<string, number>();
     for (const p of SEED_POINTS) {
-      const info = insertPoint.run(
-        p.locality,
-        p.district,
-        p.title,
-        p.latitude,
-        p.longitude,
+      const res = await client.query<{ id: number }>(
+        `INSERT INTO route_points(locality, district, admin_area, title, latitude, longitude, kind)
+         VALUES ($1, $2, '', $3, $4, $5, 'stop')
+         ON CONFLICT (locality, district, admin_area, title) DO NOTHING
+         RETURNING id`,
+        [p.locality, p.district, p.title, p.latitude, p.longitude],
       );
-      pointIdByTitle.set(p.title, Number(info.lastInsertRowid));
+      let id = res.rows[0]?.id;
+      if (id === undefined) {
+        const sel = await client.query<{ id: number }>(
+          `SELECT id FROM route_points
+           WHERE locality = $1 AND district = $2 AND admin_area = '' AND title = $3`,
+          [p.locality, p.district, p.title],
+        );
+        id = sel.rows[0].id;
+      }
+      pointIdByTitle.set(p.title, id);
     }
 
-    const insertUser = db.prepare(
-      `INSERT INTO users(tg_user_id, name, username, age, rating_avg, rating_count,
-                         trips_driver_count, license_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
     const driverIds: number[] = [];
     for (const d of SEED_DRIVERS) {
-      const info = insertUser.run(
-        d.tgUserId,
-        d.name,
-        d.username,
-        d.age,
-        d.ratingAvg,
-        d.ratingCount,
-        d.tripsDriverCount,
-        d.licenseStatus,
+      const res = await client.query<{ id: number }>(
+        `INSERT INTO users(tg_user_id, name, username, age, rating_avg, rating_count,
+                           trips_driver_count, license_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (tg_user_id) DO NOTHING
+         RETURNING id`,
+        [
+          d.tgUserId,
+          d.name,
+          d.username,
+          d.age,
+          d.ratingAvg,
+          d.ratingCount,
+          d.tripsDriverCount,
+          d.licenseStatus,
+        ],
       );
-      driverIds.push(Number(info.lastInsertRowid));
+      let id = res.rows[0]?.id;
+      if (id === undefined) {
+        const sel = await client.query<{ id: number }>(
+          'SELECT id FROM users WHERE tg_user_id = $1',
+          [d.tgUserId],
+        );
+        id = sel.rows[0].id;
+      }
+      driverIds.push(id);
     }
 
     const date = todayISO();
-    const insertTrip = db.prepare(
-      `INSERT INTO trips(driver_id, start_point_id, end_point_id, trip_date,
-                         departure_time, time_slot, price_rub, seats_total, comment, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`,
-    );
     for (const t of SEED_TRIPS) {
       const startId = pointIdByTitle.get(t.fromTitle);
       const endId = pointIdByTitle.get(t.toTitle);
       if (startId === undefined || endId === undefined) {
         continue;
       }
-      insertTrip.run(
-        driverIds[t.driverIndex],
-        startId,
-        endId,
-        date,
-        t.departureTime,
-        t.timeSlot,
-        t.priceRub,
-        t.seatsTotal,
-        t.comment,
+      await client.query(
+        `INSERT INTO trips(driver_id, start_point_id, end_point_id, trip_date,
+                           departure_time, time_slot, price_rub, seats_total, comment, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')`,
+        [
+          driverIds[t.driverIndex],
+          startId,
+          endId,
+          date,
+          t.departureTime,
+          t.timeSlot,
+          t.priceRub,
+          t.seatsTotal,
+          t.comment,
+        ],
       );
     }
 
     // Шаблон для постоянного водителя (SPEC экран 24 «домой как вчера»).
-    db.prepare(
+    await client.query(
       `INSERT INTO trip_templates(driver_id, start_point_id, end_point_id, time_slot,
                                   price_rub, seats_total, comment)
-       VALUES (?, ?, ?, 'evening', ?, ?, ?)`,
-    ).run(
-      driverIds[0],
-      pointIdByTitle.get('Центр'),
-      pointIdByTitle.get('Брагино'),
-      120,
-      3,
-      'Домой как обычно',
+       VALUES ($1, $2, $3, 'evening', $4, $5, $6)`,
+      [
+        driverIds[0],
+        pointIdByTitle.get('Центр'),
+        pointIdByTitle.get('Брагино'),
+        120,
+        3,
+        'Домой как обычно',
+      ],
     );
-  });
 
-  tx();
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }

@@ -1,14 +1,15 @@
 /**
  * Repo-слой доступа к данным (по образцу MightyXander/Yaride app/repo.py).
  *
- * Под MVP «Один туннель»: список поездок по коридору/окну на дату, карточка поездки
- * с профилем водителя, создание брони с защитой от гонок за места (BEGIN IMMEDIATE-аналог
- * — single transaction better-sqlite3). Эти функции потребуются API в следующем issue.
+ * PostgreSQL/node-postgres, async. Под MVP «Один туннель»: список поездок по
+ * коридору/окну на дату, карточка поездки с профилем водителя, создание брони
+ * с защитой от гонок за места (транзакция BEGIN/COMMIT + условный UPDATE ...
+ * RETURNING), справочник точек. Эти функции потребуются API в следующем issue.
  */
 
-import type Database from 'better-sqlite3';
+import type { PoolClient } from 'pg';
 
-import { getDb } from './db.ts';
+import { ensureReady, getPool, withTransaction } from './db.ts';
 import { todayISO } from './seed.ts';
 
 export type TimeSlot = 'morning' | 'evening';
@@ -93,39 +94,42 @@ const TRIP_LIST_SELECT = `
  * Поездки по коридору/окну на дату (status='open'), есть свободные места.
  * Любой из фильтров опционален; без startPointId/endPointId — все открытые на дату.
  */
-export function findOpenTrips(params: FindTripsParams = {}): TripListItem[] {
-  const db = getDb();
+export async function findOpenTrips(
+  params: FindTripsParams = {},
+): Promise<TripListItem[]> {
+  await ensureReady();
   const tripDate = params.tripDate ?? todayISO();
   const limit = params.limit ?? 25;
 
   let query = `${TRIP_LIST_SELECT}
     WHERE t.status = 'open'
-      AND t.trip_date = ?
+      AND t.trip_date = $1
       AND (t.seats_total - t.seats_booked) > 0`;
   const args: (string | number)[] = [tripDate];
 
   if (params.startPointId !== undefined) {
-    query += ' AND t.start_point_id = ?';
     args.push(params.startPointId);
+    query += ` AND t.start_point_id = $${args.length}`;
   }
   if (params.endPointId !== undefined) {
-    query += ' AND t.end_point_id = ?';
     args.push(params.endPointId);
+    query += ` AND t.end_point_id = $${args.length}`;
   }
   if (params.timeSlot !== undefined) {
-    query += ' AND t.time_slot = ?';
     args.push(params.timeSlot);
+    query += ` AND t.time_slot = $${args.length}`;
   }
 
-  query += ' ORDER BY t.departure_time ASC, t.id ASC LIMIT ?';
   args.push(limit);
+  query += ` ORDER BY t.departure_time ASC, t.id ASC LIMIT $${args.length}`;
 
-  return db.prepare(query).all(...args) as TripListItem[];
+  const res = await getPool().query<TripListItem>(query, args);
+  return res.rows;
 }
 
 /** Карточка поездки по id с профилем водителя и координатами точек (или null). */
-export function getTripCard(tripId: number): TripCard | null {
-  const db = getDb();
+export async function getTripCard(tripId: number): Promise<TripCard | null> {
+  await ensureReady();
   const query = `
     SELECT
       t.id,
@@ -159,81 +163,85 @@ export function getTripCard(tripId: number): TripCard | null {
     JOIN route_points sp ON sp.id = t.start_point_id
     JOIN route_points ep ON ep.id = t.end_point_id
     JOIN users u ON u.id = t.driver_id
-    WHERE t.id = ?
+    WHERE t.id = $1
   `;
-  const row = db.prepare(query).get(tripId) as TripCard | undefined;
-  return row ?? null;
+  const res = await getPool().query<TripCard>(query, [tripId]);
+  return res.rows[0] ?? null;
 }
 
 /** Все точки коридора (справочник route_points). */
-export function listRoutePoints(): Array<{
-  id: number;
-  locality: string;
-  district: string;
-  title: string;
-  latitude: number | null;
-  longitude: number | null;
-}> {
-  const db = getDb();
-  return db
-    .prepare(
-      'SELECT id, locality, district, title, latitude, longitude FROM route_points ORDER BY id ASC',
-    )
-    .all() as Array<{
+export async function listRoutePoints(): Promise<
+  Array<{
     id: number;
     locality: string;
     district: string;
     title: string;
     latitude: number | null;
     longitude: number | null;
-  }>;
+  }>
+> {
+  await ensureReady();
+  const res = await getPool().query<{
+    id: number;
+    locality: string;
+    district: string;
+    title: string;
+    latitude: number | null;
+    longitude: number | null;
+  }>(
+    'SELECT id, locality, district, title, latitude, longitude FROM route_points ORDER BY id ASC',
+  );
+  return res.rows;
 }
 
 /** Получить внутренний user.id по telegram-id (или null). */
-function getInternalUserId(db: Database.Database, tgUserId: number): number | null {
-  const row = db
-    .prepare('SELECT id FROM users WHERE tg_user_id = ?')
-    .get(tgUserId) as { id: number } | undefined;
-  return row ? row.id : null;
+async function getInternalUserId(
+  client: PoolClient,
+  tgUserId: number,
+): Promise<number | null> {
+  const res = await client.query<{ id: number }>(
+    'SELECT id FROM users WHERE tg_user_id = $1',
+    [tgUserId],
+  );
+  return res.rows[0]?.id ?? null;
 }
 
 /**
  * Создать бронь места на поездке для пассажира (по telegram-id).
  *
- * Атомарно в одной транзакции: проверка доступности → UPDATE seats_booked с условием
- * seats_booked < seats_total (защита от двойной брони последнего места) → INSERT booking.
+ * Атомарно в транзакции (BEGIN/COMMIT): проверка доступности → UPDATE seats_booked
+ * с условием seats_booked + seats <= seats_total и status='open' (защита от двойной
+ * брони последнего места и перебронирования) → INSERT/реактивация booking.
  * Бросает Error с понятным текстом при недоступности.
  */
-export function createBooking(
+export async function createBooking(
   tgPassengerId: number,
   tripId: number,
   seats = 1,
-): BookingResult {
-  const db = getDb();
+): Promise<BookingResult> {
+  await ensureReady();
 
-  const run = db.transaction((): BookingResult => {
-    const passengerId = getInternalUserId(db, tgPassengerId);
+  return withTransaction(async (client): Promise<BookingResult> => {
+    const passengerId = await getInternalUserId(client, tgPassengerId);
     if (passengerId === null) {
       throw new Error('Профиль пассажира не найден.');
     }
 
-    const trip = db
-      .prepare(
-        `SELECT t.id, t.status, t.seats_total, t.seats_booked, t.driver_id,
-                d.tg_user_id AS driver_tg_user_id
-         FROM trips t JOIN users d ON d.id = t.driver_id
-         WHERE t.id = ?`,
-      )
-      .get(tripId) as
-      | {
-          id: number;
-          status: string;
-          seats_total: number;
-          seats_booked: number;
-          driver_id: number;
-          driver_tg_user_id: number;
-        }
-      | undefined;
+    const tripRes = await client.query<{
+      id: number;
+      status: string;
+      seats_total: number;
+      seats_booked: number;
+      driver_id: number;
+      driver_tg_user_id: number;
+    }>(
+      `SELECT t.id, t.status, t.seats_total, t.seats_booked, t.driver_id,
+              d.tg_user_id AS driver_tg_user_id
+       FROM trips t JOIN users d ON d.id = t.driver_id
+       WHERE t.id = $1`,
+      [tripId],
+    );
+    const trip = tripRes.rows[0];
 
     if (!trip) {
       throw new Error('Поездка не найдена.');
@@ -241,50 +249,54 @@ export function createBooking(
     if (trip.status !== 'open') {
       throw new Error('Поездка недоступна.');
     }
-    if (trip.driver_tg_user_id === tgPassengerId) {
+    if (Number(trip.driver_tg_user_id) === tgPassengerId) {
       throw new Error('Нельзя бронировать свою поездку.');
     }
 
-    const existing = db
-      .prepare('SELECT id, status FROM bookings WHERE trip_id = ? AND passenger_id = ?')
-      .get(tripId, passengerId) as { id: number; status: string } | undefined;
+    const existingRes = await client.query<{ id: number; status: string }>(
+      'SELECT id, status FROM bookings WHERE trip_id = $1 AND passenger_id = $2',
+      [tripId, passengerId],
+    );
+    const existing = existingRes.rows[0];
     if (existing && existing.status === 'active') {
       throw new Error('Вы уже забронировали эту поездку.');
     }
 
     // Захватить места: условие в WHERE гарантирует, что не уйдём в минус.
-    const upd = db
-      .prepare(
-        `UPDATE trips SET seats_booked = seats_booked + ?
-         WHERE id = ? AND status = 'open' AND seats_booked + ? <= seats_total`,
-      )
-      .run(seats, tripId, seats);
-    if (upd.changes !== 1) {
+    // RETURNING подтверждает успешный захват (rowCount === 1).
+    const upd = await client.query(
+      `UPDATE trips SET seats_booked = seats_booked + $1
+       WHERE id = $2 AND status = 'open' AND seats_booked + $1 <= seats_total
+       RETURNING id`,
+      [seats, tripId],
+    );
+    if (upd.rowCount !== 1) {
       throw new Error('Свободных мест нет.');
     }
 
     let bookingId: number;
     if (existing) {
-      db.prepare(
+      await client.query(
         `UPDATE bookings
-         SET status = 'active', seats = ?, cancel_reason = NULL, cancelled_at = NULL,
+         SET status = 'active', seats = $1, cancel_reason = NULL, cancelled_at = NULL,
              created_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-      ).run(seats, existing.id);
+         WHERE id = $2`,
+        [seats, existing.id],
+      );
       bookingId = existing.id;
     } else {
-      const info = db
-        .prepare('INSERT INTO bookings(trip_id, passenger_id, seats) VALUES (?, ?, ?)')
-        .run(tripId, passengerId, seats);
-      bookingId = Number(info.lastInsertRowid);
+      const ins = await client.query<{ id: number }>(
+        'INSERT INTO bookings(trip_id, passenger_id, seats) VALUES ($1, $2, $3) RETURNING id',
+        [tripId, passengerId, seats],
+      );
+      bookingId = ins.rows[0].id;
     }
 
-    const after = db
-      .prepare('SELECT seats_total - seats_booked AS avail FROM trips WHERE id = ?')
-      .get(tripId) as { avail: number };
+    const afterRes = await client.query<{ avail: number }>(
+      'SELECT seats_total - seats_booked AS avail FROM trips WHERE id = $1',
+      [tripId],
+    );
 
-    return { bookingId, tripId, seatsAvailable: after.avail };
+    return { bookingId, tripId, seatsAvailable: afterRes.rows[0].avail };
   });
-
-  return run();
 }
