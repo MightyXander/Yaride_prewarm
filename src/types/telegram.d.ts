@@ -6,6 +6,7 @@ declare global {
         ready: () => void;
         expand: () => void;
         colorScheme: 'light' | 'dark';
+        isVersionAtLeast: (version: string) => boolean;
         initDataUnsafe?: {
           user?: {
             id?: number;

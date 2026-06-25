@@ -46,7 +46,12 @@ const ActionCard: React.FC<ActionCardProps> = ({ icon, title, subtitle, onClick 
   </Card>
 );
 
-const EmptyStateScreen: React.FC = () => {
+interface EmptyStateScreenProps {
+  onRequestRide?: () => void;
+  onAlertMe?: () => void;
+}
+
+const EmptyStateScreen: React.FC<EmptyStateScreenProps> = ({ onRequestRide, onAlertMe }) => {
   return (
     <div
       style={{
@@ -89,11 +94,13 @@ const EmptyStateScreen: React.FC = () => {
         icon="i-bookmark"
         title="Оставить заявку"
         subtitle="«Нужно к 8:30 в центр» — увидят водители"
+        onClick={onRequestRide}
       />
       <ActionCard
         icon="i-bell"
         title="Сообщить, когда появится"
         subtitle="Пуш, как только выложат поездку"
+        onClick={onAlertMe}
       />
       <ActionCard
         icon="i-mega"

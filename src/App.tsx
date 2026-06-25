@@ -15,6 +15,11 @@ import BecomeDriverScreen from './screens/BecomeDriverScreen';
 import LicenseReviewScreen from './screens/LicenseReviewScreen';
 import InTripScreen from './screens/InTripScreen';
 import SafetyScreen from './screens/SafetyScreen';
+import PassengerRequestScreen from './screens/PassengerRequestScreen';
+import RequestPublishedScreen from './screens/RequestPublishedScreen';
+import AlertPushScreen from './screens/AlertPushScreen';
+import MyTripsScreen from './screens/MyTripsScreen';
+import RateTripScreen from './screens/RateTripScreen';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import type { Screen, Trip } from './types/navigation';
@@ -140,7 +145,8 @@ function App() {
     },
   ];
 
-  const showBackButton = currentScreen !== 'intro';
+  // BackButton показываем везде, кроме intro/main/main-more (Director-требование)
+  const showBackButton = !['intro', 'main', 'main-more'].includes(currentScreen);
 
   // Экраны, где показываем плавающую навигацию (и резервируем под неё место).
   const NAV_VISIBLE_SCREENS: Screen[] = [
@@ -169,6 +175,7 @@ function App() {
           paddingBottom: navVisible ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
           paddingLeft: 'env(safe-area-inset-left)',
           paddingRight: 'env(safe-area-inset-right)',
+          overflowX: 'clip',
         }}
       >
 <AnimatePresence mode="wait" initial={false} custom={direction}>
@@ -207,7 +214,12 @@ function App() {
             {currentScreen === 'trip-details' && selectedTrip && (
               <TripDetailsScreen trip={selectedTrip} onBook={() => navigate('booking-profile')} />
             )}
-            {currentScreen === 'empty-state' && <EmptyStateScreen />}
+            {currentScreen === 'empty-state' && (
+              <EmptyStateScreen
+                onRequestRide={() => navigate('passenger-request')}
+                onAlertMe={() => navigate('alert-push')}
+              />
+            )}
             {currentScreen === 'booking-profile' && selectedTrip && (
               <BookingProfileScreen
                 trip={selectedTrip}
@@ -233,6 +245,7 @@ function App() {
                 onBecomeDriver={() => navigate('become-driver')}
                 onLicenseReview={() => navigate('license-review')}
                 onSafety={() => navigate('safety')}
+                onMyTrips={() => navigate('my-trips')}
               />
             )}
             {currentScreen === 'driver-bookings' && (
@@ -249,6 +262,27 @@ function App() {
             )}
             {currentScreen === 'in-trip' && <InTripScreen trip={selectedTrip} />}
             {currentScreen === 'safety' && <SafetyScreen />}
+            {currentScreen === 'passenger-request' && (
+              <PassengerRequestScreen onPublish={() => navigate('request-published')} />
+            )}
+            {currentScreen === 'request-published' && (
+              <RequestPublishedScreen
+                onEdit={() => navigate('passenger-request')}
+                onCancel={goBack}
+              />
+            )}
+            {currentScreen === 'alert-push' && (
+              <AlertPushScreen trip={trips[1]} onBook={() => navigate('trip-details', trips[1])} />
+            )}
+            {currentScreen === 'my-trips' && (
+              <MyTripsScreen
+                onCreateTrip={() => navigate('driver-publish')}
+                onRateTrip={() => navigate('rate-trip')}
+              />
+            )}
+            {currentScreen === 'rate-trip' && (
+              <RateTripScreen trip={selectedTrip ?? undefined} onSubmit={goBack} onClose={goBack} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

@@ -9,7 +9,8 @@ interface BackButtonProps {
 const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
-    if (tg?.BackButton) {
+    // Показываем нативную BackButton только если Telegram API >= 6.1 (когда BackButton появился)
+    if (tg?.BackButton && tg.isVersionAtLeast('6.1')) {
       if (show) {
         tg.BackButton.show();
         tg.BackButton.onClick(onClick);
@@ -24,10 +25,8 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
     }
   }, [onClick, show]);
 
-  // Fallback button for non-Telegram environments
-  const isTelegram = !!window.Telegram?.WebApp;
-
-  if (isTelegram || !show) {
+  // In-app fallback button рендерим ВСЕГДА при show=true (даже внутри Telegram, если нет BackButton API)
+  if (!show) {
     return null;
   }
 

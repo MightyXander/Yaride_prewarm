@@ -13,7 +13,12 @@ export type Screen =
   | 'become-driver'
   | 'license-review'
   | 'in-trip'
-  | 'safety';
+  | 'safety'
+  | 'passenger-request'
+  | 'request-published'
+  | 'alert-push'
+  | 'my-trips'
+  | 'rate-trip';
 
 // Откуда пришли на экран подтверждения (бронь пассажира или публикация водителя)
 export type ConfirmKind = 'booking' | 'publish';
