@@ -9,9 +9,17 @@ interface MainScreenProps {
   trips: Trip[];
   onTripClick: (trip: Trip) => void;
   onEmptyState: () => void;
+  onPublish: () => void;
+  subtitle?: string;
 }
 
-const MainScreen: React.FC<MainScreenProps> = ({ trips, onTripClick, onEmptyState }) => {
+const MainScreen: React.FC<MainScreenProps> = ({
+  trips,
+  onTripClick,
+  onEmptyState,
+  onPublish,
+  subtitle = 'среда, утро 7:30–8:40',
+}) => {
   const firstTripRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -38,7 +46,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ trips, onTripClick, onEmptyStat
         gap: '12px',
       }}
     >
-      <Topbar title="Брагино → Центр" subtitle="среда, утро 7:30–8:40" />
+      <Topbar title="Брагино → Центр" subtitle={subtitle} />
       {hasTrips ? (
         <>
           <Hero
@@ -71,10 +79,10 @@ const MainScreen: React.FC<MainScreenProps> = ({ trips, onTripClick, onEmptyStat
               paddingTop: '6px',
             }}
           >
-            <Button variant="primary" icon="i-car">
+            <Button variant="primary" icon="i-car" onClick={onPublish}>
               Возьму попутчиков
             </Button>
-            <Button variant="secondary" icon="i-search">
+            <Button variant="secondary" icon="i-search" onClick={onEmptyState}>
               Ищу, кто подвезёт
             </Button>
           </div>

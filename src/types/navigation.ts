@@ -1,5 +1,16 @@
 // Navigation types
-export type Screen = 'intro' | 'main' | 'trip-details' | 'empty-state';
+export type Screen =
+  | 'intro'
+  | 'main'
+  | 'main-more'
+  | 'trip-details'
+  | 'empty-state'
+  | 'booking-profile'
+  | 'driver-publish'
+  | 'booking-confirmed';
+
+// Откуда пришли на экран подтверждения (бронь пассажира или публикация водителя)
+export type ConfirmKind = 'booking' | 'publish';
 
 export interface Trip {
   id: string;
@@ -27,5 +38,6 @@ export interface Trip {
 export interface NavigationState {
   currentScreen: Screen;
   selectedTrip: Trip | null;
+  confirmKind: ConfirmKind;
   scrollPositions: Record<Screen, number>;
 }

@@ -6,6 +6,14 @@ declare global {
         ready: () => void;
         expand: () => void;
         colorScheme: 'light' | 'dark';
+        initDataUnsafe?: {
+          user?: {
+            id?: number;
+            first_name?: string;
+            last_name?: string;
+            username?: string;
+          };
+        };
         onEvent: (eventType: string, callback: () => void) => void;
         offEvent: (eventType: string, callback: () => void) => void;
         BackButton: {

@@ -1,15 +1,32 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { Screen, Trip, NavigationState } from '../types/navigation';
+import type { Screen, Trip, ConfirmKind, NavigationState } from '../types/navigation';
+
+// Куда возвращает BackButton с каждого экрана
+const PARENT_SCREEN: Record<Screen, Screen> = {
+  intro: 'intro',
+  main: 'intro',
+  'main-more': 'main',
+  'trip-details': 'main',
+  'empty-state': 'main',
+  'booking-profile': 'trip-details',
+  'driver-publish': 'main',
+  'booking-confirmed': 'main',
+};
 
 export const useNavigation = (initialScreen: Screen = 'intro') => {
   const [navState, setNavState] = useState<NavigationState>({
     currentScreen: initialScreen,
     selectedTrip: null,
+    confirmKind: 'booking',
     scrollPositions: {
       intro: 0,
       main: 0,
+      'main-more': 0,
       'trip-details': 0,
       'empty-state': 0,
+      'booking-profile': 0,
+      'driver-publish': 0,
+      'booking-confirmed': 0,
     },
   });
 
@@ -26,7 +43,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
 
   // Navigate to a screen
   const navigate = useCallback(
-    (screen: Screen, trip: Trip | null = null) => {
+    (screen: Screen, trip: Trip | null = null, confirmKind?: ConfirmKind) => {
       // Save current scroll position
       const currentPosition = window.scrollY;
       saveScrollPosition(navState.currentScreen, currentPosition);
@@ -34,7 +51,9 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       setNavState((prev) => ({
         ...prev,
         currentScreen: screen,
-        selectedTrip: trip,
+        // Поездку сохраняем, если передали; иначе оставляем выбранную ранее
+        selectedTrip: trip !== null ? trip : prev.selectedTrip,
+        confirmKind: confirmKind ?? prev.confirmKind,
       }));
 
       // Scroll to top for new screen
@@ -46,18 +65,11 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
   // Go back to previous screen
   const goBack = useCallback(() => {
     const { currentScreen, scrollPositions } = navState;
-
-    let previousScreen: Screen = 'main';
-    if (currentScreen === 'trip-details' || currentScreen === 'empty-state') {
-      previousScreen = 'main';
-    } else if (currentScreen === 'main') {
-      previousScreen = 'intro';
-    }
+    const previousScreen: Screen = PARENT_SCREEN[currentScreen] ?? 'main';
 
     setNavState((prev) => ({
       ...prev,
       currentScreen: previousScreen,
-      selectedTrip: null,
     }));
 
     // Restore scroll position
@@ -80,6 +92,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
   return {
     currentScreen: navState.currentScreen,
     selectedTrip: navState.selectedTrip,
+    confirmKind: navState.confirmKind,
     navigate,
     goBack,
   };
