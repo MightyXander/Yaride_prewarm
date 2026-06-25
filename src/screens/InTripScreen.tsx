@@ -3,6 +3,7 @@ import Card from '../components/ui/Card';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { hapticNotify } from '../lib/haptics';
+import { showToast } from '../lib/toast';
 import type { Trip } from '../types/navigation';
 
 interface InTripScreenProps {
@@ -171,7 +172,10 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip }) => {
           type="button"
           aria-label={`Написать ${driverName}`}
           className="focus-ring pressable"
-          onClick={() => window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light')}
+          onClick={() => {
+            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+            showToast(`Чат с ${driverName} — скоро`);
+          }}
           style={{
             width: '40px',
             height: '40px',
