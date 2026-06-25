@@ -1,5 +1,6 @@
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import type { Trip, ConfirmKind } from '../types/navigation';
 
@@ -39,19 +40,7 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ kind, t
         gap: '12px',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '6px 2px',
-          gap: '8px',
-        }}
-      >
-        <div style={{ width: '32px', flexShrink: 0 }} />
-        <div style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '-0.01em' }}>{title}</div>
-        <div style={{ width: '32px', flexShrink: 0 }} />
-      </div>
+      <Header title={title} />
 
       {/* Успех */}
       <div

@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import type { Trip } from '../types/navigation';
 
@@ -44,10 +45,12 @@ const fieldStyle: React.CSSProperties = {
 const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onConfirm }) => {
   const telegramName = getTelegramName();
   const [name, setName] = useState<string>(telegramName);
-  // Телефон: 'idle' (не подтверждён) → 'otp' (ввод кода) → 'confirmed'
-  const [phoneStep, setPhoneStep] = useState<'idle' | 'otp' | 'confirmed'>('idle');
+  // Телефон: 'idle' → 'otp' (ввод кода) → 'checking' (проверяем…) → 'confirmed'
+  const [phoneStep, setPhoneStep] = useState<'idle' | 'otp' | 'checking' | 'confirmed'>('idle');
   const [code, setCode] = useState<string[]>(['', '', '', '']);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const nameInputId = useId();
+  const otpLegendId = useId();
 
   const phone = '+7 905 ··· 44 12';
   const codeComplete = code.every((d) => d.length === 1);
@@ -59,13 +62,19 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
     }
   }, [phoneStep]);
 
-  // Когда код введён полностью — «проверяем» и подтверждаем
+  // Когда код введён полностью — показываем «проверяем…», затем подтверждаем
   useEffect(() => {
     if (phoneStep === 'otp' && codeComplete) {
+      setPhoneStep('checking');
+    }
+  }, [phoneStep, codeComplete]);
+
+  useEffect(() => {
+    if (phoneStep === 'checking') {
       const t = setTimeout(() => setPhoneStep('confirmed'), 350);
       return () => clearTimeout(t);
     }
-  }, [phoneStep, codeComplete]);
+  }, [phoneStep]);
 
   const handleCodeChange = (index: number, value: string) => {
     const digit = value.replace(/\D/g, '').slice(-1);
@@ -96,19 +105,7 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
         gap: '12px',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '6px 2px',
-          gap: '8px',
-        }}
-      >
-        <div style={{ width: '32px', flexShrink: 0 }} />
-        <div style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '-0.01em' }}>Почти готово</div>
-        <div style={{ width: '32px', flexShrink: 0 }} />
-      </div>
+      <Header title="Почти готово" />
 
       {/* Что бронируем */}
       <Card style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -145,9 +142,11 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
 
       {/* Имя */}
       <div>
-        <div style={sectionLabelStyle}>Имя</div>
+        <label htmlFor={nameInputId} style={{ ...sectionLabelStyle, display: 'block' }}>
+          Имя
+        </label>
         {telegramName ? (
-          <div style={fieldStyle}>
+          <div id={nameInputId} style={fieldStyle}>
             <span>{telegramName}</span>
             <span
               style={{
@@ -162,22 +161,15 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
           </div>
         ) : (
           <input
+            id={nameInputId}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Как тебя звать?"
-            aria-label="Имя"
+            className="focus-ring"
             style={{
               ...fieldStyle,
               width: '100%',
-              outline: 'none',
               fontFamily: 'var(--font-sans)',
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.outline = '2px solid var(--brand)';
-              e.currentTarget.style.outlineOffset = '2px';
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.outline = 'none';
             }}
           />
         )}
@@ -204,50 +196,55 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
               подтверждён
             </span>
           </div>
-        ) : phoneStep === 'otp' ? (
+        ) : phoneStep === 'otp' || phoneStep === 'checking' ? (
           <Card style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: 1.4 }}>
-              Отправили код из SMS на <b style={{ color: 'var(--foreground)' }}>{phone}</b>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {code.map((digit, i) => (
-                <input
-                  key={i}
-                  ref={(el) => {
-                    otpRefs.current[i] = el;
-                  }}
-                  value={digit}
-                  onChange={(e) => handleCodeChange(i, e.target.value)}
-                  onKeyDown={(e) => handleCodeKeyDown(i, e)}
-                  inputMode="numeric"
-                  maxLength={1}
-                  aria-label={`Цифра кода ${i + 1}`}
-                  style={{
-                    width: '100%',
-                    height: '52px',
-                    textAlign: 'center',
-                    fontSize: '20px',
-                    fontWeight: 800,
-                    borderRadius: '14px',
-                    border: `1px solid ${digit ? 'var(--brand)' : 'var(--border)'}`,
-                    background: 'var(--secondary)',
-                    color: 'var(--foreground)',
-                    fontFamily: 'var(--font-sans)',
-                    outline: 'none',
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.outline = '2px solid var(--brand)';
-                    e.currentTarget.style.outlineOffset = '2px';
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.outline = 'none';
-                  }}
-                />
-              ))}
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--muted-foreground)' }}>
-              Это демо — введите любые 4 цифры
-            </div>
+            <fieldset
+              style={{ border: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}
+              disabled={phoneStep === 'checking'}
+            >
+              <legend id={otpLegendId} style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: 1.4, padding: 0 }}>
+                Отправили код из SMS на <b style={{ color: 'var(--foreground)' }}>{phone}</b>
+              </legend>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {code.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => {
+                      otpRefs.current[i] = el;
+                    }}
+                    value={digit}
+                    onChange={(e) => handleCodeChange(i, e.target.value)}
+                    onKeyDown={(e) => handleCodeKeyDown(i, e)}
+                    inputMode="numeric"
+                    maxLength={1}
+                    aria-label={`Цифра кода ${i + 1}`}
+                    className="focus-ring"
+                    style={{
+                      width: '100%',
+                      height: '52px',
+                      textAlign: 'center',
+                      fontSize: '20px',
+                      fontWeight: 800,
+                      borderRadius: '14px',
+                      border: `1px solid ${digit ? 'var(--brand)' : 'var(--border)'}`,
+                      background: 'var(--secondary)',
+                      color: 'var(--foreground)',
+                      fontFamily: 'var(--font-sans)',
+                    }}
+                  />
+                ))}
+              </div>
+              <div
+                aria-live="polite"
+                style={{
+                  fontSize: '11px',
+                  color: phoneStep === 'checking' ? 'var(--foreground)' : 'var(--muted-foreground)',
+                  fontWeight: phoneStep === 'checking' ? 700 : 400,
+                }}
+              >
+                {phoneStep === 'checking' ? 'Проверяем…' : 'Это демо — введите любые 4 цифры'}
+              </div>
+            </fieldset>
           </Card>
         ) : (
           <Button variant="secondary" icon="i-phone" onClick={() => setPhoneStep('otp')}>

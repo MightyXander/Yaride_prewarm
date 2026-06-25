@@ -1,6 +1,7 @@
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
+import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 
 // Рыба-данные профиля (экран 13 SPEC: возраст, рейтинг, поездки, статус ВУ).
@@ -40,19 +41,7 @@ const ProfileScreen: React.FC = () => {
         gap: '12px',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '6px 2px',
-          gap: '8px',
-        }}
-      >
-        <div style={{ width: '32px', flexShrink: 0 }} />
-        <div style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '-0.01em' }}>Профиль</div>
-        <div style={{ width: '32px', flexShrink: 0 }} />
-      </div>
+      <Header title="Профиль" />
 
       {/* Шапка: аватар, имя, возраст, статус ВУ */}
       <Card style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
