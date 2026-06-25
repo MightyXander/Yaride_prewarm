@@ -32,3 +32,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Артефакты agentic-dev оркестрации (не часть продукта)
+.agentic/context/
