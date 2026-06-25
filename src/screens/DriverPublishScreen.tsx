@@ -3,6 +3,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Select from '../components/ui/Select';
 import Header from '../components/Header';
+import { hapticSelection } from '../lib/haptics';
 import type { SelectOption } from '../components/ui/Select';
 
 interface DriverPublishScreenProps {
@@ -39,7 +40,10 @@ const SelectableChip: React.FC<SelectableChipProps> = ({ label, active, onClick 
   <button
     type="button"
     aria-pressed={active}
-    onClick={onClick}
+    onClick={() => {
+      if (!active) hapticSelection();
+      onClick();
+    }}
     className="focus-ring pressable"
     style={{
       minHeight: '44px',
@@ -169,7 +173,10 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
             aria-label="Меньше мест"
             className="focus-ring pressable"
             disabled={seats <= MIN_SEATS}
-            onClick={() => setSeats((s) => Math.max(MIN_SEATS, s - 1))}
+            onClick={() => {
+              hapticSelection();
+              setSeats((s) => Math.max(MIN_SEATS, s - 1));
+            }}
             style={stepBtnStyle(seats > MIN_SEATS)}
           >
             <span style={{ fontSize: '22px', fontWeight: 700, lineHeight: 1 }}>−</span>
@@ -191,7 +198,10 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
             aria-label="Больше мест"
             className="focus-ring pressable"
             disabled={seats >= MAX_SEATS}
-            onClick={() => setSeats((s) => Math.min(MAX_SEATS, s + 1))}
+            onClick={() => {
+              hapticSelection();
+              setSeats((s) => Math.min(MAX_SEATS, s + 1));
+            }}
             style={stepBtnStyle(seats < MAX_SEATS)}
           >
             <span style={{ fontSize: '20px', fontWeight: 700, lineHeight: 1 }}>+</span>

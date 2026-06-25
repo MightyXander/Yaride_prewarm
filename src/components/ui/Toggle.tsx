@@ -1,3 +1,5 @@
+import { hapticSelection } from '../../lib/haptics';
+
 interface ToggleProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
@@ -18,7 +20,11 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, disabled = false, ..
       aria-checked={checked}
       aria-label={ariaLabel}
       disabled={disabled}
-      onClick={() => !disabled && onChange(!checked)}
+      onClick={() => {
+        if (disabled) return;
+        hapticSelection();
+        onChange(!checked);
+      }}
       className="focus-ring pressable"
       style={{
         position: 'relative',

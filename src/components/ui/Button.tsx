@@ -1,20 +1,26 @@
 import { Icon } from '../Icons';
+import { hapticImpact } from '../../lib/haptics';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   icon?: string;
+  // Тактильный отклик на нажатие. По умолчанию primary даёт лёгкий impact,
+  // secondary/ghost — без отклика. 'none' отключает явно.
+  haptic?: 'light' | 'medium' | 'heavy' | 'none';
   children: React.ReactNode;
 }
 
 const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   icon,
+  haptic,
   children,
   disabled,
   ...props
 }) => {
+  const hapticStyle = haptic ?? (variant === 'primary' ? 'light' : 'none');
   const baseStyle: React.CSSProperties = {
     minHeight: '44px',
     padding: '8px 16px',
@@ -90,6 +96,12 @@ const Button: React.FC<ButtonProps> = ({
         ...baseStyle,
         ...variantStyles[variant],
         ...props.style,
+      }}
+      onPointerDown={(e) => {
+        if (!disabled && hapticStyle !== 'none') {
+          hapticImpact(hapticStyle);
+        }
+        props.onPointerDown?.(e);
       }}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}

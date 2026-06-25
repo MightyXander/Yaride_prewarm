@@ -88,7 +88,9 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
             padding: '0 15px',
             borderRadius: '999px',
             background: 'var(--brand-foreground)',
-            color: 'var(--background)',
+            // Hero всегда на жёлтом фоне в обеих темах, а пилюля — всегда тёмная,
+            // поэтому текст фиксируем светлым (var(--background) в dark давал тёмное-на-тёмном).
+            color: '#f5f5f7',
             fontSize: '13px',
             fontWeight: 600,
             position: 'relative',

@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import { hapticNotify } from '../lib/haptics';
 import type { Trip, ConfirmKind } from '../types/navigation';
 
 interface BookingConfirmedScreenProps {
@@ -30,6 +32,11 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
   onViewBookings,
   onStartTrip,
 }) => {
+  // Экран успеха: тактильное подтверждение исхода при появлении.
+  useEffect(() => {
+    hapticNotify('success');
+  }, []);
+
   const isPublish = kind === 'publish';
   const title = isPublish ? 'Поездка' : 'Бронь';
   const headline = isPublish ? 'Поездка опубликована!' : 'Ты в поездке!';
