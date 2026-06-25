@@ -8,8 +8,10 @@ import EmptyStateScreen from './screens/EmptyStateScreen';
 import BookingProfileScreen from './screens/BookingProfileScreen';
 import DriverPublishScreen from './screens/DriverPublishScreen';
 import BookingConfirmedScreen from './screens/BookingConfirmedScreen';
+import ProfileScreen from './screens/ProfileScreen';
+import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
-import type { Trip } from './types/navigation';
+import type { Screen, Trip } from './types/navigation';
 
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -122,6 +124,16 @@ function App() {
 
   const showBackButton = currentScreen !== 'intro';
 
+  // Экраны, где показываем плавающую навигацию (и резервируем под неё место).
+  const NAV_VISIBLE_SCREENS: Screen[] = [
+    'main',
+    'main-more',
+    'trip-details',
+    'empty-state',
+    'profile',
+  ];
+  const navVisible = NAV_VISIBLE_SCREENS.includes(currentScreen);
+
   return (
     <div className={theme}>
       <Icons />
@@ -136,7 +148,7 @@ function App() {
           display: 'flex',
           flexDirection: 'column',
           paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingBottom: navVisible ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
           paddingLeft: 'env(safe-area-inset-left)',
           paddingRight: 'env(safe-area-inset-right)',
         }}
@@ -179,7 +191,12 @@ function App() {
             onDone={() => navigate('main-more')}
           />
         )}
+        {currentScreen === 'profile' && <ProfileScreen />}
       </div>
+      <FloatingNav
+        currentScreen={currentScreen}
+        onNavigate={(root) => navigate(root === 'profile' ? 'profile' : 'main')}
+      />
     </div>
   );
 }
