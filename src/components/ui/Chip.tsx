@@ -1,23 +1,43 @@
 interface ChipProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  label?: string;
   variant?: 'default' | 'brand';
+  selected?: boolean;
+  onClick?: () => void;
   style?: React.CSSProperties;
 }
 
-const Chip: React.FC<ChipProps> = ({ children, variant = 'default', style }) => {
+const Chip: React.FC<ChipProps> = ({
+  children,
+  label,
+  variant = 'default',
+  selected = false,
+  onClick,
+  style,
+}) => {
+  const content = label ?? children;
+  const isInteractive = !!onClick;
+
   const baseStyle: React.CSSProperties = {
-    fontSize: '11px',
-    fontWeight: 700,
-    padding: '3px 10px',
-    borderRadius: '999px',
+    height: '38px',
+    minWidth: '52px',
+    padding: '0 14px',
+    borderRadius: '13px',
+    display: 'grid',
+    placeItems: 'center',
+    fontWeight: selected ? 700 : 600,
+    fontSize: '13px',
     whiteSpace: 'nowrap',
-    display: 'inline-block',
+    cursor: isInteractive ? 'pointer' : 'default',
+    border: 'none',
+    fontFamily: 'var(--font-sans)',
+    transition: 'background 0.15s ease, color 0.15s ease, transform 0.08s ease',
   };
 
   const variantStyles = {
     default: {
-      background: 'var(--secondary)',
-      color: 'var(--secondary-foreground)',
+      background: selected ? 'var(--gradient-brand)' : 'var(--secondary)',
+      color: selected ? 'var(--brand-foreground)' : 'var(--secondary-foreground)',
     },
     brand: {
       background: 'var(--brand)',
@@ -25,17 +45,34 @@ const Chip: React.FC<ChipProps> = ({ children, variant = 'default', style }) => 
     },
   };
 
-  return (
-    <span
-      style={{
-        ...baseStyle,
-        ...variantStyles[variant],
-        ...style,
-      }}
-    >
-      {children}
-    </span>
-  );
+  const finalStyle = {
+    ...baseStyle,
+    ...variantStyles[variant],
+    ...style,
+  };
+
+  if (isInteractive) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        style={finalStyle}
+        onMouseDown={(e) => {
+          e.currentTarget.style.transform = 'scale(0.94)';
+        }}
+        onMouseUp={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <span style={finalStyle}>{content}</span>;
 };
 
 export default Chip;

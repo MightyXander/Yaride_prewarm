@@ -29,6 +29,11 @@ const HIDDEN_ON: Screen[] = [
   'license-review',
   'in-trip',
   'safety',
+  'passenger-request',
+  'request-published',
+  'alert-push',
+  'my-trips',
+  'rate-trip',
 ];
 
 // Маппинг экрана → корневой таб. Поток поездок → Поездки; профиль → Профиль.
@@ -47,6 +52,11 @@ const SCREEN_TO_TAB: Record<Screen, NavTabRoot | null> = {
   'license-review': 'profile',
   'in-trip': 'main',
   safety: 'profile',
+  'passenger-request': 'main',
+  'request-published': 'main',
+  'alert-push': 'main',
+  'my-trips': 'profile',
+  'rate-trip': 'profile',
 };
 
 /** Высота pill без внешних отступов. */

@@ -17,6 +17,11 @@ const PARENT_SCREEN: Record<Screen, Screen> = {
   'license-review': 'become-driver',
   'in-trip': 'booking-confirmed',
   safety: 'profile',
+  'passenger-request': 'empty-state',
+  'request-published': 'empty-state',
+  'alert-push': 'main',
+  'my-trips': 'profile',
+  'rate-trip': 'my-trips',
 };
 
 export const useNavigation = (initialScreen: Screen = 'intro') => {
@@ -42,6 +47,11 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       'license-review': 0,
       'in-trip': 0,
       safety: 0,
+      'passenger-request': 0,
+      'request-published': 0,
+      'alert-push': 0,
+      'my-trips': 0,
+      'rate-trip': 0,
     },
   });
 

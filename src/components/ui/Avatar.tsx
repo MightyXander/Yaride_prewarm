@@ -4,9 +4,10 @@ interface AvatarProps {
   label: string;
   rating?: number;
   size?: number;
+  hideRating?: boolean;
 }
 
-const Avatar: React.FC<AvatarProps> = ({ label, rating, size = 42 }) => {
+const Avatar: React.FC<AvatarProps> = ({ label, rating, size = 42, hideRating = false }) => {
   return (
     <div
       style={{
@@ -31,7 +32,7 @@ const Avatar: React.FC<AvatarProps> = ({ label, rating, size = 42 }) => {
       >
         {label}
       </div>
-      {rating !== undefined && <Badge rating={rating} />}
+      {!hideRating && rating !== undefined && <Badge rating={rating} />}
     </div>
   );
 };

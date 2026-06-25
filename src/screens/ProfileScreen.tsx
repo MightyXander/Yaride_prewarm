@@ -34,9 +34,11 @@ interface ProfileScreenProps {
   onLicenseReview: () => void;
   /** Открыть экран «Безопасность и SOS» (экран 19). */
   onSafety?: () => void;
+  /** Открыть экран «Мои поездки» (экран 17). */
+  onMyTrips?: () => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips }) => {
   return (
     <div
       style={{
@@ -164,8 +166,51 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
         </div>
       </Card>
 
-      {/* Меню: безопасность и SOS (экран 19) */}
+      {/* Меню: мои поездки (экран 17) и безопасность (экран 19) */}
       <Card style={{ padding: '4px 6px' }}>
+        <button
+          type="button"
+          className="focus-ring pressable"
+          onClick={() => {
+            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+            onMyTrips?.();
+          }}
+          style={{
+            width: '100%',
+            minHeight: '52px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '8px 8px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--foreground)',
+            fontFamily: 'var(--font-sans)',
+            textAlign: 'left',
+            borderRadius: '14px',
+          }}
+        >
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '11px',
+              background: 'var(--secondary)',
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon id="i-receipt" style={{ width: '17px', height: '17px' }} />
+          </div>
+          <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>Мои поездки</span>
+          <Icon
+            id="i-chev-r"
+            style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }}
+          />
+        </button>
+        <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
         <button
           type="button"
           className="focus-ring pressable"
