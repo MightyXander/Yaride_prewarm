@@ -1,0 +1,251 @@
+import Card from '../components/ui/Card';
+import Avatar from '../components/ui/Avatar';
+import Button from '../components/ui/Button';
+import { Icon } from '../components/Icons';
+import type { Trip } from '../types/navigation';
+
+interface TripDetailsScreenProps {
+  trip: Trip;
+}
+
+const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip }) => {
+  const age = trip.driver.age || 34;
+  const verified = trip.driver.verified !== false;
+  const memberSince = trip.driver.memberSince || 'мая 2026';
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        overflow: 'auto',
+        padding: '6px 16px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 2px',
+          gap: '8px',
+        }}
+      >
+        <div style={{ width: '32px', flexShrink: 0 }} />
+        <div
+          style={{
+            fontWeight: 800,
+            fontSize: '14px',
+            letterSpacing: '-0.01em',
+          }}
+        >
+          Поездка {trip.time}
+        </div>
+        <div
+          style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '11px',
+            background: 'var(--secondary)',
+            display: 'grid',
+            placeItems: 'center',
+            color: 'var(--foreground)',
+            fontSize: '16px',
+            flexShrink: 0,
+          }}
+        >
+          <Icon id="i-sliders" style={{ width: '16px', height: '16px' }} />
+        </div>
+      </div>
+
+      <Card
+        style={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+        }}
+      >
+        <Avatar label={trip.driver.avatar} rating={trip.driver.rating} size={54} />
+        <div>
+          <div style={{ fontSize: '17px', fontWeight: 700 }}>{trip.driver.name}</div>
+          <div
+            style={{
+              fontSize: '12px',
+              color: 'var(--muted-foreground)',
+              marginTop: '3px',
+              lineHeight: 1.4,
+            }}
+          >
+            <span
+              style={{
+                color: 'var(--brand)',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px',
+              }}
+            >
+              <Icon id="i-star" fill style={{ width: '11px', height: '11px', fill: 'var(--star)' }} />
+              {trip.driver.rating}
+            </span>{' '}
+            · {trip.driver.tripCount}&nbsp;поездок · {age}&nbsp;года
+          </div>
+          {verified && (
+            <div
+              style={{
+                color: 'var(--success)',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '12px',
+                marginTop: '4px',
+              }}
+            >
+              <Icon id="i-check" style={{ width: '14px', height: '14px' }} />
+              ВУ подтверждено · с {memberSince}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card>
+        <div
+          style={{
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: 'var(--muted-foreground)',
+            fontWeight: 700,
+            marginBottom: '6px',
+          }}
+        >
+          Маршрут · ~{trip.route?.duration || '22 мин'}
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1px',
+            margin: '4px 0',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '11px',
+              fontSize: '13px',
+              fontWeight: 600,
+              minHeight: '24px',
+            }}
+          >
+            <span
+              style={{
+                width: '11px',
+                height: '11px',
+                borderRadius: '999px',
+                border: '2px solid var(--brand)',
+                background: 'var(--brand)',
+                flexShrink: 0,
+              }}
+            />
+            {trip.route?.from || `Брагино, ${trip.address}`}
+          </div>
+          <div
+            style={{
+              height: '16px',
+              borderLeft: '2px dotted var(--muted-foreground)',
+              marginLeft: '4.5px',
+            }}
+          />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '11px',
+              fontSize: '13px',
+              fontWeight: 600,
+              minHeight: '24px',
+            }}
+          >
+            <span
+              style={{
+                width: '11px',
+                height: '11px',
+                borderRadius: '999px',
+                border: '2px solid var(--brand)',
+                flexShrink: 0,
+              }}
+            />
+            {trip.route?.to || 'Центр, пл. Волкова'}
+          </div>
+        </div>
+        <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
+        <div
+          style={{
+            fontSize: '12px',
+            color: 'var(--muted-foreground)',
+            marginTop: '9px',
+            lineHeight: 1.5,
+          }}
+        >
+          Выезд&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>среда, {trip.time}</b>
+          <br />
+          Машина&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>{trip.car}, белая</b>
+          <br />
+          Бензин&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>≈ {trip.price} ₽</b>{' '}
+          <span style={{ color: 'var(--muted-foreground)' }}>(пополам · не оплата)</span>
+        </div>
+      </Card>
+
+      <Card
+        variant="accent"
+        style={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+        }}
+      >
+        <div
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: 'var(--gradient-brand)',
+            display: 'grid',
+            placeItems: 'center',
+            color: 'var(--brand-foreground)',
+            flexShrink: 0,
+            boxShadow: '0 8px 20px -10px rgba(255, 221, 45, .6)',
+          }}
+        >
+          <Icon id="i-shield" style={{ width: '18px', height: '18px', strokeWidth: 2 }} />
+        </div>
+        <div style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--foreground)' }}>
+          Бензин ≈{trip.price} ₽ пополам — как подсказка для расчётов. Это информационный сервис, без платежей в
+          приложении.
+        </div>
+      </Card>
+
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '9px',
+          marginTop: 'auto',
+          paddingTop: '6px',
+        }}
+      >
+        <Button variant="primary">Забронировать место</Button>
+        <Button variant="ghost" icon="i-sliders" style={{ minHeight: '44px' }}>
+          Поделиться поездкой
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default TripDetailsScreen;
