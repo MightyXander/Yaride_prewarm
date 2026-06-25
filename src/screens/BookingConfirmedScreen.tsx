@@ -8,6 +8,8 @@ interface BookingConfirmedScreenProps {
   kind: ConfirmKind;
   trip: Trip | null;
   onDone: () => void;
+  /** Только для publish: открыть список броней пассажиров на свой рейс. */
+  onViewBookings?: () => void;
 }
 
 const sectionLabelStyle: React.CSSProperties = {
@@ -19,7 +21,7 @@ const sectionLabelStyle: React.CSSProperties = {
   marginBottom: '6px',
 };
 
-const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ kind, trip, onDone }) => {
+const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ kind, trip, onDone, onViewBookings }) => {
   const isPublish = kind === 'publish';
   const title = isPublish ? 'Поездка' : 'Бронь';
   const headline = isPublish ? 'Поездка опубликована!' : 'Ты в поездке!';
@@ -200,9 +202,16 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ kind, t
         </>
       )}
       {isPublish && (
-        <Button variant="secondary" icon="i-share">
-          Позвать попутчиков в чат района
-        </Button>
+        <>
+          {onViewBookings && (
+            <Button variant="secondary" icon="i-user" onClick={onViewBookings}>
+              Брони на рейс
+            </Button>
+          )}
+          <Button variant="ghost" icon="i-share">
+            Позвать попутчиков в чат района
+          </Button>
+        </>
       )}
 
       <Card variant="accent" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>

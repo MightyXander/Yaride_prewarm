@@ -9,6 +9,9 @@ import BookingProfileScreen from './screens/BookingProfileScreen';
 import DriverPublishScreen from './screens/DriverPublishScreen';
 import BookingConfirmedScreen from './screens/BookingConfirmedScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import DriverBookingsScreen from './screens/DriverBookingsScreen';
+import BecomeDriverScreen from './screens/BecomeDriverScreen';
+import LicenseReviewScreen from './screens/LicenseReviewScreen';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import type { Screen, Trip } from './types/navigation';
@@ -189,9 +192,27 @@ function App() {
             kind={confirmKind}
             trip={selectedTrip}
             onDone={() => navigate('main-more')}
+            onViewBookings={() => navigate('driver-bookings')}
           />
         )}
-        {currentScreen === 'profile' && <ProfileScreen />}
+        {currentScreen === 'profile' && (
+          <ProfileScreen
+            onBecomeDriver={() => navigate('become-driver')}
+            onLicenseReview={() => navigate('license-review')}
+          />
+        )}
+        {currentScreen === 'driver-bookings' && (
+          <DriverBookingsScreen onDone={() => navigate('main')} />
+        )}
+        {currentScreen === 'become-driver' && (
+          <BecomeDriverScreen onSubmit={() => navigate('license-review')} />
+        )}
+        {currentScreen === 'license-review' && (
+          <LicenseReviewScreen
+            onFindRide={() => navigate('main')}
+            onRetry={() => navigate('become-driver')}
+          />
+        )}
       </div>
       <FloatingNav
         currentScreen={currentScreen}

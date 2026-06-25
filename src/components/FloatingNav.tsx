@@ -18,7 +18,15 @@ const ITEMS: NavItem[] = [
 ];
 
 // Экраны, на которых nav скрыт (flow-экраны, где pill мешает).
-const HIDDEN_ON: Screen[] = ['intro', 'booking-profile', 'driver-publish', 'booking-confirmed'];
+const HIDDEN_ON: Screen[] = [
+  'intro',
+  'booking-profile',
+  'driver-publish',
+  'booking-confirmed',
+  'driver-bookings',
+  'become-driver',
+  'license-review',
+];
 
 // Маппинг экрана → корневой таб. Поток поездок → Поездки; профиль → Профиль.
 const SCREEN_TO_TAB: Record<Screen, NavTabRoot | null> = {
@@ -31,6 +39,9 @@ const SCREEN_TO_TAB: Record<Screen, NavTabRoot | null> = {
   'driver-publish': 'main',
   'booking-confirmed': 'main',
   profile: 'profile',
+  'driver-bookings': 'main',
+  'become-driver': 'profile',
+  'license-review': 'profile',
 };
 
 /** Высота pill без внешних отступов. */

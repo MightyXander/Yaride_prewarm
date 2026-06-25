@@ -8,7 +8,10 @@ export type Screen =
   | 'booking-profile'
   | 'driver-publish'
   | 'booking-confirmed'
-  | 'profile';
+  | 'profile'
+  | 'driver-bookings'
+  | 'become-driver'
+  | 'license-review';
 
 // Откуда пришли на экран подтверждения (бронь пассажира или публикация водителя)
 export type ConfirmKind = 'booking' | 'publish';

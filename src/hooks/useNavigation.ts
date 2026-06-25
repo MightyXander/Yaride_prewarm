@@ -12,6 +12,9 @@ const PARENT_SCREEN: Record<Screen, Screen> = {
   'driver-publish': 'main',
   'booking-confirmed': 'main',
   profile: 'main',
+  'driver-bookings': 'booking-confirmed',
+  'become-driver': 'profile',
+  'license-review': 'become-driver',
 };
 
 export const useNavigation = (initialScreen: Screen = 'intro') => {
@@ -29,6 +32,9 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       'driver-publish': 0,
       'booking-confirmed': 0,
       profile: 0,
+      'driver-bookings': 0,
+      'become-driver': 0,
+      'license-review': 0,
     },
   });
 
