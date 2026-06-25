@@ -15,6 +15,10 @@ export {
   getTripCard,
   listRoutePoints,
   createBooking,
+  createRouteAlert,
+  createTripFromTemplate,
+  ensureUser,
+  listTripTemplates,
 } from './repo.ts';
 export type {
   TimeSlot,
@@ -23,6 +27,16 @@ export type {
   BookingResult,
   FindTripsParams,
 } from './repo.ts';
+
+// JSON-API обработчики (issue #10): Express-независимые, подключаются в server.js.
+export {
+  handleListTrips,
+  handleGetTrip,
+  handleCreateBooking,
+  handleCreateAlert,
+  handlePublishTrip,
+} from './api.ts';
+export type { ApiRequest, ApiResponse } from './api.ts';
 
 /**
  * Инициализировать БД (пул + схема + сид). Идемпотентно: повторный вызов

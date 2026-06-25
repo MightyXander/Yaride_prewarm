@@ -206,6 +206,221 @@ async function getInternalUserId(
   return res.rows[0]?.id ?? null;
 }
 
+export interface EnsureUserParams {
+  tgUserId: number;
+  name: string;
+  username?: string | null;
+  age?: number | null;
+}
+
+export interface UserRecord {
+  id: number;
+  tg_user_id: number;
+  name: string;
+  username: string | null;
+  age: number | null;
+}
+
+/**
+ * JIT-профиль: резолв пользователя по telegram_id, создание при первом
+ * обращении (имя из Telegram initData). Идемпотентно через ON CONFLICT.
+ * Имя/username обновляются на актуальные из initData; возраст не перетираем.
+ */
+export async function ensureUser(params: EnsureUserParams): Promise<UserRecord> {
+  await ensureReady();
+  const name = params.name.trim() || 'Пассажир';
+  const username = params.username?.trim() || null;
+  const age = params.age ?? null;
+
+  const res = await getPool().query<UserRecord>(
+    `INSERT INTO users(tg_user_id, name, username, age)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (tg_user_id) DO UPDATE
+       SET name = EXCLUDED.name,
+           username = COALESCE(EXCLUDED.username, users.username),
+           age = COALESCE(users.age, EXCLUDED.age)
+     RETURNING id, tg_user_id, name, username, age`,
+    [params.tgUserId, name, username, age],
+  );
+  return res.rows[0];
+}
+
+export interface RouteAlertParams {
+  tgPassengerId: number;
+  fromPointId: number;
+  toPointId: number;
+  desiredDate: string;
+  desiredTime?: string | null;
+}
+
+export interface RouteAlertResult {
+  alertId: number;
+  passengerId: number;
+  fromPointId: number;
+  toPointId: number;
+  desiredDate: string;
+  desiredTime: string | null;
+  status: string;
+}
+
+/**
+ * Подписка route_alerts на коридор/дату (пустой поиск → «позовём, когда появится»).
+ * Пассажир резолвится по telegram-id (должен существовать — создаётся JIT в API
+ * до вызова). Точки маршрута проверяются на существование (FK + явная проверка).
+ * Бросает Error при отсутствии профиля/точек.
+ */
+export async function createRouteAlert(
+  params: RouteAlertParams,
+): Promise<RouteAlertResult> {
+  await ensureReady();
+
+  return withTransaction(async (client): Promise<RouteAlertResult> => {
+    const passengerId = await getInternalUserId(client, params.tgPassengerId);
+    if (passengerId === null) {
+      throw new Error('Профиль пассажира не найден.');
+    }
+
+    const pointsRes = await client.query<{ id: number }>(
+      'SELECT id FROM route_points WHERE id = ANY($1::int[])',
+      [[params.fromPointId, params.toPointId]],
+    );
+    const foundIds = new Set(pointsRes.rows.map((r) => r.id));
+    if (!foundIds.has(params.fromPointId) || !foundIds.has(params.toPointId)) {
+      throw new Error('Точка маршрута не найдена.');
+    }
+
+    const ins = await client.query<{
+      id: number;
+      desired_time: string | null;
+      status: string;
+    }>(
+      `INSERT INTO route_alerts(passenger_id, from_point_id, to_point_id,
+                                desired_date, desired_time)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, desired_time, status`,
+      [
+        passengerId,
+        params.fromPointId,
+        params.toPointId,
+        params.desiredDate,
+        params.desiredTime ?? null,
+      ],
+    );
+    const row = ins.rows[0];
+    return {
+      alertId: row.id,
+      passengerId,
+      fromPointId: params.fromPointId,
+      toPointId: params.toPointId,
+      desiredDate: params.desiredDate,
+      desiredTime: row.desired_time,
+      status: row.status,
+    };
+  });
+}
+
+export interface TripTemplate {
+  id: number;
+  driver_id: number;
+  start_point_id: number;
+  end_point_id: number;
+  time_slot: TimeSlot;
+  price_rub: number;
+  seats_total: number;
+  comment: string | null;
+}
+
+/** Шаблоны поездок водителя (по telegram-id). Пусто, если профиля/шаблонов нет. */
+export async function listTripTemplates(
+  tgDriverId: number,
+): Promise<TripTemplate[]> {
+  await ensureReady();
+  const res = await getPool().query<TripTemplate>(
+    `SELECT tt.id, tt.driver_id, tt.start_point_id, tt.end_point_id,
+            tt.time_slot, tt.price_rub, tt.seats_total, tt.comment
+     FROM trip_templates tt
+     JOIN users u ON u.id = tt.driver_id
+     WHERE u.tg_user_id = $1
+     ORDER BY tt.id ASC`,
+    [tgDriverId],
+  );
+  return res.rows;
+}
+
+export interface PublishTripParams {
+  tgDriverId: number;
+  templateId: number;
+  tripDate: string;
+  departureTime: string;
+}
+
+export interface PublishTripResult {
+  tripId: number;
+  driverId: number;
+  tripDate: string;
+  departureTime: string;
+  timeSlot: TimeSlot;
+  seatsTotal: number;
+  priceRub: number;
+}
+
+/**
+ * Опубликовать поездку из шаблона водителя (по telegram-id) на дату/время.
+ * Шаблон должен принадлежать водителю. Бросает Error при отсутствии профиля/шаблона.
+ */
+export async function createTripFromTemplate(
+  params: PublishTripParams,
+): Promise<PublishTripResult> {
+  await ensureReady();
+
+  return withTransaction(async (client): Promise<PublishTripResult> => {
+    const driverId = await getInternalUserId(client, params.tgDriverId);
+    if (driverId === null) {
+      throw new Error('Профиль водителя не найден.');
+    }
+
+    const tplRes = await client.query<TripTemplate>(
+      `SELECT id, driver_id, start_point_id, end_point_id, time_slot,
+              price_rub, seats_total, comment
+       FROM trip_templates WHERE id = $1 AND driver_id = $2`,
+      [params.templateId, driverId],
+    );
+    const tpl = tplRes.rows[0];
+    if (!tpl) {
+      throw new Error('Шаблон поездки не найден.');
+    }
+
+    const ins = await client.query<{ id: number }>(
+      `INSERT INTO trips(driver_id, start_point_id, end_point_id, trip_date,
+                         departure_time, time_slot, price_rub, seats_total,
+                         comment, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')
+       RETURNING id`,
+      [
+        driverId,
+        tpl.start_point_id,
+        tpl.end_point_id,
+        params.tripDate,
+        params.departureTime,
+        tpl.time_slot,
+        tpl.price_rub,
+        tpl.seats_total,
+        tpl.comment,
+      ],
+    );
+
+    return {
+      tripId: ins.rows[0].id,
+      driverId,
+      tripDate: params.tripDate,
+      departureTime: params.departureTime,
+      timeSlot: tpl.time_slot,
+      seatsTotal: tpl.seats_total,
+      priceRub: tpl.price_rub,
+    };
+  });
+}
+
 /**
  * Создать бронь места на поездке для пассажира (по telegram-id).
  *
