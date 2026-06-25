@@ -4,6 +4,7 @@ import Button from '../components/ui/Button';
 import Avatar from '../components/ui/Avatar';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import { showToast } from '../lib/toast';
 
 interface DriverBookingsScreenProps {
   onDone: () => void;
@@ -215,6 +216,7 @@ const DriverBookingsScreen: React.FC<DriverBookingsScreenProps> = ({ onDone }) =
                     type="button"
                     className="focus-ring pressable"
                     aria-label={`Написать ${b.name}`}
+                    onClick={() => showToast(`Чат с ${b.name} — скоро`)}
                     style={linkBtnStyle}
                   >
                     <Icon id="i-msg" style={{ width: '14px', height: '14px' }} />

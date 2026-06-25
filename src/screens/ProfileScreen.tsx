@@ -3,6 +3,7 @@ import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import { showToast } from '../lib/toast';
 
 // Рыба-данные профиля (экран 13 SPEC: возраст, рейтинг, поездки, статус ВУ).
 const PROFILE = {
@@ -304,7 +305,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
         <Button variant="primary" icon="i-car" onClick={onBecomeDriver}>
           Стать водителем
         </Button>
-        <Button variant="ghost" icon="i-sliders">
+        <Button variant="ghost" icon="i-sliders" onClick={() => showToast('Настройки — скоро')}>
           Настройки
         </Button>
       </div>

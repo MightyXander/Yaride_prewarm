@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icons } from './components/Icons';
 import BackButton from './components/BackButton';
+import { ToastHost } from './components/ToastHost';
 import IntroScreen from './screens/IntroScreen';
 import MainScreen from './screens/MainScreen';
 import TripDetailsScreen from './screens/TripDetailsScreen';
@@ -218,6 +219,7 @@ function App() {
   return (
     <div className={theme}>
       <Icons />
+      <ToastHost />
       <BackButton onClick={goBack} show={showBackButton} />
       <div
         style={{

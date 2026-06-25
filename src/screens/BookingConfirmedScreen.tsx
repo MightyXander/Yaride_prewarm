@@ -4,6 +4,7 @@ import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { hapticNotify } from '../lib/haptics';
+import { showToast } from '../lib/toast';
 import type { Trip, ConfirmKind } from '../types/navigation';
 
 interface BookingConfirmedScreenProps {
@@ -208,7 +209,13 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
       {/* Действия координации */}
       {!isPublish && (
         <>
-          <Button variant="secondary" icon="i-msg">
+          <Button
+            variant="secondary"
+            icon="i-msg"
+            onClick={() =>
+              showToast(`Чат с ${trip ? trip.driver.name.split(' ')[0] : 'водителем'} — скоро`)
+            }
+          >
             Написать {trip ? trip.driver.name.split(' ')[0] : 'водителю'}
           </Button>
           <Button variant="ghost" icon="i-share">

@@ -1,4 +1,5 @@
 import { Icon } from './Icons';
+import { showToast } from '../lib/toast';
 
 interface TopbarProps {
   title: string;
@@ -40,6 +41,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
       </div>
       <button
         aria-label="Фильтры"
+        onClick={() => showToast('Фильтры маршрута — скоро')}
         style={{
           minWidth: '44px',
           minHeight: '44px',
