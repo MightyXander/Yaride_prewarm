@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icons } from './components/Icons';
 import BackButton from './components/BackButton';
 import IntroScreen from './screens/IntroScreen';
@@ -18,6 +19,16 @@ import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/Floating
 import { useNavigation } from './hooks/useNavigation';
 import type { Screen, Trip } from './types/navigation';
 
+// Направленный слайд + fade при смене экрана. direction: 1 — вперёд, -1 — назад.
+const screenVariants = {
+  enter: (dir: 1 | -1) => ({ x: dir * 28, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir: 1 | -1) => ({ x: dir * -28, opacity: 0 }),
+  // При prefers-reduced-motion — только лёгкий fade, без сдвига.
+  reducedInitial: { x: 0, opacity: 0 },
+  reducedExit: { x: 0, opacity: 0 },
+};
+
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (window.Telegram?.WebApp) {
@@ -26,7 +37,9 @@ function App() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
-  const { currentScreen, selectedTrip, confirmKind, navigate, goBack } = useNavigation('intro');
+  const { currentScreen, selectedTrip, confirmKind, direction, navigate, goBack } =
+    useNavigation('intro');
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -158,67 +171,86 @@ function App() {
           paddingRight: 'env(safe-area-inset-right)',
         }}
       >
-        {currentScreen === 'intro' && <IntroScreen onContinue={() => navigate('main')} />}
-        {currentScreen === 'main' && (
-          <MainScreen
-            trips={trips}
-            onTripClick={(trip) => navigate('trip-details', trip)}
-            onEmptyState={() => navigate('empty-state')}
-            onPublish={() => navigate('driver-publish')}
-          />
-        )}
-        {currentScreen === 'main-more' && (
-          <MainScreen
-            trips={tripsMore}
-            subtitle="среда, утро 7:30–8:40 · обновлено"
-            onTripClick={(trip) => navigate('trip-details', trip)}
-            onEmptyState={() => navigate('empty-state')}
-            onPublish={() => navigate('driver-publish')}
-          />
-        )}
-        {currentScreen === 'trip-details' && selectedTrip && (
-          <TripDetailsScreen trip={selectedTrip} onBook={() => navigate('booking-profile')} />
-        )}
-        {currentScreen === 'empty-state' && <EmptyStateScreen />}
-        {currentScreen === 'booking-profile' && selectedTrip && (
-          <BookingProfileScreen
-            trip={selectedTrip}
-            onConfirm={() => navigate('booking-confirmed', null, 'booking')}
-          />
-        )}
-        {currentScreen === 'driver-publish' && (
-          <DriverPublishScreen onPublish={() => navigate('booking-confirmed', null, 'publish')} />
-        )}
-        {currentScreen === 'booking-confirmed' && (
-          <BookingConfirmedScreen
-            kind={confirmKind}
-            trip={selectedTrip}
-            onDone={() => navigate('main-more')}
-            onViewBookings={() => navigate('driver-bookings')}
-            onStartTrip={() => navigate('in-trip')}
-          />
-        )}
-        {currentScreen === 'profile' && (
-          <ProfileScreen
-            onBecomeDriver={() => navigate('become-driver')}
-            onLicenseReview={() => navigate('license-review')}
-            onSafety={() => navigate('safety')}
-          />
-        )}
-        {currentScreen === 'driver-bookings' && (
-          <DriverBookingsScreen onDone={() => navigate('main')} />
-        )}
-        {currentScreen === 'become-driver' && (
-          <BecomeDriverScreen onSubmit={() => navigate('license-review')} />
-        )}
-        {currentScreen === 'license-review' && (
-          <LicenseReviewScreen
-            onFindRide={() => navigate('main')}
-            onRetry={() => navigate('become-driver')}
-          />
-        )}
-        {currentScreen === 'in-trip' && <InTripScreen trip={selectedTrip} />}
-        {currentScreen === 'safety' && <SafetyScreen />}
+<AnimatePresence mode="wait" initial={false} custom={direction}>
+          <motion.div
+            key={currentScreen}
+            custom={direction}
+            variants={screenVariants}
+            initial={prefersReducedMotion ? 'reducedInitial' : 'enter'}
+            animate="center"
+            exit={prefersReducedMotion ? 'reducedExit' : 'exit'}
+            transition={
+              prefersReducedMotion
+                ? { duration: 0.12 }
+                : { type: 'spring', stiffness: 520, damping: 42, mass: 0.9 }
+            }
+            style={{ display: 'flex', flexDirection: 'column', flex: 1 }}
+          >
+            {currentScreen === 'intro' && <IntroScreen onContinue={() => navigate('main')} />}
+            {currentScreen === 'main' && (
+              <MainScreen
+                trips={trips}
+                onTripClick={(trip) => navigate('trip-details', trip)}
+                onEmptyState={() => navigate('empty-state')}
+                onPublish={() => navigate('driver-publish')}
+              />
+            )}
+            {currentScreen === 'main-more' && (
+              <MainScreen
+                trips={tripsMore}
+                subtitle="среда, утро 7:30–8:40 · обновлено"
+                onTripClick={(trip) => navigate('trip-details', trip)}
+                onEmptyState={() => navigate('empty-state')}
+                onPublish={() => navigate('driver-publish')}
+              />
+            )}
+            {currentScreen === 'trip-details' && selectedTrip && (
+              <TripDetailsScreen trip={selectedTrip} onBook={() => navigate('booking-profile')} />
+            )}
+            {currentScreen === 'empty-state' && <EmptyStateScreen />}
+            {currentScreen === 'booking-profile' && selectedTrip && (
+              <BookingProfileScreen
+                trip={selectedTrip}
+                onConfirm={() => navigate('booking-confirmed', null, 'booking')}
+              />
+            )}
+            {currentScreen === 'driver-publish' && (
+              <DriverPublishScreen
+                onPublish={() => navigate('booking-confirmed', null, 'publish')}
+              />
+            )}
+            {currentScreen === 'booking-confirmed' && (
+              <BookingConfirmedScreen
+                kind={confirmKind}
+                trip={selectedTrip}
+                onDone={() => navigate('main-more')}
+                onViewBookings={() => navigate('driver-bookings')}
+                onStartTrip={() => navigate('in-trip')}
+              />
+            )}
+            {currentScreen === 'profile' && (
+              <ProfileScreen
+                onBecomeDriver={() => navigate('become-driver')}
+                onLicenseReview={() => navigate('license-review')}
+                onSafety={() => navigate('safety')}
+              />
+            )}
+            {currentScreen === 'driver-bookings' && (
+              <DriverBookingsScreen onDone={() => navigate('main')} />
+            )}
+            {currentScreen === 'become-driver' && (
+              <BecomeDriverScreen onSubmit={() => navigate('license-review')} />
+            )}
+            {currentScreen === 'license-review' && (
+              <LicenseReviewScreen
+                onFindRide={() => navigate('main')}
+                onRetry={() => navigate('become-driver')}
+              />
+            )}
+            {currentScreen === 'in-trip' && <InTripScreen trip={selectedTrip} />}
+            {currentScreen === 'safety' && <SafetyScreen />}
+          </motion.div>
+        </AnimatePresence>
       </div>
       <FloatingNav
         currentScreen={currentScreen}

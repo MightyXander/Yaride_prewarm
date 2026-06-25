@@ -20,6 +20,9 @@ const PARENT_SCREEN: Record<Screen, Screen> = {
 };
 
 export const useNavigation = (initialScreen: Screen = 'intro') => {
+  // Направление последнего перехода: 1 — вперёд (navigate), -1 — назад (goBack).
+  // Используется для направленных анимаций смены экрана.
+  const [direction, setDirection] = useState<1 | -1>(1);
   const [navState, setNavState] = useState<NavigationState>({
     currentScreen: initialScreen,
     selectedTrip: null,
@@ -59,6 +62,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       // Save current scroll position
       const currentPosition = window.scrollY;
       saveScrollPosition(navState.currentScreen, currentPosition);
+      setDirection(1);
 
       setNavState((prev) => ({
         ...prev,
@@ -78,6 +82,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
   const goBack = useCallback(() => {
     const { currentScreen, scrollPositions } = navState;
     const previousScreen: Screen = PARENT_SCREEN[currentScreen] ?? 'main';
+    setDirection(-1);
 
     setNavState((prev) => ({
       ...prev,
@@ -105,6 +110,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     currentScreen: navState.currentScreen,
     selectedTrip: navState.selectedTrip,
     confirmKind: navState.confirmKind,
+    direction,
     navigate,
     goBack,
   };

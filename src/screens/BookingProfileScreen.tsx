@@ -3,6 +3,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import { hapticSelection, hapticNotify } from '../lib/haptics';
 import type { Trip } from '../types/navigation';
 
 interface BookingProfileScreenProps {
@@ -76,8 +77,16 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
     }
   }, [phoneStep]);
 
+  // Телефон подтверждён — тактильный успех.
+  useEffect(() => {
+    if (phoneStep === 'confirmed') {
+      hapticNotify('success');
+    }
+  }, [phoneStep]);
+
   const handleCodeChange = (index: number, value: string) => {
     const digit = value.replace(/\D/g, '').slice(-1);
+    if (digit) hapticSelection();
     setCode((prev) => {
       const next = [...prev];
       next[index] = digit;

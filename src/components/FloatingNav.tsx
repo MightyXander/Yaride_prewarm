@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from './Icons';
+import { hapticImpact, hapticSelection } from '../lib/haptics';
 import type { Screen } from '../types/navigation';
 
 // Какой таб нижней навигации владеет экраном (2 таба: Поездки / Профиль).
@@ -56,16 +57,6 @@ export const FLOATING_NAV_BOTTOM = 'max(14px, env(safe-area-inset-bottom, 0px))'
 
 /** Сколько padding-bottom добавить контенту, чтобы pill его не перекрывал. */
 export const FLOATING_NAV_CONTENT_PADDING = `calc(${FLOATING_NAV_BOTTOM} + ${FLOATING_NAV_HEIGHT} + 22px)`;
-
-function haptic(kind: 'light' | 'selection') {
-  const hf = window.Telegram?.WebApp?.HapticFeedback;
-  if (!hf) return;
-  if (kind === 'light') {
-    hf.impactOccurred('light');
-  } else {
-    hf.selectionChanged();
-  }
-}
 
 interface FloatingNavProps {
   currentScreen: Screen;
@@ -138,9 +129,9 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
                 aria-label={label}
                 aria-current={active ? 'page' : undefined}
                 title={label}
-                onPointerDown={() => haptic(active ? 'light' : 'selection')}
+                onPointerDown={() => (active ? hapticImpact('light') : hapticSelection())}
                 onClick={() => {
-                  haptic('light');
+                  hapticImpact('light');
                   onNavigate(root);
                 }}
                 style={{

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Card from '../components/ui/Card';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import { hapticNotify } from '../lib/haptics';
 import type { Trip } from '../types/navigation';
 
 interface InTripScreenProps {
@@ -225,7 +226,7 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip }) => {
           aria-pressed={shared}
           onClick={() => {
             setShared(true);
-            window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
+            hapticNotify('success');
           }}
           style={{
             minHeight: '48px',
@@ -253,9 +254,7 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip }) => {
           className="focus-ring pressable"
           aria-label={sosArmed ? 'Подтвердить вызов помощи' : 'Кнопка SOS — вызвать помощь'}
           onClick={() => {
-            window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.(
-              sosArmed ? 'error' : 'warning'
-            );
+            hapticNotify(sosArmed ? 'error' : 'warning');
             setSosArmed((v) => !v);
           }}
           style={{
