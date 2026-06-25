@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Topbar from '../components/Topbar';
 import Hero from '../components/Hero';
 import TripCard from '../components/TripCard';
@@ -13,6 +13,7 @@ interface MainScreenProps {
 
 const MainScreen: React.FC<MainScreenProps> = ({ trips, onTripClick, onEmptyState }) => {
   const firstTripRef = useRef<HTMLDivElement>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const scrollToFirstTrip = () => {
     if (firstTripRef.current) {
@@ -56,7 +57,9 @@ const MainScreen: React.FC<MainScreenProps> = ({ trips, onTripClick, onEmptyStat
               key={trip.id}
               {...trip}
               ref={index === 0 ? firstTripRef : null}
-              onClick={() => onTripClick(trip)}
+              expanded={expandedId === trip.id}
+              onToggle={() => setExpandedId((prev) => (prev === trip.id ? null : trip.id))}
+              onBook={() => onTripClick(trip)}
             />
           ))}
           <div
