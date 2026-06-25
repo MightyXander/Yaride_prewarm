@@ -18,7 +18,10 @@ export type Screen =
   | 'request-published'
   | 'alert-push'
   | 'my-trips'
-  | 'rate-trip';
+  | 'rate-trip'
+  | 'evening-main'
+  | 'evening-publish'
+  | 'habit-home';
 
 // Откуда пришли на экран подтверждения (бронь пассажира или публикация водителя)
 export type ConfirmKind = 'booking' | 'publish';

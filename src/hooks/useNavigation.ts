@@ -22,6 +22,9 @@ const PARENT_SCREEN: Record<Screen, Screen> = {
   'alert-push': 'main',
   'my-trips': 'profile',
   'rate-trip': 'my-trips',
+  'evening-main': 'habit-home',
+  'evening-publish': 'evening-main',
+  'habit-home': 'profile',
 };
 
 export const useNavigation = (initialScreen: Screen = 'intro') => {
@@ -52,6 +55,9 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       'alert-push': 0,
       'my-trips': 0,
       'rate-trip': 0,
+      'evening-main': 0,
+      'evening-publish': 0,
+      'habit-home': 0,
     },
   });
 
