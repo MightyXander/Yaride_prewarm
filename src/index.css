@@ -158,3 +158,43 @@ html {
 [style*="overflow: auto"] {
   scrollbar-gutter: stable;
 }
+
+/* Анимированная градиентная рамка Hero (бренд-тона). Эффект: бликовый conic-
+   gradient медленно вращается по периметру. Заливка Hero (var(--gradient-brand))
+   живёт в padding-box, рамка — в border-box. */
+@property --hero-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes hero-border-spin {
+  to {
+    --hero-angle: 360deg;
+  }
+}
+
+.hero-animated-border {
+  border: 2px solid transparent;
+  background-image: var(--gradient-brand),
+    conic-gradient(
+      from var(--hero-angle),
+      rgba(255, 255, 255, 0) 0deg,
+      rgba(255, 255, 255, 0.9) 38deg,
+      var(--brand-dark) 80deg,
+      rgba(255, 255, 255, 0) 150deg,
+      rgba(255, 255, 255, 0) 205deg,
+      var(--brand-dark) 260deg,
+      rgba(255, 255, 255, 0.9) 318deg,
+      rgba(255, 255, 255, 0) 360deg
+    );
+  background-clip: padding-box, border-box;
+  background-origin: padding-box, border-box;
+  animation: hero-border-spin 6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-animated-border {
+    animation: none;
+  }
+}

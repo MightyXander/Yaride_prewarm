@@ -110,7 +110,9 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
             overflow: 'visible',
             borderRadius: '999px',
             border: '1px solid var(--border)',
-            background: 'color-mix(in srgb, var(--card) 95%, transparent)',
+            // Плотная подложка в цвет карточки поездки — полупрозрачная плохо
+            // читалась в тёмной теме (неактивный таб сливался с фоном).
+            background: 'var(--card)',
             padding: '6px',
             boxShadow: '0 14px 40px -16px rgba(0, 0, 0, .45), 0 2px 8px -4px rgba(0, 0, 0, .25)',
             backdropFilter: 'blur(16px)',
@@ -178,7 +180,9 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
                       height: '18px',
                       flexShrink: 0,
                       strokeWidth: 2,
-                      color: active ? 'var(--brand-foreground)' : 'var(--muted-foreground)',
+                      color: active
+                        ? 'var(--brand-foreground)'
+                        : 'color-mix(in srgb, var(--foreground) 72%, transparent)',
                       transition: 'color 200ms ease',
                     }}
                   />

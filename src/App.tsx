@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icons } from './components/Icons';
 import BackButton from './components/BackButton';
+import ThemeToggle from './components/ThemeToggle';
 import { ToastHost } from './components/ToastHost';
 import IntroScreen from './screens/IntroScreen';
 import MainScreen from './screens/MainScreen';
@@ -38,25 +39,50 @@ const screenVariants = {
 
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    // Ручной выбор темы (кнопка на главной) имеет приоритет над авто-определением.
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('yaride-theme') : null;
+    if (stored === 'light' || stored === 'dark') return stored;
     if (window.Telegram?.WebApp) {
       return window.Telegram.WebApp.colorScheme;
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
+  // Переключение темы вручную + запоминание выбора.
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      try {
+        localStorage.setItem('yaride-theme', next);
+      } catch {
+        /* localStorage недоступен — просто не запоминаем */
+      }
+      return next;
+    });
+  };
+
   const { currentScreen, selectedTrip, confirmKind, direction, navigate, goBack } =
     useNavigation('intro');
   const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
+    // Если пользователь уже выбрал тему вручную — не перетираем её авто-источником.
+    const hasManual = () => {
+      try {
+        const s = localStorage.getItem('yaride-theme');
+        return s === 'light' || s === 'dark';
+      } catch {
+        return false;
+      }
+    };
     const tg = window.Telegram?.WebApp;
     if (tg) {
       tg.ready();
       tg.expand();
-      setTheme(tg.colorScheme);
+      if (!hasManual()) setTheme(tg.colorScheme);
 
       const handleThemeChange = () => {
-        setTheme(tg.colorScheme);
+        if (!hasManual()) setTheme(tg.colorScheme);
       };
       tg.onEvent('themeChanged', handleThemeChange);
 
@@ -66,7 +92,7 @@ function App() {
     } else {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handleChange = (e: MediaQueryListEvent) => {
-        setTheme(e.matches ? 'dark' : 'light');
+        if (!hasManual()) setTheme(e.matches ? 'dark' : 'light');
       };
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
@@ -221,6 +247,8 @@ function App() {
       <Icons />
       <ToastHost />
       <BackButton onClick={goBack} show={showBackButton} />
+      {/* На главных (где нет «назад») слева сверху — кнопка смены темы. */}
+      <ThemeToggle onToggle={toggleTheme} show={!showBackButton && currentScreen !== 'intro'} />
       <div
         style={{
           maxWidth: '390px',
