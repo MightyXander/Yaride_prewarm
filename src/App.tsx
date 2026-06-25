@@ -1,23 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Icons } from './components/Icons';
-import Topbar from './components/Topbar';
-import Hero from './components/Hero';
-import TripCard from './components/TripCard';
-import Button from './components/ui/Button';
-
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp: {
-        ready: () => void;
-        expand: () => void;
-        colorScheme: 'light' | 'dark';
-        onEvent: (eventType: string, callback: () => void) => void;
-        offEvent: (eventType: string, callback: () => void) => void;
-      };
-    };
-  }
-}
+import BackButton from './components/BackButton';
+import IntroScreen from './screens/IntroScreen';
+import MainScreen from './screens/MainScreen';
+import TripDetailsScreen from './screens/TripDetailsScreen';
+import EmptyStateScreen from './screens/EmptyStateScreen';
+import { useNavigation } from './hooks/useNavigation';
+import type { Trip } from './types/navigation';
 
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -27,7 +16,7 @@ function App() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
-  const firstTripRef = useRef<HTMLDivElement>(null);
+  const { currentScreen, selectedTrip, navigate, goBack } = useNavigation('intro');
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -54,48 +43,59 @@ function App() {
     }
   }, []);
 
-  const trips = [
+  const trips: Trip[] = [
     {
+      id: '1',
       driver: {
         name: 'Андрей К.',
         rating: 4.9,
         tripCount: 37,
         avatar: 'А',
+        age: 34,
+        verified: true,
+        memberSince: 'мая 2026',
       },
       address: 'ул. Урицкого, 12',
       car: 'Kia Rio',
       price: '80',
       time: '7:40',
       seats: 2,
+      route: {
+        from: 'Брагино, ул. Урицкого, 12',
+        to: 'Центр, пл. Волкова',
+        duration: '22 мин',
+      },
     },
     {
+      id: '2',
       driver: {
         name: 'Марина С.',
         rating: 5.0,
         tripCount: 12,
         avatar: 'М',
+        age: 29,
+        verified: true,
+        memberSince: 'января 2026',
       },
       address: 'пр-т Дзержинского, 8',
       car: 'VW Polo',
       price: '70',
       time: '7:55',
       seats: 3,
+      route: {
+        from: 'Брагино, пр-т Дзержинского, 8',
+        to: 'Центр, пл. Волкова',
+        duration: '25 мин',
+      },
     },
   ];
 
-  const scrollToFirstTrip = () => {
-    if (firstTripRef.current) {
-      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      firstTripRef.current.scrollIntoView({
-        behavior: prefersReducedMotion ? 'auto' : 'smooth',
-        block: 'start',
-      });
-    }
-  };
+  const showBackButton = currentScreen !== 'intro';
 
   return (
     <div className={theme}>
       <Icons />
+      <BackButton onClick={goBack} show={showBackButton} />
       <div
         style={{
           maxWidth: '390px',
@@ -111,61 +111,16 @@ function App() {
           paddingRight: 'env(safe-area-inset-right)',
         }}
       >
-        <div
-          style={{
-            flex: 1,
-            overflow: 'hidden',
-            padding: '6px 16px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-          }}
-        >
-          <Topbar title="Брагино → Центр" subtitle="среда, утро 7:30–8:40" />
-          <Hero
-            subtitle="Сегодня по маршруту"
-            title={
-              <>
-                3 поездки
-                <br />в твою сторону
-              </>
-            }
-            ctaText="Ближайшая в 7:40"
-            onCtaClick={scrollToFirstTrip}
+        {currentScreen === 'intro' && <IntroScreen onContinue={() => navigate('main')} />}
+        {currentScreen === 'main' && (
+          <MainScreen
+            trips={trips}
+            onTripClick={(trip) => navigate('trip-details', trip)}
+            onEmptyState={() => navigate('empty-state')}
           />
-          {trips.map((trip, index) => (
-            <TripCard key={index} {...trip} ref={index === 0 ? firstTripRef : null} />
-          ))}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '9px',
-              marginTop: 'auto',
-              paddingTop: '6px',
-            }}
-          >
-            <Button variant="primary" icon="i-car">
-              Возьму попутчиков
-            </Button>
-            <Button variant="secondary" icon="i-search">
-              Ищу, кто подвезёт
-            </Button>
-            {import.meta.env.DEV && (
-              <Button
-                variant="ghost"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                style={{
-                  minHeight: '36px',
-                  fontSize: '12px',
-                  marginTop: '8px',
-                }}
-              >
-                Переключить тему ({theme === 'dark' ? 'светлая' : 'тёмная'})
-              </Button>
-            )}
-          </div>
-        </div>
+        )}
+        {currentScreen === 'trip-details' && selectedTrip && <TripDetailsScreen trip={selectedTrip} />}
+        {currentScreen === 'empty-state' && <EmptyStateScreen />}
       </div>
     </div>
   );
