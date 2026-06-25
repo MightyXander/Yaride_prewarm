@@ -58,22 +58,13 @@ const AlertPushScreen: React.FC<AlertPushScreenProps> = ({ trip, onBook }) => {
           alignItems: 'flex-start',
         }}
       >
-        <div
-          style={{
-            width: '34px',
-            height: '34px',
-            borderRadius: '11px',
-            background: 'var(--gradient-brand)',
-            display: 'grid',
-            placeItems: 'center',
-            color: 'var(--brand-foreground)',
-            fontSize: '15px',
-            fontWeight: 800,
-            flexShrink: 0,
-          }}
-        >
-          Y
-        </div>
+        <img
+          src="/brand/icon-192.png"
+          alt="поехали вместе"
+          width={34}
+          height={34}
+          style={{ width: '34px', height: '34px', borderRadius: '11px', display: 'block', flexShrink: 0 }}
+        />
         <div style={{ minWidth: 0 }}>
           <div
             style={{
@@ -85,7 +76,7 @@ const AlertPushScreen: React.FC<AlertPushScreenProps> = ({ trip, onBook }) => {
             }}
           >
             <Icon id="i-bell" style={{ width: '14px', color: 'var(--brand)' }} />
-            Yaride · сейчас
+            поехали вместе · сейчас
           </div>
           <div
             style={{
