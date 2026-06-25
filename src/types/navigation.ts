@@ -7,7 +7,8 @@ export type Screen =
   | 'empty-state'
   | 'booking-profile'
   | 'driver-publish'
-  | 'booking-confirmed';
+  | 'booking-confirmed'
+  | 'profile';
 
 // Откуда пришли на экран подтверждения (бронь пассажира или публикация водителя)
 export type ConfirmKind = 'booking' | 'publish';
