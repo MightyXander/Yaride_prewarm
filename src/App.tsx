@@ -256,6 +256,7 @@ function App() {
           background: 'var(--background)',
           color: 'var(--foreground)',
           minHeight: '100dvh',
+          height: '100dvh',
           display: 'flex',
           flexDirection: 'column',
           paddingTop: 'env(safe-area-inset-top)',
@@ -265,7 +266,7 @@ function App() {
           overflowX: 'clip',
         }}
       >
-<AnimatePresence mode="wait" initial={false} custom={direction}>
+        <AnimatePresence mode="wait" initial={false} custom={direction}>
           <motion.div
             key={currentScreen}
             custom={direction}
@@ -278,7 +279,15 @@ function App() {
                 ? { duration: 0.12 }
                 : { type: 'spring', stiffness: 520, damping: 42, mass: 0.9 }
             }
-            style={{ display: 'flex', flexDirection: 'column', flex: 1 }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
           >
             {currentScreen === 'intro' && <IntroScreen onContinue={() => navigate('main')} />}
             {currentScreen === 'main' && (
