@@ -5,6 +5,9 @@ import IntroScreen from './screens/IntroScreen';
 import MainScreen from './screens/MainScreen';
 import TripDetailsScreen from './screens/TripDetailsScreen';
 import EmptyStateScreen from './screens/EmptyStateScreen';
+import BookingProfileScreen from './screens/BookingProfileScreen';
+import DriverPublishScreen from './screens/DriverPublishScreen';
+import BookingConfirmedScreen from './screens/BookingConfirmedScreen';
 import { useNavigation } from './hooks/useNavigation';
 import type { Trip } from './types/navigation';
 
@@ -16,7 +19,7 @@ function App() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
-  const { currentScreen, selectedTrip, navigate, goBack } = useNavigation('intro');
+  const { currentScreen, selectedTrip, confirmKind, navigate, goBack } = useNavigation('intro');
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -90,6 +93,33 @@ function App() {
     },
   ];
 
+  // Экран 8 «Главный — другие поездки»: тот же главный, но с бóльшим списком рыба-trips
+  const tripsMore: Trip[] = [
+    ...trips,
+    {
+      id: '3',
+      driver: {
+        name: 'Игорь П.',
+        rating: 4.7,
+        tripCount: 54,
+        avatar: 'И',
+        age: 41,
+        verified: true,
+        memberSince: 'марта 2026',
+      },
+      address: 'ул. Свободы, 60',
+      car: 'Skoda Octavia',
+      price: '90',
+      time: '8:10',
+      seats: 1,
+      route: {
+        from: 'Брагино, ул. Свободы, 60',
+        to: 'Центр, пл. Волкова',
+        duration: '24 мин',
+      },
+    },
+  ];
+
   const showBackButton = currentScreen !== 'intro';
 
   return (
@@ -117,10 +147,38 @@ function App() {
             trips={trips}
             onTripClick={(trip) => navigate('trip-details', trip)}
             onEmptyState={() => navigate('empty-state')}
+            onPublish={() => navigate('driver-publish')}
           />
         )}
-        {currentScreen === 'trip-details' && selectedTrip && <TripDetailsScreen trip={selectedTrip} />}
+        {currentScreen === 'main-more' && (
+          <MainScreen
+            trips={tripsMore}
+            subtitle="среда, утро 7:30–8:40 · обновлено"
+            onTripClick={(trip) => navigate('trip-details', trip)}
+            onEmptyState={() => navigate('empty-state')}
+            onPublish={() => navigate('driver-publish')}
+          />
+        )}
+        {currentScreen === 'trip-details' && selectedTrip && (
+          <TripDetailsScreen trip={selectedTrip} onBook={() => navigate('booking-profile')} />
+        )}
         {currentScreen === 'empty-state' && <EmptyStateScreen />}
+        {currentScreen === 'booking-profile' && selectedTrip && (
+          <BookingProfileScreen
+            trip={selectedTrip}
+            onConfirm={() => navigate('booking-confirmed', null, 'booking')}
+          />
+        )}
+        {currentScreen === 'driver-publish' && (
+          <DriverPublishScreen onPublish={() => navigate('booking-confirmed', null, 'publish')} />
+        )}
+        {currentScreen === 'booking-confirmed' && (
+          <BookingConfirmedScreen
+            kind={confirmKind}
+            trip={selectedTrip}
+            onDone={() => navigate('main-more')}
+          />
+        )}
       </div>
     </div>
   );

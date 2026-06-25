@@ -6,9 +6,10 @@ import type { Trip } from '../types/navigation';
 
 interface TripDetailsScreenProps {
   trip: Trip;
+  onBook: () => void;
 }
 
-const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip }) => {
+const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) => {
   const age = trip.driver.age || 34;
   const verified = trip.driver.verified !== false;
   const memberSince = trip.driver.memberSince || 'мая 2026';
@@ -239,8 +240,10 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip }) => {
           paddingTop: '6px',
         }}
       >
-        <Button variant="primary">Забронировать место</Button>
-        <Button variant="ghost" icon="i-sliders" style={{ minHeight: '44px' }}>
+        <Button variant="primary" onClick={onBook}>
+          Забронировать место
+        </Button>
+        <Button variant="ghost" icon="i-share" style={{ minHeight: '44px' }}>
           Поделиться поездкой
         </Button>
       </div>
