@@ -9,6 +9,8 @@ import BookingProfileScreen from './screens/BookingProfileScreen';
 import DriverPublishScreen from './screens/DriverPublishScreen';
 import BookingConfirmedScreen from './screens/BookingConfirmedScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import InTripScreen from './screens/InTripScreen';
+import SafetyScreen from './screens/SafetyScreen';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import type { Screen, Trip } from './types/navigation';
@@ -189,9 +191,12 @@ function App() {
             kind={confirmKind}
             trip={selectedTrip}
             onDone={() => navigate('main-more')}
+            onStartTrip={() => navigate('in-trip')}
           />
         )}
-        {currentScreen === 'profile' && <ProfileScreen />}
+        {currentScreen === 'profile' && <ProfileScreen onSafety={() => navigate('safety')} />}
+        {currentScreen === 'in-trip' && <InTripScreen trip={selectedTrip} />}
+        {currentScreen === 'safety' && <SafetyScreen />}
       </div>
       <FloatingNav
         currentScreen={currentScreen}
