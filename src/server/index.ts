@@ -1,19 +1,24 @@
 /**
- * Точка входа бэкенд-слоя данных prewarm.
+ * Точка входа бэкенд-слоя данных prewarm (PostgreSQL).
  *
- * initDb() открывает соединение, создаёт схему и сидит коридор при первом старте.
- * Вызывается из server.js перед стартом Express, чтобы БД была готова к запросам API
- * (следующий issue). Реэкспорт repo-функций — публичный контракт слоя данных.
+ * initDb() создаёт пул, прогоняет схему и сидит коридор при первом старте.
+ * Вызывается из server.js перед стартом Express, чтобы БД была готова к запросам
+ * API (следующий issue). pingDb() — лёгкий SELECT 1 для /health.
+ * Реэкспорт repo-функций — публичный контракт слоя данных.
  */
 
-import { getDb, resolveDbPath, closeDb } from './db.ts';
+import { ensureReady, getPool, closeDb, getSchemaName } from './db.ts';
 
-export { resolveDbPath, closeDb };
+export { closeDb, getSchemaName };
 export {
   findOpenTrips,
   getTripCard,
   listRoutePoints,
   createBooking,
+  createRouteAlert,
+  createTripFromTemplate,
+  ensureUser,
+  listTripTemplates,
 } from './repo.ts';
 export type {
   TimeSlot,
@@ -23,11 +28,26 @@ export type {
   FindTripsParams,
 } from './repo.ts';
 
+// JSON-API обработчики (issue #10): Express-независимые, подключаются в server.js.
+export {
+  handleListTrips,
+  handleGetTrip,
+  handleCreateBooking,
+  handleCreateAlert,
+  handlePublishTrip,
+} from './api.ts';
+export type { ApiRequest, ApiResponse } from './api.ts';
+
 /**
- * Инициализировать БД (схема + сид). Возвращает путь к файлу БД для лога.
- * Идемпотентно: повторный вызов вернёт то же соединение.
+ * Инициализировать БД (пул + схема + сид). Идемпотентно: повторный вызов
+ * дождётся той же инициализации. Бросает понятную ошибку без DATABASE_URL.
  */
-export function initDb(): { dbPath: string } {
-  getDb();
-  return { dbPath: resolveDbPath() };
+export async function initDb(): Promise<void> {
+  await ensureReady();
+}
+
+/** Лёгкая проверка живости БД для /health: SELECT 1. */
+export async function pingDb(): Promise<boolean> {
+  const res = await getPool().query<{ ok: number }>('SELECT 1 AS ok');
+  return res.rows[0]?.ok === 1;
 }
