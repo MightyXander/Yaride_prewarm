@@ -197,8 +197,11 @@ function App() {
   // Постоянный водитель для экрана 24 «Домой как вчера»
   const regularDriver: Trip = eveningTrips[0];
 
-  // BackButton показываем везде, кроме intro/main/main-more/evening-main/habit-home (Director-требование)
-  const showBackButton = !['intro', 'main', 'main-more', 'evening-main', 'habit-home'].includes(currentScreen);
+  // BackButton показываем везде, кроме «главных» (списки поездок с left-topbar
+  // и нижней навигацией): intro/main/main-more/evening-main/habit-home.
+  const showBackButton = !['intro', 'main', 'main-more', 'evening-main', 'habit-home'].includes(
+    currentScreen
+  );
 
   // Экраны, где показываем плавающую навигацию (и резервируем под неё место).
   const NAV_VISIBLE_SCREENS: Screen[] = [

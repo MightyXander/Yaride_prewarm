@@ -62,7 +62,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
             {PROFILE.name}
             <span style={{ color: 'var(--muted-foreground)', fontWeight: 600 }}>
               {' '}
-              · {PROFILE.age}&nbsp;года
+              · {PROFILE.age}&nbsp;лет
             </span>
           </div>
           {PROFILE.licenseVerified ? (
@@ -103,7 +103,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
       <Card style={{ display: 'flex', alignItems: 'stretch', padding: 0, overflow: 'hidden' }}>
         <div style={{ flex: 1, padding: '14px', textAlign: 'center' }}>
           <div style={{ ...statValueStyle, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <Icon id="i-star" fill style={{ width: '17px', height: '17px', fill: 'var(--star)' }} />
+            <Icon id="i-star" fill style={{ width: '14px', height: '14px', fill: 'var(--star)' }} />
             {PROFILE.rating}
           </div>
           <div style={statLabelStyle}>рейтинг</div>

@@ -44,21 +44,13 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onContinue }) => {
       }}
     >
       <div style={{ marginTop: '8px' }}>
-        <div
-          style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '12px',
-            background: 'var(--gradient-brand)',
-            display: 'grid',
-            placeItems: 'center',
-            fontWeight: 800,
-            color: 'var(--brand-foreground)',
-            fontSize: '18px',
-          }}
-        >
-          Y
-        </div>
+        <img
+          src="/brand/icon-192.png"
+          alt="поехали вместе"
+          width={44}
+          height={44}
+          style={{ width: '44px', height: '44px', borderRadius: '12px', display: 'block' }}
+        />
       </div>
       <div
         style={{
