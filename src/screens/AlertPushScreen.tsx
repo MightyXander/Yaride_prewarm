@@ -36,7 +36,9 @@ const AlertPushScreen: React.FC<AlertPushScreenProps> = ({ trip, onBook }) => {
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: '6px 16px 16px',
+        // Верхний клиренс под плавающую кнопку «назад» (у экрана нет Header,
+        // контент идёт от самого верха — иначе кнопка налезает на пуш-карточку).
+        padding: '52px 16px 16px',
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
