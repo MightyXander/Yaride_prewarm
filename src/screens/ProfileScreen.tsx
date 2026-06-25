@@ -29,7 +29,12 @@ const statLabelStyle: React.CSSProperties = {
   marginTop: '3px',
 };
 
-const ProfileScreen: React.FC = () => {
+interface ProfileScreenProps {
+  /** Открыть экран «Безопасность и SOS» (экран 19). */
+  onSafety?: () => void;
+}
+
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onSafety }) => {
   return (
     <div
       style={{
@@ -141,6 +146,52 @@ const ProfileScreen: React.FC = () => {
             </div>
           </div>
         </div>
+      </Card>
+
+      {/* Меню: безопасность и SOS (экран 19) */}
+      <Card style={{ padding: '4px 6px' }}>
+        <button
+          type="button"
+          className="focus-ring pressable"
+          onClick={() => {
+            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+            onSafety?.();
+          }}
+          style={{
+            width: '100%',
+            minHeight: '52px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '8px 8px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--foreground)',
+            fontFamily: 'var(--font-sans)',
+            textAlign: 'left',
+            borderRadius: '14px',
+          }}
+        >
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '11px',
+              background: 'var(--secondary)',
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon id="i-shield" style={{ width: '17px', height: '17px' }} />
+          </div>
+          <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>Безопасность и SOS</span>
+          <Icon
+            id="i-chev-r"
+            style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }}
+          />
+        </button>
       </Card>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: 'auto', paddingTop: '6px' }}>

@@ -25,6 +25,10 @@
   --shadow-card: 0 6px 22px -16px rgba(0, 0, 0, .30);
   --success: #1f9d57;
   --star: #f4b400;
+  --danger: #e53935;
+  --danger-foreground: #fff;
+  --gradient-danger: linear-gradient(135deg, #ff6a5a 0%, #e53935 100%);
+  --shadow-danger: 0 16px 40px -14px rgba(229, 57, 53, .55);
 }
 
 .dark {
@@ -43,6 +47,10 @@
   --shadow-card: 0 12px 32px -24px rgba(0, 0, 0, .85);
   --success: #4cc38a;
   --star: #ffc107;
+  --danger: #ff5b50;
+  --danger-foreground: #fff;
+  --gradient-danger: linear-gradient(135deg, #ff7063 0%, #f0463f 100%);
+  --shadow-danger: 0 16px 40px -16px rgba(255, 91, 80, .5);
 }
 
 * {
