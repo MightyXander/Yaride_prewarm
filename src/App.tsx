@@ -255,7 +255,8 @@ function App() {
           margin: '0 auto',
           background: 'var(--background)',
           color: 'var(--foreground)',
-          minHeight: '100dvh',
+          height: '100dvh',
+          position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           paddingTop: 'env(safe-area-inset-top)',
@@ -278,7 +279,15 @@ function App() {
                 ? { duration: 0.12 }
                 : { type: 'spring', stiffness: 520, damping: 42, mass: 0.9 }
             }
-            style={{ display: 'flex', flexDirection: 'column', flex: 1 }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
           >
             {currentScreen === 'intro' && <IntroScreen onContinue={() => navigate('main')} />}
             {currentScreen === 'main' && (
