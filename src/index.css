@@ -87,15 +87,37 @@
   min-height: 0;
 }
 
+/* Единое мягкое focus-visible-кольцо для интерактивных элементов.
+   Применяется как класс .focus-ring к кнопкам/инпутам/чипам/опциям. */
+.focus-ring {
+  outline: none;
+  transition: box-shadow 0.14s ease, transform 0.14s ease, border-color 0.12s ease,
+    background 0.12s ease, filter 0.12s ease;
+}
+
+.focus-ring:focus-visible {
+  box-shadow: var(--shadow-card), 0 0 0 3px rgba(255, 221, 45, .35);
+  transform: translateY(-1px);
+}
+
+/* Press-состояние на тач/указателе через :active (работает и на touch) */
+.pressable:active {
+  transform: scale(0.97);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .trip-card,
-  .trip-card-reveal {
+  .trip-card-reveal,
+  .focus-ring,
+  .pressable {
     transition: none;
   }
 
   .trip-card:hover,
   .trip-card:focus-visible,
-  .trip-card.is-pressed {
+  .trip-card.is-pressed,
+  .focus-ring:focus-visible,
+  .pressable:active {
     transform: none;
   }
 }

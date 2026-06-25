@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Select from '../components/ui/Select';
+import Header from '../components/Header';
 import type { SelectOption } from '../components/ui/Select';
 
 interface DriverPublishScreenProps {
@@ -39,8 +40,9 @@ const SelectableChip: React.FC<SelectableChipProps> = ({ label, active, onClick 
     type="button"
     aria-pressed={active}
     onClick={onClick}
+    className="focus-ring pressable"
     style={{
-      minHeight: '38px',
+      minHeight: '44px',
       padding: '6px 14px',
       borderRadius: '999px',
       fontSize: '13px',
@@ -51,24 +53,6 @@ const SelectableChip: React.FC<SelectableChipProps> = ({ label, active, onClick 
       border: `1px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
       background: active ? 'var(--brand)' : 'var(--secondary)',
       color: active ? 'var(--brand-foreground)' : 'var(--secondary-foreground)',
-      transition: 'background 0.12s ease, border-color 0.12s ease, transform 0.08s ease',
-      outline: 'none',
-    }}
-    onMouseDown={(e) => {
-      e.currentTarget.style.transform = 'scale(0.96)';
-    }}
-    onMouseUp={(e) => {
-      e.currentTarget.style.transform = 'scale(1)';
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = 'scale(1)';
-    }}
-    onFocus={(e) => {
-      e.currentTarget.style.outline = '2px solid var(--brand)';
-      e.currentTarget.style.outlineOffset = '2px';
-    }}
-    onBlur={(e) => {
-      e.currentTarget.style.outline = 'none';
     }}
   >
     {label}
@@ -79,10 +63,12 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
   const [time, setTime] = useState<string>('7:40');
   const [seats, setSeats] = useState<number>(2);
   const [pickup, setPickup] = useState<string>('uritskogo');
+  const timeLabelId = useId();
+  const seatsLabelId = useId();
 
   const stepBtnStyle = (enabled: boolean): React.CSSProperties => ({
-    width: '40px',
-    height: '40px',
+    width: '44px',
+    height: '44px',
     borderRadius: '12px',
     border: '1px solid var(--border)',
     background: 'var(--secondary)',
@@ -92,7 +78,6 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
     cursor: enabled ? 'pointer' : 'not-allowed',
     opacity: enabled ? 1 : 0.45,
     fontFamily: 'var(--font-sans)',
-    outline: 'none',
   });
 
   return (
@@ -106,19 +91,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
         gap: '12px',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '6px 2px',
-          gap: '8px',
-        }}
-      >
-        <div style={{ width: '32px', flexShrink: 0 }} />
-        <div style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '-0.01em' }}>Я за рулём</div>
-        <div style={{ width: '32px', flexShrink: 0 }} />
-      </div>
+      <Header title="Я за рулём" />
 
       {/* Маршрут из шаблона */}
       <Card>
@@ -178,8 +151,8 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
       </Card>
 
       {/* Время — чипами */}
-      <div>
-        <div style={sectionLabelStyle}>Когда выезжаешь?</div>
+      <div role="group" aria-labelledby={timeLabelId}>
+        <div id={timeLabelId} style={sectionLabelStyle}>Когда выезжаешь?</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           {TIME_OPTIONS.map((t) => (
             <SelectableChip key={t} label={t} active={time === t} onClick={() => setTime(t)} />
@@ -188,12 +161,13 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
       </div>
 
       {/* Число мест — степпер */}
-      <div>
-        <div style={sectionLabelStyle}>Сколько возьмёшь?</div>
+      <div role="group" aria-labelledby={seatsLabelId}>
+        <div id={seatsLabelId} style={sectionLabelStyle}>Сколько возьмёшь?</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
             type="button"
             aria-label="Меньше мест"
+            className="focus-ring pressable"
             disabled={seats <= MIN_SEATS}
             onClick={() => setSeats((s) => Math.max(MIN_SEATS, s - 1))}
             style={stepBtnStyle(seats > MIN_SEATS)}
@@ -215,6 +189,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
           <button
             type="button"
             aria-label="Больше мест"
+            className="focus-ring pressable"
             disabled={seats >= MAX_SEATS}
             onClick={() => setSeats((s) => Math.min(MAX_SEATS, s + 1))}
             style={stepBtnStyle(seats < MAX_SEATS)}
@@ -226,12 +201,11 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
 
       {/* Точка сбора — Select */}
       <div>
-        <div style={sectionLabelStyle}>Точка сбора</div>
         <Select
           options={PICKUP_OPTIONS}
           value={pickup}
           onChange={setPickup}
-          aria-label="Точка сбора"
+          label="Точка сбора"
         />
       </div>
 

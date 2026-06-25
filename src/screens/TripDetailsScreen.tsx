@@ -1,6 +1,7 @@
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
+import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import type { Trip } from '../types/navigation';
 
@@ -25,41 +26,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
         gap: '12px',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '6px 2px',
-          gap: '8px',
-        }}
-      >
-        <div style={{ width: '32px', flexShrink: 0 }} />
-        <div
-          style={{
-            fontWeight: 800,
-            fontSize: '14px',
-            letterSpacing: '-0.01em',
-          }}
-        >
-          Поездка {trip.time}
-        </div>
-        <div
-          style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '11px',
-            background: 'var(--secondary)',
-            display: 'grid',
-            placeItems: 'center',
-            color: 'var(--foreground)',
-            fontSize: '16px',
-            flexShrink: 0,
-          }}
-        >
-          <Icon id="i-sliders" style={{ width: '16px', height: '16px' }} />
-        </div>
-      </div>
+      <Header title={`Поездка ${trip.time}`} />
 
       <Card
         style={{

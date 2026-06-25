@@ -1,10 +1,37 @@
+import { useState } from 'react';
 import Button from '../components/ui/Button';
 
 interface IntroScreenProps {
   onContinue: () => void;
 }
 
+interface RouteData {
+  id: string;
+  title: string;
+  subtitle: string;
+}
+
+const ROUTES: RouteData[] = [
+  { id: 'bragino-center', title: 'Брагино → Центр', subtitle: '7:30–8:40 · будни' },
+  { id: 'center-bragino', title: 'Центр → Брагино', subtitle: '17:30–19:00 · будни' },
+];
+
 const IntroScreen: React.FC<IntroScreenProps> = ({ onContinue }) => {
+  const [selectedRoute, setSelectedRoute] = useState<string>(ROUTES[0].id);
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setSelectedRoute(ROUTES[index].id);
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      setSelectedRoute(ROUTES[(index + 1) % ROUTES.length].id);
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setSelectedRoute(ROUTES[(index - 1 + ROUTES.length) % ROUTES.length].id);
+    }
+  };
+
   return (
     <div
       style={{
@@ -56,6 +83,7 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onContinue }) => {
         Утром по одному маршруту — дешевле и живее автобуса.
       </div>
       <div
+        id="route-group-label"
         style={{
           marginTop: '10px',
           fontSize: '11px',
@@ -67,16 +95,22 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onContinue }) => {
       >
         Куда едешь утром?
       </div>
-      <RouteOption
-        selected
-        title="Брагино → Центр"
-        subtitle="7:30–8:40 · будни"
-      />
-      <RouteOption
-        selected={false}
-        title="Центр → Брагино"
-        subtitle="17:30–19:00 · будни"
-      />
+      <div
+        role="radiogroup"
+        aria-labelledby="route-group-label"
+        style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+      >
+        {ROUTES.map((route, index) => (
+          <RouteOption
+            key={route.id}
+            selected={selectedRoute === route.id}
+            title={route.title}
+            subtitle={route.subtitle}
+            onSelect={() => setSelectedRoute(route.id)}
+            onKeyDown={(e) => handleKeyDown(index, e)}
+          />
+        ))}
+      </div>
       <div
         style={{
           display: 'flex',
@@ -108,14 +142,25 @@ interface RouteOptionProps {
   selected: boolean;
   title: string;
   subtitle: string;
+  onSelect: () => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
-const RouteOption: React.FC<RouteOptionProps> = ({ selected, title, subtitle }) => {
+const RouteOption: React.FC<RouteOptionProps> = ({
+  selected,
+  title,
+  subtitle,
+  onSelect,
+  onKeyDown,
+}) => {
   return (
     <div
       role="radio"
       aria-checked={selected}
-      tabIndex={0}
+      tabIndex={selected ? 0 : -1}
+      className="focus-ring pressable"
+      onClick={onSelect}
+      onKeyDown={onKeyDown}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -128,12 +173,6 @@ const RouteOption: React.FC<RouteOptionProps> = ({ selected, title, subtitle }) 
         boxShadow: selected ? 'inset 0 0 0 1px var(--brand)' : 'none',
         fontWeight: 700,
         cursor: 'pointer',
-        transition: 'border-color 0.12s ease, box-shadow 0.12s ease',
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-        }
       }}
     >
       <span
