@@ -20,6 +20,7 @@ import RequestPublishedScreen from './screens/RequestPublishedScreen';
 import AlertPushScreen from './screens/AlertPushScreen';
 import MyTripsScreen from './screens/MyTripsScreen';
 import RateTripScreen from './screens/RateTripScreen';
+import HabitHomeScreen from './screens/HabitHomeScreen';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import type { Screen, Trip } from './types/navigation';
@@ -145,8 +146,59 @@ function App() {
     },
   ];
 
-  // BackButton показываем везде, кроме intro/main/main-more (Director-требование)
-  const showBackButton = !['intro', 'main', 'main-more'].includes(currentScreen);
+  // Вечерние поездки (экраны 21–24): Центр → Брагино, 17:30–19:00
+  const eveningTrips: Trip[] = [
+    {
+      id: 'e1',
+      driver: {
+        name: 'Марина С.',
+        rating: 5.0,
+        tripCount: 12,
+        avatar: 'М',
+        age: 29,
+        verified: true,
+        memberSince: 'апреля 2026',
+      },
+      address: 'от пл. Волкова',
+      car: 'VW Polo',
+      price: '70',
+      time: '17:40',
+      seats: 2,
+      route: {
+        from: 'Центр, пл. Волкова',
+        to: 'Брагино, ул. Урицкого, 12',
+        duration: '24 мин',
+      },
+    },
+    {
+      id: 'e2',
+      driver: {
+        name: 'Олег В.',
+        rating: 4.8,
+        tripCount: 43,
+        avatar: 'О',
+        age: 35,
+        verified: true,
+        memberSince: 'марта 2026',
+      },
+      address: 'ул. Свободы, 60',
+      car: 'Hyundai Solaris',
+      price: '80',
+      time: '18:05',
+      seats: 3,
+      route: {
+        from: 'Центр, ул. Свободы, 60',
+        to: 'Брагино, ул. Урицкого, 12',
+        duration: '26 мин',
+      },
+    },
+  ];
+
+  // Постоянный водитель для экрана 24 «Домой как вчера»
+  const regularDriver: Trip = eveningTrips[0];
+
+  // BackButton показываем везде, кроме intro/main/main-more/evening-main/habit-home (Director-требование)
+  const showBackButton = !['intro', 'main', 'main-more', 'evening-main', 'habit-home'].includes(currentScreen);
 
   // Экраны, где показываем плавающую навигацию (и резервируем под неё место).
   const NAV_VISIBLE_SCREENS: Screen[] = [
@@ -155,6 +207,8 @@ function App() {
     'trip-details',
     'empty-state',
     'profile',
+    'evening-main',
+    'habit-home',
   ];
   const navVisible = NAV_VISIBLE_SCREENS.includes(currentScreen);
 
@@ -246,6 +300,7 @@ function App() {
                 onLicenseReview={() => navigate('license-review')}
                 onSafety={() => navigate('safety')}
                 onMyTrips={() => navigate('my-trips')}
+                onHabitHome={() => navigate('habit-home')}
               />
             )}
             {currentScreen === 'driver-bookings' && (
@@ -282,6 +337,36 @@ function App() {
             )}
             {currentScreen === 'rate-trip' && (
               <RateTripScreen trip={selectedTrip ?? undefined} onSubmit={goBack} onClose={goBack} />
+            )}
+            {currentScreen === 'habit-home' && (
+              <HabitHomeScreen
+                regularDriver={regularDriver}
+                onBookRegular={() => navigate('booking-confirmed', regularDriver, 'booking')}
+                onViewOthers={() => navigate('evening-main')}
+              />
+            )}
+            {currentScreen === 'evening-main' && (
+              <MainScreen
+                trips={eveningTrips}
+                title="Центр → Брагино"
+                subtitle="среда, вечер 17:30–19:00"
+                heroKicker="Сегодня домой"
+                onTripClick={(trip) => navigate('trip-details', trip)}
+                onEmptyState={() => navigate('empty-state')}
+                onPublish={() => navigate('evening-publish')}
+              />
+            )}
+            {currentScreen === 'evening-publish' && (
+              <DriverPublishScreen
+                title="Я за рулём · домой"
+                timeOptions={['17:30', '17:40', '18:00', '18:30', 'другое']}
+                defaultTime="17:40"
+                routeFrom="Центр, пл. Волкова"
+                routeTo="Брагино, ул. Урицкого, 12"
+                routeLabel="Маршрут · обратный, из шаблона"
+                defaultPickup="volkova"
+                onPublish={() => navigate('booking-confirmed', null, 'publish')}
+              />
             )}
           </motion.div>
         </AnimatePresence>

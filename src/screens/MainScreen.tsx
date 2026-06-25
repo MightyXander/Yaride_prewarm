@@ -11,6 +11,8 @@ interface MainScreenProps {
   onEmptyState: () => void;
   onPublish: () => void;
   subtitle?: string;
+  title?: string;
+  heroKicker?: string;
 }
 
 const MainScreen: React.FC<MainScreenProps> = ({
@@ -19,6 +21,8 @@ const MainScreen: React.FC<MainScreenProps> = ({
   onEmptyState,
   onPublish,
   subtitle = 'среда, утро 7:30–8:40',
+  title = 'Брагино → Центр',
+  heroKicker = 'Сегодня по маршруту',
 }) => {
   const firstTripRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -46,11 +50,11 @@ const MainScreen: React.FC<MainScreenProps> = ({
         gap: '12px',
       }}
     >
-      <Topbar title="Брагино → Центр" subtitle={subtitle} />
+      <Topbar title={title} subtitle={subtitle} />
       {hasTrips ? (
         <>
           <Hero
-            subtitle="Сегодня по маршруту"
+            subtitle={heroKicker}
             title={
               <>
                 {trips.length} {trips.length === 1 ? 'поездка' : trips.length < 5 ? 'поездки' : 'поездок'}

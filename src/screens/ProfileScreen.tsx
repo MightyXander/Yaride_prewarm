@@ -36,9 +36,11 @@ interface ProfileScreenProps {
   onSafety?: () => void;
   /** Открыть экран «Мои поездки» (экран 17). */
   onMyTrips?: () => void;
+  /** Открыть экран «Домой как вчера» (экран 24). */
+  onHabitHome?: () => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onHabitHome }) => {
   return (
     <div
       style={{
@@ -166,7 +168,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
         </div>
       </Card>
 
-      {/* Меню: мои поездки (экран 17) и безопасность (экран 19) */}
+      {/* Меню: мои поездки (экран 17), безопасность (экран 19), вечер домой (экран 24) */}
       <Card style={{ padding: '4px 6px' }}>
         <button
           type="button"
@@ -248,6 +250,49 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
             <Icon id="i-shield" style={{ width: '17px', height: '17px' }} />
           </div>
           <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>Безопасность и SOS</span>
+          <Icon
+            id="i-chev-r"
+            style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }}
+          />
+        </button>
+        <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
+        <button
+          type="button"
+          className="focus-ring pressable"
+          onClick={() => {
+            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+            onHabitHome?.();
+          }}
+          style={{
+            width: '100%',
+            minHeight: '52px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '8px 8px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--foreground)',
+            fontFamily: 'var(--font-sans)',
+            textAlign: 'left',
+            borderRadius: '14px',
+          }}
+        >
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '11px',
+              background: 'var(--secondary)',
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon id="i-clock" style={{ width: '17px', height: '17px' }} />
+          </div>
+          <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>Вечер: домой как вчера</span>
           <Icon
             id="i-chev-r"
             style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }}

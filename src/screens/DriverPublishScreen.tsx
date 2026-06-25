@@ -8,6 +8,13 @@ import type { SelectOption } from '../components/ui/Select';
 
 interface DriverPublishScreenProps {
   onPublish: () => void;
+  title?: string;
+  timeOptions?: string[];
+  defaultTime?: string;
+  routeFrom?: string;
+  routeTo?: string;
+  routeLabel?: string;
+  defaultPickup?: string;
 }
 
 const sectionLabelStyle: React.CSSProperties = {
@@ -19,15 +26,21 @@ const sectionLabelStyle: React.CSSProperties = {
   marginBottom: '6px',
 };
 
-const TIME_OPTIONS = ['7:30', '7:40', '7:55', '8:10', 'другое'];
+const DEFAULT_TIME_OPTIONS = ['7:30', '7:40', '7:55', '8:10', 'другое'];
 const MIN_SEATS = 1;
 const MAX_SEATS = 4;
 
-const PICKUP_OPTIONS: SelectOption[] = [
+const DEFAULT_PICKUP_OPTIONS: SelectOption[] = [
   { value: 'uritskogo', label: 'ул. Урицкого, 12' },
   { value: 'dzerzhinskogo', label: 'пр-т Дзержинского, 8' },
   { value: 'svobody', label: 'ул. Свободы, 60' },
   { value: 'leningradsky', label: 'Ленинградский пр-т, 40' },
+];
+
+const EVENING_PICKUP_OPTIONS: SelectOption[] = [
+  { value: 'volkova', label: 'пл. Волкова, у фонтана' },
+  { value: 'svobody', label: 'ул. Свободы, 60' },
+  { value: 'dzerzhinskogo', label: 'пр-т Дзержинского, 8' },
 ];
 
 interface SelectableChipProps {
@@ -63,12 +76,24 @@ const SelectableChip: React.FC<SelectableChipProps> = ({ label, active, onClick 
   </button>
 );
 
-const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) => {
-  const [time, setTime] = useState<string>('7:40');
+const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
+  onPublish,
+  title = 'Я за рулём',
+  timeOptions = DEFAULT_TIME_OPTIONS,
+  defaultTime = '7:40',
+  routeFrom = 'Брагино, ул. Урицкого, 12',
+  routeTo = 'Центр, пл. Волкова',
+  routeLabel = 'Маршрут · из шаблона',
+  defaultPickup = 'uritskogo',
+}) => {
+  const [time, setTime] = useState<string>(defaultTime);
   const [seats, setSeats] = useState<number>(2);
-  const [pickup, setPickup] = useState<string>('uritskogo');
+  const [pickup, setPickup] = useState<string>(defaultPickup);
   const timeLabelId = useId();
   const seatsLabelId = useId();
+
+  // Определяем опции точки сбора в зависимости от дефолта
+  const pickupOptions = defaultPickup === 'volkova' ? EVENING_PICKUP_OPTIONS : DEFAULT_PICKUP_OPTIONS;
 
   const stepBtnStyle = (enabled: boolean): React.CSSProperties => ({
     width: '44px',
@@ -95,11 +120,11 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
         gap: '12px',
       }}
     >
-      <Header title="Я за рулём" />
+      <Header title={title} />
 
       {/* Маршрут из шаблона */}
       <Card>
-        <div style={sectionLabelStyle}>Маршрут · из шаблона</div>
+        <div style={sectionLabelStyle}>{routeLabel}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', margin: '4px 0' }}>
           <div
             style={{
@@ -121,7 +146,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
                 flexShrink: 0,
               }}
             />
-            Брагино, ул. Урицкого, 12
+            {routeFrom}
           </div>
           <div
             style={{
@@ -149,7 +174,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
                 flexShrink: 0,
               }}
             />
-            Центр, пл. Волкова
+            {routeTo}
           </div>
         </div>
       </Card>
@@ -158,7 +183,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
       <div role="group" aria-labelledby={timeLabelId}>
         <div id={timeLabelId} style={sectionLabelStyle}>Когда выезжаешь?</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {TIME_OPTIONS.map((t) => (
+          {timeOptions.map((t) => (
             <SelectableChip key={t} label={t} active={time === t} onClick={() => setTime(t)} />
           ))}
         </div>
@@ -212,7 +237,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({ onPublish }) 
       {/* Точка сбора — Select */}
       <div>
         <Select
-          options={PICKUP_OPTIONS}
+          options={pickupOptions}
           value={pickup}
           onChange={setPickup}
           label="Точка сбора"
