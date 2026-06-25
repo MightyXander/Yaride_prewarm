@@ -26,6 +26,8 @@ const HIDDEN_ON: Screen[] = [
   'driver-bookings',
   'become-driver',
   'license-review',
+  'in-trip',
+  'safety',
 ];
 
 // Маппинг экрана → корневой таб. Поток поездок → Поездки; профиль → Профиль.
@@ -42,6 +44,8 @@ const SCREEN_TO_TAB: Record<Screen, NavTabRoot | null> = {
   'driver-bookings': 'main',
   'become-driver': 'profile',
   'license-review': 'profile',
+  'in-trip': 'main',
+  safety: 'profile',
 };
 
 /** Высота pill без внешних отступов. */

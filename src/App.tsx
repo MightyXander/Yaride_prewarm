@@ -12,6 +12,8 @@ import ProfileScreen from './screens/ProfileScreen';
 import DriverBookingsScreen from './screens/DriverBookingsScreen';
 import BecomeDriverScreen from './screens/BecomeDriverScreen';
 import LicenseReviewScreen from './screens/LicenseReviewScreen';
+import InTripScreen from './screens/InTripScreen';
+import SafetyScreen from './screens/SafetyScreen';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import type { Screen, Trip } from './types/navigation';
@@ -193,12 +195,14 @@ function App() {
             trip={selectedTrip}
             onDone={() => navigate('main-more')}
             onViewBookings={() => navigate('driver-bookings')}
+            onStartTrip={() => navigate('in-trip')}
           />
         )}
         {currentScreen === 'profile' && (
           <ProfileScreen
             onBecomeDriver={() => navigate('become-driver')}
             onLicenseReview={() => navigate('license-review')}
+            onSafety={() => navigate('safety')}
           />
         )}
         {currentScreen === 'driver-bookings' && (
@@ -213,6 +217,8 @@ function App() {
             onRetry={() => navigate('become-driver')}
           />
         )}
+        {currentScreen === 'in-trip' && <InTripScreen trip={selectedTrip} />}
+        {currentScreen === 'safety' && <SafetyScreen />}
       </div>
       <FloatingNav
         currentScreen={currentScreen}

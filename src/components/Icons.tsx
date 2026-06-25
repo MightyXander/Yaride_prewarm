@@ -79,6 +79,19 @@ export const Icons = () => (
     <symbol id="i-x" viewBox="0 0 24 24">
       <path d="M6 6l12 12M18 6L6 18" />
     </symbol>
+    <symbol id="i-sos" viewBox="0 0 24 24">
+      <path d="M12 3l7 2.8v5.2c0 4.6-3.2 7.7-7 8.8-3.8-1.1-7-4.2-7-8.8V5.8z" />
+      <path d="M12 8.5v4M12 15.4v.2" />
+    </symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24">
+      <path d="M12 21s7-5.5 7-11a7 7 0 0 0-14 0c0 5.5 7 11 7 11z" />
+      <circle cx="12" cy="10" r="2.6" />
+    </symbol>
+    <symbol id="i-more" viewBox="0 0 24 24">
+      <circle cx="5.5" cy="12" r="1.4" />
+      <circle cx="12" cy="12" r="1.4" />
+      <circle cx="18.5" cy="12" r="1.4" />
+    </symbol>
   </svg>
 );
 
