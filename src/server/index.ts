@@ -7,9 +7,9 @@
  * Реэкспорт repo-функций — публичный контракт слоя данных.
  */
 
-import { ensureReady, getPool, closeDb } from './db.ts';
+import { ensureReady, getPool, closeDb, getSchemaName } from './db.ts';
 
-export { closeDb };
+export { closeDb, getSchemaName };
 export {
   findOpenTrips,
   getTripCard,

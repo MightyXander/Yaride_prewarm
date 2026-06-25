@@ -12,10 +12,12 @@ const __dirname = path.dirname(__filename);
 // отдаёт db:false и API возвращает 503.
 let pingDb = null;
 let api = null;
+let dbSchema = null;
 try {
   const mod = await import('./dist-server/index.js');
   await mod.initDb();
   pingDb = mod.pingDb;
+  dbSchema = mod.getSchemaName?.() ?? null;
   api = {
     listTrips: mod.handleListTrips,
     getTrip: mod.handleGetTrip,
@@ -47,7 +49,7 @@ app.get('/health', async (req, res) => {
       db = false;
     }
   }
-  res.status(200).json({ status: 'ok', db });
+  res.status(200).json({ status: 'ok', db, schema: dbSchema });
 });
 
 /**
