@@ -13,11 +13,13 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '6px 2px',
+        // Левый отступ — под плавающую кнопку смены темы (слева сверху на главных),
+        // чтобы она не перекрывала заголовок.
+        padding: '6px 2px 6px 40px',
         gap: '8px',
       }}
     >
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div
           style={{
             fontWeight: 800,

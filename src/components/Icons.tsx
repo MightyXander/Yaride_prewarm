@@ -25,6 +25,9 @@ export const Icons = () => (
     <symbol id="i-check" viewBox="0 0 24 24">
       <polyline points="20 6 9 17 4 12" />
     </symbol>
+    <symbol id="i-theme" viewBox="0 0 24 24">
+      <path d="M20 13.2A8 8 0 1 1 10.8 4a6.3 6.3 0 0 0 9.2 9.2z" />
+    </symbol>
     <symbol id="i-chev-l" viewBox="0 0 24 24">
       <path d="M14.5 6l-6 6 6 6" />
     </symbol>

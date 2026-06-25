@@ -10,18 +10,17 @@ interface HeroProps {
 const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => {
   return (
     <div
+      className="hero-animated-border"
       style={{
         position: 'relative',
         overflow: 'hidden',
         borderRadius: 'var(--radius-3xl)',
-        background: 'var(--gradient-brand)',
         color: 'var(--brand-foreground)',
         padding: '16px 18px',
         minHeight: '126px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
-        border: '1px solid rgba(212, 180, 0, .22)',
         boxShadow: 'var(--shadow-hero)',
       }}
     >
