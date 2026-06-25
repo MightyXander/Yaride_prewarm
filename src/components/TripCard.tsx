@@ -1,4 +1,4 @@
-import { forwardRef, useState } from 'react';
+import { forwardRef } from 'react';
 import { Icon } from './Icons';
 import Card from './ui/Card';
 import Avatar from './ui/Avatar';
@@ -16,25 +16,24 @@ interface TripCardProps {
   price: string;
   time: string;
   seats: number;
+  onClick?: () => void;
 }
 
 const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
-  ({ driver, address, car, price, time, seats }, ref) => {
-    const [expanded, setExpanded] = useState(false);
+  ({ driver, address, car, price, time, seats, onClick }, ref) => {
     return (
       <div ref={ref}>
         <Card
           role="button"
           tabIndex={0}
-          aria-expanded={expanded}
           aria-label={`Поездка от ${driver.name} в ${time}, ${seats} ${
             seats === 1 ? 'место' : seats < 5 ? 'места' : 'мест'
           }, нажмите для деталей`}
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => onClick?.()}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              setExpanded(!expanded);
+              onClick?.();
             }
           }}
           style={{
@@ -47,7 +46,7 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
             outline: 'none',
           }}
           onMouseDown={(e) => {
-            e.currentTarget.style.transform = 'scale(0.97)';
+            e.currentTarget.style.transform = 'scale(0.98)';
           }}
           onMouseUp={(e) => {
             e.currentTarget.style.transform = 'scale(1)';
@@ -112,21 +111,6 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
               <span>{car}</span>
               <span>≈{price} ₽</span>
             </div>
-            {expanded && (
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: 'var(--muted-foreground)',
-                  marginTop: '6px',
-                  paddingTop: '9px',
-                  borderTop: '1px solid var(--border)',
-                  lineHeight: 1.5,
-                }}
-              >
-                <div>📍 Точка сбора: {address}</div>
-                <div style={{ marginTop: '4px' }}>🕐 Окно времени: {time} ± 5 мин</div>
-              </div>
-            )}
           </div>
           <div
             style={{

@@ -52,9 +52,12 @@ const MainScreen: React.FC<MainScreenProps> = ({ trips, onTripClick, onEmptyStat
             onCtaClick={scrollToFirstTrip}
           />
           {trips.map((trip, index) => (
-            <div key={trip.id} onClick={() => onTripClick(trip)}>
-              <TripCard {...trip} ref={index === 0 ? firstTripRef : null} />
-            </div>
+            <TripCard
+              key={trip.id}
+              {...trip}
+              ref={index === 0 ? firstTripRef : null}
+              onClick={() => onTripClick(trip)}
+            />
           ))}
           <div
             style={{
