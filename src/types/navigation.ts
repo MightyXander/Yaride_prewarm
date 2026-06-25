@@ -9,6 +9,9 @@ export type Screen =
   | 'driver-publish'
   | 'booking-confirmed'
   | 'profile'
+  | 'driver-bookings'
+  | 'become-driver'
+  | 'license-review'
   | 'in-trip'
   | 'safety';
 

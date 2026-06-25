@@ -30,11 +30,13 @@ const statLabelStyle: React.CSSProperties = {
 };
 
 interface ProfileScreenProps {
+  onBecomeDriver: () => void;
+  onLicenseReview: () => void;
   /** Открыть экран «Безопасность и SOS» (экран 19). */
   onSafety?: () => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onSafety }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety }) => {
   return (
     <div
       style={{
@@ -109,8 +111,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onSafety }) => {
         </div>
       </Card>
 
-      {/* Статус ВУ — отдельная карточка */}
-      <Card>
+      {/* Статус ВУ — карточка-кнопка, ведёт на экран проверки ВУ */}
+      <Card
+        role="button"
+        tabIndex={0}
+        aria-label="Открыть статус водительского удостоверения"
+        className="focus-ring pressable"
+        onClick={onLicenseReview}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onLicenseReview();
+          }
+        }}
+        style={{ cursor: 'pointer' }}
+      >
         <div
           style={{
             fontSize: '11px',
@@ -139,12 +154,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onSafety }) => {
           >
             <Icon id="i-shield" style={{ width: '18px', height: '18px', strokeWidth: 2 }} />
           </div>
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: '14px', fontWeight: 700 }}>Водительское удостоверение</div>
             <div style={{ fontSize: '12px', color: 'var(--success)', fontWeight: 600, marginTop: '2px' }}>
               {PROFILE.licenseVerified ? 'Подтверждено' : 'На проверке'}
             </div>
           </div>
+          <Icon id="i-chev-r" style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }} />
         </div>
       </Card>
 
@@ -195,6 +211,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onSafety }) => {
       </Card>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: 'auto', paddingTop: '6px' }}>
+        <Button variant="primary" icon="i-car" onClick={onBecomeDriver}>
+          Стать водителем
+        </Button>
         <Button variant="ghost" icon="i-sliders">
           Настройки
         </Button>
