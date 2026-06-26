@@ -21,6 +21,7 @@ import type {
   GetTripBookingsResponse,
   CancelBookingRequest,
   CancelBookingResponse,
+  GetRoutePointsResponse,
   ApiErrorResponse,
 } from '../types/api.ts';
 
@@ -165,4 +166,9 @@ export async function cancelBookingByDriver(bookingId: number): Promise<CancelBo
     method: 'PATCH',
     body: JSON.stringify(params),
   });
+}
+
+/** GET /api/route-points */
+export async function getRoutePoints(): Promise<GetRoutePointsResponse> {
+  return apiFetch<GetRoutePointsResponse>('/route-points');
 }

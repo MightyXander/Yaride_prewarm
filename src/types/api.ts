@@ -210,6 +210,22 @@ export interface CancelBookingResponse {
   result: CancelBookingResult;
 }
 
+// GET /api/route-points
+export interface RoutePoint {
+  id: number;
+  locality: string;
+  district: string;
+  admin_area: string;
+  title: string;
+  kind: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+export interface GetRoutePointsResponse {
+  points: RoutePoint[];
+}
+
 // Ошибки
 export interface ApiErrorResponse {
   error: string;
