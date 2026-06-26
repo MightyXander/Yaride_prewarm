@@ -362,11 +362,16 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
     getTripCard(trip.tripId)
       .then((tripCard) => {
         if (tripCard !== null) {
+          // Вычислить time_slot из departureTime (час < 12 → morning, иначе evening)
+          const hour = parseInt(trip.departureTime.split(':')[0], 10);
+          const timeSlot: 'morning' | 'evening' = hour < 12 ? 'morning' : 'evening';
+
           void notifyPassengersAboutNewTrip({
             tripId: trip.tripId,
             startPointId: tripCard.start_point_id,
             endPointId: tripCard.end_point_id,
             tripDate: trip.tripDate,
+            timeSlot,
             departureTime: trip.departureTime,
             startTitle: tripCard.start_title,
             endTitle: tripCard.end_title,
