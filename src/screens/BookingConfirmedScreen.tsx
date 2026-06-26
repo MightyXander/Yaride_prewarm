@@ -6,10 +6,12 @@ import { Icon } from '../components/Icons';
 import { hapticNotify } from '../lib/haptics';
 import { showToast } from '../lib/toast';
 import type { Trip, ConfirmKind } from '../types/navigation';
+import type { BookingResult } from '../types/api';
 
 interface BookingConfirmedScreenProps {
   kind: ConfirmKind;
   trip: Trip | null;
+  booking?: BookingResult | null;
   onDone: () => void;
   /** Только для publish: открыть список броней пассажиров на свой рейс. */
   onViewBookings?: () => void;
@@ -29,6 +31,7 @@ const sectionLabelStyle: React.CSSProperties = {
 const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
   kind,
   trip,
+  booking,
   onDone,
   onViewBookings,
   onStartTrip,
@@ -257,6 +260,11 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
           ) : (
             <>
               Напомним вечером накануне. <b style={{ fontWeight: 700 }}>SOS</b> доступен в поездке.
+              {booking && (
+                <div style={{ marginTop: '4px', fontSize: '10px', opacity: 0.7 }}>
+                  Бронь #{booking.bookingId}
+                </div>
+              )}
             </>
           )}
         </div>

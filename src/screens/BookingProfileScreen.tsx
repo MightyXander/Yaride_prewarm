@@ -4,11 +4,14 @@ import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
+import { showToast } from '../lib/toast';
+import { createBooking } from '../lib/api';
 import type { Trip } from '../types/navigation';
+import type { BookingResult } from '../types/api';
 
 interface BookingProfileScreenProps {
   trip: Trip;
-  onConfirm: () => void;
+  onConfirm: (booking: BookingResult) => void;
 }
 
 // Заглушка имени из Telegram, фолбэк — пусто (покажем инпут)
@@ -49,6 +52,9 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
   // Телефон: 'idle' → 'otp' (ввод кода) → 'checking' (проверяем…) → 'confirmed'
   const [phoneStep, setPhoneStep] = useState<'idle' | 'otp' | 'checking' | 'confirmed'>('idle');
   const [code, setCode] = useState<string[]>(['', '', '', '']);
+  // Состояния создания брони
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const nameInputId = useId();
   const otpLegendId = useId();
@@ -100,6 +106,29 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
   const handleCodeKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Backspace' && !code[index] && index > 0) {
       otpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleConfirmBooking = async () => {
+    setIsCreating(true);
+    setError(null);
+
+    try {
+      const tripId = Number(trip.id);
+      if (isNaN(tripId)) {
+        throw new Error('Некорректный ID поездки');
+      }
+
+      const response = await createBooking({ tripId });
+      hapticNotify('success');
+      onConfirm(response.booking);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Не удалось создать бронь';
+      setError(message);
+      showToast(message);
+      hapticNotify('error');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -293,9 +322,25 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
           paddingTop: '6px',
         }}
       >
-        <Button variant="primary" onClick={onConfirm} disabled={!canConfirm}>
-          Подтвердить бронь
+        {error && (
+          <Card variant="accent" style={{ background: 'var(--destructive)', padding: '12px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--destructive-foreground)', lineHeight: 1.5 }}>
+              <b style={{ fontWeight: 700 }}>Ошибка:</b> {error}
+            </div>
+          </Card>
+        )}
+        <Button
+          variant="primary"
+          onClick={handleConfirmBooking}
+          disabled={!canConfirm || isCreating}
+        >
+          {isCreating ? 'Создаём бронь…' : 'Подтвердить бронь'}
         </Button>
+        {error && (
+          <Button variant="secondary" onClick={handleConfirmBooking} disabled={isCreating}>
+            Повторить попытку
+          </Button>
+        )}
         <div
           style={{
             fontSize: '11px',
