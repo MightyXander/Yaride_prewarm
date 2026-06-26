@@ -19,6 +19,7 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ onToggle, show }) => {
     <button
       onClick={onToggle}
       aria-label="Сменить тему"
+      className="focus-ring pressable"
       style={{
         position: 'fixed',
         top: 'calc(env(safe-area-inset-top) + 12px)',
@@ -34,7 +35,6 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ onToggle, show }) => {
         color: 'var(--foreground)',
         zIndex: 100,
         transition: 'transform 0.08s ease, filter 0.12s ease',
-        outline: 'none',
       }}
       onMouseDown={(e) => {
         e.currentTarget.style.transform = 'scale(0.92)';
@@ -44,12 +44,6 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ onToggle, show }) => {
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'scale(1)';
-      }}
-      onFocus={(e) => {
-        e.currentTarget.style.filter = 'brightness(1.08)';
-      }}
-      onBlur={(e) => {
-        e.currentTarget.style.filter = 'none';
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.filter = 'brightness(1.05)';

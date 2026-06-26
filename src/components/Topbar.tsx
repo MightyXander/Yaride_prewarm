@@ -44,6 +44,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
       <button
         aria-label="Уведомления"
         onClick={() => showToast('Уведомления — скоро')}
+        className="focus-ring pressable"
         style={{
           minWidth: '44px',
           minHeight: '44px',
@@ -58,7 +59,6 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
           cursor: 'pointer',
           fontFamily: 'var(--font-sans)',
           transition: 'transform 0.08s ease, filter 0.12s ease',
-          outline: 'none',
         }}
         onMouseDown={(e) => {
           e.currentTarget.style.transform = 'scale(0.97)';
@@ -68,12 +68,6 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'scale(1)';
-        }}
-        onFocus={(e) => {
-          e.currentTarget.style.filter = 'brightness(1.08)';
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.filter = 'none';
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.filter = 'brightness(1.05)';

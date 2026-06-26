@@ -138,6 +138,7 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, trip, on
             type="button"
             aria-label={`${star} звёзд`}
             onClick={() => handleStarClick(star)}
+            className="focus-ring pressable"
             style={{
               background: 'transparent',
               border: 'none',
@@ -190,6 +191,7 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, trip, on
         onChange={(e) => setComment(e.target.value)}
         placeholder="Добавить отзыв (по желанию)…"
         rows={3}
+        className="focus-ring"
         style={{
           width: '100%',
           minHeight: '64px',
@@ -202,16 +204,7 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, trip, on
           fontWeight: 500,
           fontFamily: 'var(--font-sans)',
           resize: 'none',
-          outline: 'none',
           transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-        }}
-        onFocus={(e) => {
-          e.currentTarget.style.borderColor = 'var(--brand)';
-          e.currentTarget.style.boxShadow = 'inset 0 0 0 1px var(--brand)';
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.borderColor = 'var(--border)';
-          e.currentTarget.style.boxShadow = 'none';
         }}
       />
 

@@ -145,6 +145,7 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
                 aria-label={label}
                 aria-current={active ? 'page' : undefined}
                 title={label}
+                className="focus-ring"
                 onPointerDown={() => (active ? hapticImpact('light') : hapticSelection())}
                 onClick={() => {
                   hapticImpact('light');
@@ -167,7 +168,6 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
                   WebkitUserSelect: 'none',
                   padding: 0,
                   fontFamily: 'var(--font-sans)',
-                  outline: 'none',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

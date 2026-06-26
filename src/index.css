@@ -99,13 +99,36 @@
    Применяется как класс .focus-ring к кнопкам/инпутам/чипам/опциям. */
 .focus-ring {
   outline: none;
+  position: relative;
   transition: box-shadow 0.14s ease, transform 0.14s ease, border-color 0.12s ease,
     background 0.12s ease, filter 0.12s ease;
 }
 
+.focus-ring::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 0.16s ease-out, transform 0.16s ease-out;
+  /* Double-ring: внутреннее кольцо в цвет --surface (зазор) + внешний размытый бренд-халос */
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px rgba(255, 221, 45, .24),
+    0 0 12px 2px rgba(255, 221, 45, .28);
+}
+
 .focus-ring:focus-visible {
-  box-shadow: var(--shadow-card), 0 0 0 3px rgba(255, 221, 45, .35);
   transform: translateY(-1px);
+  /* Мягкая тень лифта */
+  box-shadow: 0 4px 16px -6px rgba(0, 0, 0, .24);
+}
+
+.focus-ring:focus-visible::after {
+  opacity: 1;
+  transform: scale(1);
 }
 
 /* Press-состояние на тач/указателе через :active (работает и на touch) */
@@ -117,6 +140,7 @@
   .trip-card,
   .trip-card-reveal,
   .focus-ring,
+  .focus-ring::after,
   .pressable {
     transition: none;
   }
@@ -126,6 +150,12 @@
   .trip-card.is-pressed,
   .focus-ring:focus-visible,
   .pressable:active {
+    transform: none;
+  }
+
+  /* Статичный индикатор фокуса без анимации/лифта */
+  .focus-ring:focus-visible::after {
+    opacity: 1;
     transform: none;
   }
 }

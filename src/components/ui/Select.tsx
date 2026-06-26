@@ -166,6 +166,7 @@ const Select: React.FC<SelectProps> = ({
         onClick={handleTriggerClick}
         onKeyDown={handleTriggerKeyDown}
         disabled={disabled}
+        className="focus-ring"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-labelledby={label ? labelId : undefined}
@@ -187,15 +188,7 @@ const Select: React.FC<SelectProps> = ({
           justifyContent: 'space-between',
           gap: '8px',
           opacity: disabled ? 0.5 : 1,
-          outline: 'none',
           transition: 'filter 0.12s ease',
-        }}
-        onFocus={(e) => {
-          e.currentTarget.style.outline = '2px solid var(--brand)';
-          e.currentTarget.style.outlineOffset = '2px';
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.outline = 'none';
         }}
       >
         <span>{selectedOption?.label || placeholder}</span>
