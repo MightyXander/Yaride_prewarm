@@ -43,13 +43,41 @@ npm start
 → Сервер на порту `3000` (или `$PORT` для Railway).  
 → Healthcheck: `http://localhost:3000/health` → `{"status":"ok"}`
 
+## Переменные окружения
+
+| Переменная | Описание | Значение по умолчанию |
+|------------|----------|----------------------|
+| `PORT` | Порт сервера (Railway подставит автоматически) | `3000` |
+| `DATABASE_URL` | PostgreSQL connection string (Railway managed DB) | — |
+| `PGSSL` | Включить SSL для Postgres (`require`\|`true`\|`1`) | не задан |
+| `DB_SCHEMA` | Имя схемы PostgreSQL | `prewarm` |
+| `DEMO_SEED` | **Демо-seed для dev**: `true` → сеять демо-коридор (Брагино↔Центр, демо-водители, рыба-поездки на сегодня). **НЕ задавать на проде** (прод real-only, без демо). | не задан (прод) |
+| `BOT_TOKEN` | Telegram bot token для проверки initData | — |
+
+### Dev-среда (локальная)
+
+Создайте `.env` (не коммитить):
+
+```bash
+DATABASE_URL=postgres://user:pass@localhost:5432/yaride_dev
+DEMO_SEED=true
+BOT_TOKEN=your_bot_token_here
+```
+
+### Прод (Railway)
+
+На Railway НЕ устанавливайте `DEMO_SEED` — коридор будет real-only (пуст до публикации реальных поездок).
+
 ## Деплой на Railway
 
 1. **Создать новый сервис** в проекте Railway `intuitive-gentleness`, окружение `production`.
 2. **Подключить репозиторий** `MightyXander/Yaride_prewarm`, ветка `main`.
 3. **Railway автоматически обнаружит** `Dockerfile` и `railway.json`.
-4. **Переменные окружения** (опционально):
+4. **Переменные окружения**:
    - `PORT` — Railway подставит автоматически.
+   - `DATABASE_URL` — Railway подставит при подключении Postgres.
+   - `PGSSL=require` — для Railway managed Postgres.
+   - **НЕ устанавливайте `DEMO_SEED`** на проде (коридор real-only).
 5. **Healthcheck** `/health` настроен в `railway.json`.
 
 ## Что реализовано (Issue #1)

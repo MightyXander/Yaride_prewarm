@@ -483,3 +483,14 @@ export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse>
     return err(status, message);
   }
 }
+
+/**
+ * GET /api/_debug/counts — диагностика наполнения БД (без ПДн).
+ * Возвращает счётчики: route_points, users, trips, trips_today, demo_drivers.
+ * Для проверки: на проде (без DEMO_SEED) trips_today=0, в dev (DEMO_SEED=true) > 0.
+ */
+export async function handleDebugCounts(_req: ApiRequest): Promise<ApiResponse> {
+  const { getDebugCounts } = await import('./repo.ts');
+  const counts = await getDebugCounts();
+  return { status: 200, body: counts };
+}

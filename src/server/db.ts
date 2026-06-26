@@ -94,8 +94,20 @@ export function getPool(): Pool {
 }
 
 /**
+ * Проверить env DEMO_SEED: демо-seed выполняется ТОЛЬКО в dev (DEMO_SEED=true).
+ * На проде (без флага или DEMO_SEED != 'true') коридор real-only — демо-поездки НЕ сеются.
+ */
+function isDemoSeedEnabled(): boolean {
+  return process.env.DEMO_SEED === 'true';
+}
+
+/**
  * Гарантировать готовность БД: схема + сид прогоняются ровно один раз
  * (повторные вызовы ждут тот же промис). Идемпотентно.
+ *
+ * Демо-seed (seedIfEmpty + ensureDemoTripsForToday) выполняется ТОЛЬКО если
+ * env DEMO_SEED=true (dev). На проде коридор real-only — демо НЕ сеется.
+ * Схема/миграция (initSchema) выполняются ВСЕГДА.
  */
 export function ensureReady(): Promise<void> {
   if (readyPromise !== null) {
@@ -117,8 +129,11 @@ export function ensureReady(): Promise<void> {
       client.release();
     }
     await initSchema(p);
-    await seedIfEmpty(p);
-    await ensureDemoTripsForToday(p);
+    // Демо-seed ТОЛЬКО в dev (DEMO_SEED=true). Прод real-only (без демо).
+    if (isDemoSeedEnabled()) {
+      await seedIfEmpty(p);
+      await ensureDemoTripsForToday(p);
+    }
   })();
   return readyPromise;
 }
