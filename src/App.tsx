@@ -26,6 +26,7 @@ import { useAsync } from './hooks/useAsync';
 import { useStartParam } from './hooks/useStartParam';
 import { getTrips } from './lib/api';
 import { mapTripListItemToTrip } from './lib/mappers';
+import { loadRole, saveRole, type UserRole } from './lib/role';
 import { ProfileProvider } from './contexts/ProfileContext';
 import type { Screen } from './types/navigation';
 import type { BookingResult } from './types/api';
@@ -64,13 +65,33 @@ function App() {
     });
   };
 
+  // Роль пользователя: пассажир или водитель (персистится в localStorage)
+  const [userRole, setUserRole] = useState<UserRole | null>(() => loadRole());
+
+  // Определяем начальный экран: если роль уже выбрана — сразу main, иначе intro.
+  const initialScreen: Screen = userRole ? 'main' : 'intro';
+
   const { currentScreen, selectedTrip, confirmKind, ratingContext, publishedTripId, direction, navigate, navigateToRateTrip, goBack } =
-    useNavigation('intro');
+    useNavigation(initialScreen);
   const prefersReducedMotion = useReducedMotion();
   const isDesktop = useMediaQuery('(min-width: 430px)');
 
   // Направление поездки на главном экране (morning/evening)
   const [mainDirection, setMainDirection] = useState<'morning' | 'evening'>('morning');
+
+  // Обработка выбора роли на intro-экране
+  const handleRoleSelect = (role: UserRole) => {
+    setUserRole(role);
+    saveRole(role);
+    navigate('main');
+  };
+
+  // Обработка "Стать водителем" из профиля
+  const handleBecomeDriver = () => {
+    setUserRole('driver');
+    saveRole('driver');
+    navigate('become-driver');
+  };
 
   // Deep-link обработка: при старте Mini App с start_param (например, 'trip-123')
   // открываем соответствующий экран вместо intro.
@@ -203,7 +224,7 @@ function App() {
               paddingBottom: navVisible ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
             }}
           >
-            {currentScreen === 'intro' && <IntroScreen onContinue={() => navigate('main')} />}
+            {currentScreen === 'intro' && <IntroScreen onRoleSelect={handleRoleSelect} />}
             {currentScreen === 'main' && (
               <MainScreen
                 trips={mainDirection === 'morning' ? morningTrips : eveningTrips}
@@ -233,6 +254,7 @@ function App() {
                   window.Telegram?.WebApp.HapticFeedback?.impactOccurred('light');
                   setMainDirection((prev) => (prev === 'morning' ? 'evening' : 'morning'));
                 }}
+                userRole={userRole ?? 'passenger'}
               />
             )}
             {currentScreen === 'main-more' && (
@@ -245,6 +267,7 @@ function App() {
                 onTripClick={(trip) => navigate('trip-details', trip)}
                 onPublish={() => navigate('driver-publish')}
                 onLeaveRequest={() => navigate('passenger-request')}
+                userRole={userRole ?? 'passenger'}
               />
             )}
             {currentScreen === 'trip-details' && selectedTrip && (
@@ -277,7 +300,7 @@ function App() {
             )}
             {currentScreen === 'profile' && (
               <ProfileScreen
-                onBecomeDriver={() => navigate('become-driver')}
+                onBecomeDriver={handleBecomeDriver}
                 onLicenseReview={() => navigate('license-review')}
                 onSafety={() => navigate('safety')}
                 onMyTrips={() => navigate('my-trips')}
@@ -329,6 +352,7 @@ function App() {
                 onTripClick={(trip) => navigate('trip-details', trip)}
                 onPublish={() => navigate('evening-publish')}
                 onLeaveRequest={() => navigate('passenger-request')}
+                userRole={userRole ?? 'passenger'}
               />
             )}
             {currentScreen === 'evening-publish' && (
