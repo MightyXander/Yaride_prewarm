@@ -22,6 +22,7 @@ import type {
   CancelBookingRequest,
   CancelBookingResponse,
   GetRoutePointsResponse,
+  GetMyTemplateResponse,
   ApiErrorResponse,
 } from '../types/api.ts';
 
@@ -171,4 +172,9 @@ export async function cancelBookingByDriver(bookingId: number): Promise<CancelBo
 /** GET /api/route-points */
 export async function getRoutePoints(): Promise<GetRoutePointsResponse> {
   return apiFetch<GetRoutePointsResponse>('/route-points');
+}
+
+/** GET /api/me/template */
+export async function getMyTemplate(): Promise<GetMyTemplateResponse> {
+  return apiFetch<GetMyTemplateResponse>('/me/template');
 }

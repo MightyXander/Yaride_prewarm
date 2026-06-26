@@ -1,10 +1,13 @@
-import { useId, useState } from 'react';
+import { useId, useState, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Select from '../components/ui/Select';
 import Header from '../components/Header';
 import { hapticSelection } from '../lib/haptics';
+import { getMyTemplate, publishTrip, ApiException } from '../lib/api';
+import { showToast } from '../lib/toast';
 import type { SelectOption } from '../components/ui/Select';
+import type { GetMyTemplateResponse } from '../types/api';
 
 interface DriverPublishScreenProps {
   onPublish: () => void;
@@ -89,8 +92,52 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const [time, setTime] = useState<string>(defaultTime);
   const [seats, setSeats] = useState<number>(2);
   const [pickup, setPickup] = useState<string>(defaultPickup);
+  const [template, setTemplate] = useState<GetMyTemplateResponse | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState<boolean>(false);
   const timeLabelId = useId();
   const seatsLabelId = useId();
+
+  // Загрузить шаблон при монтировании
+  useEffect(() => {
+    const loadTemplate = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const tmpl = await getMyTemplate();
+        setTemplate(tmpl);
+        setSeats(tmpl.seats_total);
+      } catch (err) {
+        const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки шаблона';
+        setError(msg);
+        showToast(msg);
+      } finally {
+        setLoading(false);
+      }
+    };
+    void loadTemplate();
+  }, []);
+
+  const handlePublish = async () => {
+    if (!template) return;
+
+    try {
+      setPublishing(true);
+      const today = new Date().toISOString().split('T')[0];
+      await publishTrip({
+        templateId: template.id,
+        date: today,
+        departureTime: time,
+      });
+      onPublish();
+    } catch (err) {
+      const msg = err instanceof ApiException ? err.message : 'Ошибка публикации поездки';
+      showToast(msg);
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   // Определяем опции точки сбора в зависимости от дефолта
   const pickupOptions = defaultPickup === 'volkova' ? EVENING_PICKUP_OPTIONS : DEFAULT_PICKUP_OPTIONS;
@@ -244,29 +291,57 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         />
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '9px',
-          marginTop: 'auto',
-          paddingTop: '6px',
-        }}
-      >
-        <Button variant="primary" icon="i-car" onClick={onPublish}>
-          Опубликовать поездку
-        </Button>
+      {loading && (
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '13px',
             color: 'var(--muted-foreground)',
             textAlign: 'center',
-            lineHeight: 1.5,
+            padding: '20px',
           }}
         >
-          Пассажиры увидят поездку и смогут забронировать место
+          Загрузка шаблона...
         </div>
-      </div>
+      )}
+
+      {error && (
+        <Card variant="accent" style={{ marginTop: 'auto', borderColor: 'var(--destructive)', background: 'var(--destructive-background, var(--secondary))' }}>
+          <div style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--destructive)' }}>
+            {error}
+          </div>
+        </Card>
+      )}
+
+      {!loading && !error && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '9px',
+            marginTop: 'auto',
+            paddingTop: '6px',
+          }}
+        >
+          <Button
+            variant="primary"
+            icon="i-car"
+            onClick={handlePublish}
+            disabled={publishing}
+          >
+            {publishing ? 'Публикация...' : 'Опубликовать поездку'}
+          </Button>
+          <div
+            style={{
+              fontSize: '11px',
+              color: 'var(--muted-foreground)',
+              textAlign: 'center',
+              lineHeight: 1.5,
+            }}
+          >
+            Пассажиры увидят поездку и смогут забронировать место
+          </div>
+        </div>
+      )}
     </div>
   );
 };
