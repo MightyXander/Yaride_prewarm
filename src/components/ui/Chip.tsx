@@ -56,6 +56,7 @@ const Chip: React.FC<ChipProps> = ({
       <button
         type="button"
         onClick={onClick}
+        className="focus-ring pressable"
         style={finalStyle}
         onMouseDown={(e) => {
           e.currentTarget.style.transform = 'scale(0.94)';

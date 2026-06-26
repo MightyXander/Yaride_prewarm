@@ -75,23 +75,11 @@ const Button: React.FC<ButtonProps> = ({
     props.onMouseLeave?.(e);
   };
 
-  const handleFocus = (e: React.FocusEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.filter = 'brightness(1.08)';
-    e.currentTarget.style.outline = '2px solid var(--brand)';
-    e.currentTarget.style.outlineOffset = '2px';
-    props.onFocus?.(e);
-  };
-
-  const handleBlur = (e: React.FocusEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.filter = 'none';
-    e.currentTarget.style.outline = 'none';
-    props.onBlur?.(e);
-  };
-
   return (
     <button
       {...props}
       disabled={disabled}
+      className="focus-ring pressable"
       style={{
         ...baseStyle,
         ...variantStyles[variant],
@@ -106,8 +94,6 @@ const Button: React.FC<ButtonProps> = ({
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
       onMouseEnter={(e) => {
         if (!disabled) {
           e.currentTarget.style.filter = 'brightness(1.05)';

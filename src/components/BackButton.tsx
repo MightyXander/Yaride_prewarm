@@ -36,6 +36,7 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
     <button
       onClick={onClick}
       aria-label="Назад"
+      className="focus-ring pressable"
       style={{
         position: 'fixed',
         top: 'calc(env(safe-area-inset-top) + 12px)',
@@ -55,7 +56,6 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
         color: 'var(--foreground)',
         zIndex: 100,
         transition: 'transform 0.08s ease, filter 0.12s ease',
-        outline: 'none',
       }}
       onMouseDown={(e) => {
         e.currentTarget.style.transform = 'scale(0.92)';
@@ -65,12 +65,6 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'scale(1)';
-      }}
-      onFocus={(e) => {
-        e.currentTarget.style.filter = 'brightness(1.08)';
-      }}
-      onBlur={(e) => {
-        e.currentTarget.style.filter = 'none';
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.filter = 'brightness(1.05)';
