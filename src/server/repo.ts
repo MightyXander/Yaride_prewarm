@@ -878,3 +878,63 @@ export async function getDebugCounts(): Promise<{
     demo_drivers: Number(demoDriversRes.rows[0].cnt),
   };
 }
+
+/**
+ * Получить или создать trip_template водителя для коридора Брагино↔Центр.
+ * Идемпотентно: если шаблон уже есть — вернуть существующий, иначе создать дефолтный
+ * (morning, price_rub=120, seats_total=3). Бросает Error если профиль водителя
+ * не найден или точки коридора отсутствуют.
+ */
+export async function getOrCreateDriverTemplate(
+  tgDriverId: number,
+): Promise<TripTemplate> {
+  await ensureReady();
+
+  return withTransaction(async (client): Promise<TripTemplate> => {
+    const driverId = await getInternalUserId(client, tgDriverId);
+    if (driverId === null) {
+      throw new Error('Профиль водителя не найден.');
+    }
+
+    // Получить точки коридора Брагино↔Центр
+    const pointsRes = await client.query<{ id: number; title: string }>(
+      `SELECT id, title FROM route_points
+       WHERE (locality = 'Ярославль' AND district = 'Дзержинский район' AND title = 'Брагино')
+          OR (locality = 'Ярославль' AND district = 'Кировский район' AND title = 'Центр')`,
+    );
+    const pointIdByTitle = new Map<string, number>();
+    for (const p of pointsRes.rows) {
+      pointIdByTitle.set(p.title, p.id);
+    }
+    const braginoId = pointIdByTitle.get('Брагино');
+    const centrId = pointIdByTitle.get('Центр');
+    if (braginoId === undefined || centrId === undefined) {
+      throw new Error('Точки коридора Брагино↔Центр не найдены.');
+    }
+
+    // Проверить существующие шаблоны водителя для коридора
+    const existingRes = await client.query<TripTemplate>(
+      `SELECT id, driver_id, start_point_id, end_point_id, time_slot, price_rub, seats_total, comment
+       FROM trip_templates
+       WHERE driver_id = $1
+         AND ((start_point_id = $2 AND end_point_id = $3) OR (start_point_id = $3 AND end_point_id = $2))
+       ORDER BY id ASC
+       LIMIT 1`,
+      [driverId, braginoId, centrId],
+    );
+
+    if (existingRes.rows.length > 0) {
+      return existingRes.rows[0];
+    }
+
+    // Создать дефолтный шаблон: Брагино→Центр, morning, 120 руб, 3 места
+    const insertRes = await client.query<TripTemplate>(
+      `INSERT INTO trip_templates(driver_id, start_point_id, end_point_id, time_slot, price_rub, seats_total, comment)
+       VALUES ($1, $2, $3, 'morning', 120, 3, NULL)
+       RETURNING id, driver_id, start_point_id, end_point_id, time_slot, price_rub, seats_total, comment`,
+      [driverId, braginoId, centrId],
+    );
+
+    return insertRes.rows[0];
+  });
+}
