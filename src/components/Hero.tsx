@@ -16,8 +16,8 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
         overflow: 'hidden',
         borderRadius: 'var(--radius-3xl)',
         color: 'var(--brand-foreground)',
-        padding: '16px 18px',
-        minHeight: '126px',
+        padding: '12px 16px',
+        minHeight: '68px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
@@ -31,10 +31,10 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
         fill="none"
         style={{
           position: 'absolute',
-          right: '-12px',
-          bottom: '-12px',
-          width: '142px',
-          height: '142px',
+          right: '-8px',
+          bottom: '-8px',
+          width: '90px',
+          height: '90px',
           color: 'rgba(0, 0, 0, .14)',
           pointerEvents: 'none',
           strokeWidth: 2,
@@ -50,75 +50,96 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
         <circle cx="98" cy="56" r="14" stroke="currentColor" />
         <path d="M108 66 L116 74" stroke="currentColor" strokeLinecap="round" />
       </svg>
-      {subtitle && (
-        <div
-          style={{
-            fontSize: '10px',
-            fontWeight: 800,
-            letterSpacing: '.18em',
-            textTransform: 'uppercase',
-            opacity: 0.65,
-            position: 'relative',
-          }}
-        >
-          {subtitle}
-        </div>
-      )}
-      <h2
+      <div
         style={{
-          fontSize: '24px',
-          lineHeight: 1.06,
-          fontWeight: 700,
-          letterSpacing: '-0.02em',
-          margin: '6px 0 0',
-          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
         }}
       >
-        {title}
-      </h2>
-      {ctaText && (
-        <button
-          onClick={onCtaClick}
-          className="focus-ring pressable"
-          style={{
-            marginTop: '14px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '7px',
-            height: '38px',
-            padding: '0 15px',
-            borderRadius: '999px',
-            background: 'var(--brand-foreground)',
-            // Hero всегда на жёлтом фоне в обеих темах, а пилюля — всегда тёмная,
-            // поэтому текст фиксируем светлым (var(--background) в dark давал тёмное-на-тёмном).
-            color: '#f5f5f7',
-            fontSize: '13px',
-            fontWeight: 600,
-            position: 'relative',
-            width: 'fit-content',
-            border: 'none',
-            cursor: 'pointer',
-            fontFamily: 'var(--font-sans)',
-            transition: 'transform 0.08s ease, filter 0.12s ease',
-          }}
-          onMouseDown={(e) => {
-            e.currentTarget.style.transform = 'scale(0.97)';
-          }}
-          onMouseUp={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.filter = 'brightness(1.05)';
-          }}
-          aria-label={`Перейти к поездке: ${ctaText}`}
-        >
-          <Icon id="i-clock" />
-          {ctaText}
-        </button>
-      )}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          {subtitle && (
+            <div
+              style={{
+                fontSize: '9px',
+                fontWeight: 800,
+                letterSpacing: '.16em',
+                textTransform: 'uppercase',
+                opacity: 0.65,
+                position: 'relative',
+              }}
+            >
+              {subtitle}
+            </div>
+          )}
+          <h2
+            style={{
+              fontSize: '15px',
+              lineHeight: 1.2,
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+              margin: '3px 0 0',
+              position: 'relative',
+            }}
+          >
+            {title}
+          </h2>
+          <div
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              opacity: 0.7,
+              marginTop: '4px',
+              position: 'relative',
+              letterSpacing: '0.01em',
+            }}
+          >
+            Безопасно · Удобно · Комфортно
+          </div>
+        </div>
+        {ctaText && (
+          <button
+            onClick={onCtaClick}
+            className="focus-ring pressable"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              height: '44px',
+              padding: '0 14px',
+              borderRadius: '999px',
+              background: 'var(--brand-foreground)',
+              color: '#f5f5f7',
+              fontSize: '13px',
+              fontWeight: 600,
+              position: 'relative',
+              width: 'fit-content',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              transition: 'transform 0.08s ease, filter 0.12s ease',
+              flexShrink: 0,
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = 'scale(0.97)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.filter = 'brightness(1.05)';
+            }}
+            aria-label={`Перейти к поездке: ${ctaText}`}
+          >
+            <Icon id="i-clock" />
+            {ctaText}
+          </button>
+        )}
+      </div>
     </div>
   );
 };

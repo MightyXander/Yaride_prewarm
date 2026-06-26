@@ -75,11 +75,11 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
             }}
           >
             <Avatar label={driver.avatar} rating={driver.rating} />
-            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div
                 style={{
                   fontWeight: 700,
-                  fontSize: '13.5px',
+                  fontSize: '15px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
@@ -89,17 +89,17 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                 }}
               >
                 {driver.name}{' '}
-                <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '12px' }}>
+                <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '13px' }}>
                   <Icon
                     id="i-car"
-                    style={{ width: '10px', height: '10px', display: 'inline-block', marginRight: '2px' }}
+                    style={{ width: '11px', height: '11px', display: 'inline-block', marginRight: '2px' }}
                   />
                   {driver.tripCount} {driver.tripCount === 1 ? 'поездка' : driver.tripCount < 5 ? 'поездки' : 'поездок'}
                 </span>
               </div>
               <div
                 style={{
-                  fontSize: '12px',
+                  fontSize: '13px',
                   color: 'var(--muted-foreground)',
                   lineHeight: 1.4,
                 }}
@@ -108,7 +108,7 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
               </div>
               <div
                 style={{
-                  fontSize: '12px',
+                  fontSize: '13px',
                   color: 'var(--muted-foreground)',
                   display: 'flex',
                   gap: '8px',
@@ -122,7 +122,7 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
             <div
               style={{
                 flexShrink: 0,
-                width: '54px',
+                width: '58px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'flex-end',
@@ -132,7 +132,7 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
               <div
                 style={{
                   fontWeight: 800,
-                  fontSize: '16px',
+                  fontSize: '18px',
                   letterSpacing: '-0.02em',
                   fontVariantNumeric: 'tabular-nums',
                 }}

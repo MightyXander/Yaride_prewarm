@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 import Topbar from '../components/Topbar';
 import Hero from '../components/Hero';
 import TripCard from '../components/TripCard';
-import Button from '../components/ui/Button';
 import TripCardSkeleton from '../components/TripCardSkeleton';
 import EmptyTripsState from '../components/EmptyTripsState';
 import ErrorTripsState from '../components/ErrorTripsState';
@@ -11,7 +10,6 @@ import type { Trip } from '../types/navigation';
 interface MainScreenProps {
   trips: Trip[];
   onTripClick: (trip: Trip) => void;
-  onEmptyState: () => void;
   onPublish: () => void;
   subtitle?: string;
   title?: string;
@@ -20,12 +18,12 @@ interface MainScreenProps {
   error?: Error;
   onRetry?: () => void;
   onToggleDirection?: () => void;
+  showPublishInTopbar?: boolean;
 }
 
 const MainScreen: React.FC<MainScreenProps> = ({
   trips,
   onTripClick,
-  onEmptyState,
   onPublish,
   subtitle = 'среда, утро 7:30–8:40',
   title = 'Брагино → Центр',
@@ -34,24 +32,14 @@ const MainScreen: React.FC<MainScreenProps> = ({
   error,
   onRetry,
   onToggleDirection,
+  showPublishInTopbar = true,
 }) => {
   const firstTripRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const scrollToFirstTrip = () => {
-    if (firstTripRef.current) {
-      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      firstTripRef.current.scrollIntoView({
-        behavior: prefersReducedMotion ? 'auto' : 'smooth',
-        block: 'start',
-      });
-    }
-  };
-
-  const openFirstTrip = () => {
+  const openFirstTripDetails = () => {
     if (trips.length > 0) {
-      setExpandedId(trips[0].id);
-      scrollToFirstTrip();
+      onTripClick(trips[0]);
     }
   };
 
@@ -68,7 +56,12 @@ const MainScreen: React.FC<MainScreenProps> = ({
         gap: '12px',
       }}
     >
-      <Topbar title={title} subtitle={subtitle} onToggleDirection={onToggleDirection} />
+      <Topbar
+        title={title}
+        subtitle={subtitle}
+        onToggleDirection={onToggleDirection}
+        onPublish={showPublishInTopbar ? onPublish : undefined}
+      />
       {loading ? (
         <TripCardSkeleton count={2} />
       ) : error ? (
@@ -77,16 +70,11 @@ const MainScreen: React.FC<MainScreenProps> = ({
         <>
           <Hero
             subtitle={heroKicker}
-            title={
-              <>
-                {trips.length} {trips.length === 1 ? 'поездка' : trips.length < 5 ? 'поездки' : 'поездок'}
-                <br />в твою сторону
-              </>
-            }
+            title={`${trips.length} ${trips.length === 1 ? 'поездка' : trips.length < 5 ? 'поездки' : 'поездок'} в твою сторону`}
             ctaText={`Ближайшая в ${trips[0].time}`}
-            onCtaClick={openFirstTrip}
+            onCtaClick={openFirstTripDetails}
           />
-          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {trips.map((trip, index) => (
               <TripCard
                 key={trip.id}
@@ -98,45 +86,9 @@ const MainScreen: React.FC<MainScreenProps> = ({
               />
             ))}
           </div>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '9px',
-              marginTop: 'auto',
-              paddingTop: '6px',
-              flexShrink: 0,
-            }}
-          >
-            <Button variant="primary" icon="i-car" onClick={onPublish}>
-              Возьму попутчиков
-            </Button>
-            <Button variant="secondary" icon="i-search" onClick={onEmptyState}>
-              Ищу, кто подвезёт
-            </Button>
-          </div>
         </>
       ) : (
-        <>
-          <EmptyTripsState timeWindow={subtitle.includes('утро') ? 'утро' : 'вечер'} />
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '9px',
-              marginTop: 'auto',
-              paddingTop: '6px',
-              flexShrink: 0,
-            }}
-          >
-            <Button variant="primary" icon="i-car" onClick={onPublish}>
-              Возьму попутчиков
-            </Button>
-            <Button variant="secondary" icon="i-search" onClick={onEmptyState}>
-              Ищу, кто подвезёт
-            </Button>
-          </div>
-        </>
+        <EmptyTripsState timeWindow={subtitle.includes('утро') ? 'утро' : 'вечер'} />
       )}
     </div>
   );
