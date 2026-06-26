@@ -1,0 +1,81 @@
+import { useEffect, useRef } from 'react';
+import type { Trip, Screen, ConfirmKind } from '../types/navigation';
+import { getTrip } from '../lib/api';
+import { mapTripCardToTrip } from '../lib/mappers';
+
+/**
+ * Хук для обработки deep-link через start_param Telegram Mini App.
+ * Схема start_param:
+ * - 'trip-<id>' → открыть карточку поездки
+ * - (будущие) 'bookings-<tripId>', 'my-trips'
+ */
+export const useStartParam = (
+  navigate: (screen: Screen, trip?: Trip | null, confirmKind?: ConfirmKind, publishedTripId?: number) => void,
+  onError?: (message: string) => void
+) => {
+  const processed = useRef(false);
+
+  useEffect(() => {
+    // Обрабатываем start_param только один раз при маунте
+    if (processed.current) return;
+    processed.current = true;
+
+    const getStartParam = (): string | null => {
+      // Источник 1: Telegram.WebApp.initDataUnsafe.start_param
+      const tgStartParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+      if (tgStartParam) return tgStartParam;
+
+      // Источник 2: URL query parameter tgWebAppStartParam
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlStartParam = urlParams.get('tgWebAppStartParam');
+      if (urlStartParam) return urlStartParam;
+
+      return null;
+    };
+
+    const startParam = getStartParam();
+
+    // Если start_param отсутствует или пустой — обычный старт (intro), без ошибок
+    if (!startParam) return;
+
+    // Парсинг start_param по префиксу (расширяемо)
+    const handleStartParam = async (param: string) => {
+      // trip-<id>
+      if (param.startsWith('trip-')) {
+        const tripIdStr = param.slice(5); // 'trip-123' → '123'
+        const tripId = parseInt(tripIdStr, 10);
+
+        if (isNaN(tripId) || tripId <= 0) {
+          console.warn('[useStartParam] Некорректный trip ID в start_param:', param);
+          // Мягко на main, без ошибки
+          navigate('main');
+          return;
+        }
+
+        try {
+          // Загрузка поездки через API
+          const response = await getTrip(tripId);
+          const trip = mapTripCardToTrip(response.trip);
+
+          // Переход на карточку поездки
+          navigate('trip-details', trip);
+        } catch (error) {
+          console.error('[useStartParam] Ошибка загрузки поездки:', error);
+
+          // Если поездки нет — мягко на main
+          if (onError) {
+            onError('Поездка не найдена');
+          }
+          navigate('main');
+        }
+        return;
+      }
+
+      // Неизвестный префикс — обычный старт (intro)
+      console.warn('[useStartParam] Неизвестный start_param:', param);
+      // Без ошибки, просто игнорируем
+    };
+
+    handleStartParam(startParam);
+  }, [navigate, onError]);
+};
