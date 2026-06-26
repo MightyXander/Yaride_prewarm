@@ -25,6 +25,7 @@ import RateTripScreen from './screens/RateTripScreen';
 import HabitHomeScreen from './screens/HabitHomeScreen';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
+import { useMediaQuery } from './hooks/useMediaQuery';
 import type { Screen, Trip } from './types/navigation';
 
 // Направленный слайд + fade при смене экрана. direction: 1 — вперёд, -1 — назад.
@@ -64,6 +65,7 @@ function App() {
   const { currentScreen, selectedTrip, confirmKind, direction, navigate, goBack } =
     useNavigation('intro');
   const prefersReducedMotion = useReducedMotion();
+  const isDesktop = useMediaQuery('(min-width: 430px)');
 
   useEffect(() => {
     // Если пользователь уже выбрал тему вручную — не перетираем её авто-источником.
@@ -243,7 +245,13 @@ function App() {
   const navVisible = NAV_VISIBLE_SCREENS.includes(currentScreen);
 
   return (
-    <div className={theme}>
+    <div
+      className={theme}
+      style={{
+        minHeight: '100dvh',
+        background: 'var(--background)',
+      }}
+    >
       <Icons />
       <ToastHost />
       <BackButton onClick={goBack} show={showBackButton} />
@@ -251,9 +259,8 @@ function App() {
       <ThemeToggle onToggle={toggleTheme} show={!showBackButton && currentScreen !== 'intro'} />
       <div
         style={{
-          maxWidth: '390px',
+          maxWidth: isDesktop ? '430px' : 'none',
           margin: '0 auto',
-          background: 'var(--background)',
           color: 'var(--foreground)',
           height: '100dvh',
           position: 'relative',
