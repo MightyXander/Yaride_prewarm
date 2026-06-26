@@ -6,6 +6,7 @@ import TripCardSkeleton from '../components/TripCardSkeleton';
 import EmptyTripsState from '../components/EmptyTripsState';
 import ErrorTripsState from '../components/ErrorTripsState';
 import type { Trip } from '../types/navigation';
+import type { UserRole } from '../lib/role';
 
 interface MainScreenProps {
   trips: Trip[];
@@ -20,6 +21,7 @@ interface MainScreenProps {
   onRetry?: () => void;
   onToggleDirection?: () => void;
   showPublishInTopbar?: boolean;
+  userRole?: UserRole;
 }
 
 const MainScreen: React.FC<MainScreenProps> = ({
@@ -35,6 +37,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
   onRetry,
   onToggleDirection,
   showPublishInTopbar = true,
+  userRole = 'passenger',
 }) => {
   const firstTripRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -62,7 +65,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
         title={title}
         subtitle={subtitle}
         onToggleDirection={onToggleDirection}
-        onPublish={showPublishInTopbar ? onPublish : undefined}
+        onPublish={showPublishInTopbar && userRole === 'driver' ? onPublish : undefined}
       />
       {loading ? (
         <TripCardSkeleton count={2} />

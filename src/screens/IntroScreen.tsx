@@ -1,34 +1,34 @@
 import { useState } from 'react';
-import Button from '../components/ui/Button';
+import { Icon } from '../components/Icons';
+import type { UserRole } from '../lib/role';
 
 interface IntroScreenProps {
-  onContinue: () => void;
+  onRoleSelect: (role: UserRole) => void;
 }
 
-interface RouteData {
-  id: string;
-  title: string;
-  subtitle: string;
-}
+const IntroScreen: React.FC<IntroScreenProps> = ({ onRoleSelect }) => {
+  const [selectedRole, setSelectedRole] = useState<UserRole>('passenger');
 
-const ROUTES: RouteData[] = [
-  { id: 'bragino-center', title: 'Брагино → Центр', subtitle: '7:30–8:40 · будни' },
-  { id: 'center-bragino', title: 'Центр → Брагино', subtitle: '17:30–19:00 · будни' },
-];
+  const handleSelect = (role: UserRole) => {
+    setSelectedRole(role);
+    window.Telegram?.WebApp.HapticFeedback?.impactOccurred('medium');
+  };
 
-const IntroScreen: React.FC<IntroScreenProps> = ({ onContinue }) => {
-  const [selectedRoute, setSelectedRoute] = useState<string>(ROUTES[0].id);
+  const handleContinue = () => {
+    window.Telegram?.WebApp.HapticFeedback?.impactOccurred('light');
+    onRoleSelect(selectedRole);
+  };
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (role: UserRole, e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      setSelectedRoute(ROUTES[index].id);
+      handleSelect(role);
     } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
       e.preventDefault();
-      setSelectedRoute(ROUTES[(index + 1) % ROUTES.length].id);
+      handleSelect(role === 'passenger' ? 'driver' : 'passenger');
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
       e.preventDefault();
-      setSelectedRoute(ROUTES[(index - 1 + ROUTES.length) % ROUTES.length].id);
+      handleSelect(role === 'passenger' ? 'driver' : 'passenger');
     }
   };
 
@@ -61,9 +61,7 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onContinue }) => {
           letterSpacing: '-0.01em',
         }}
       >
-        Попутчики по дороге
-        <br />
-        на работу. Без давки.
+        Выбери роль
       </div>
       <div
         style={{
@@ -75,7 +73,7 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onContinue }) => {
         По одному маршруту — вместе выгоднее.
       </div>
       <div
-        id="route-group-label"
+        id="role-group-label"
         style={{
           marginTop: '10px',
           fontSize: '11px',
@@ -85,23 +83,29 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onContinue }) => {
           fontWeight: 700,
         }}
       >
-        Куда едешь утром?
+        Кто ты сегодня?
       </div>
       <div
         role="radiogroup"
-        aria-labelledby="route-group-label"
+        aria-labelledby="role-group-label"
         style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
       >
-        {ROUTES.map((route, index) => (
-          <RouteOption
-            key={route.id}
-            selected={selectedRoute === route.id}
-            title={route.title}
-            subtitle={route.subtitle}
-            onSelect={() => setSelectedRoute(route.id)}
-            onKeyDown={(e) => handleKeyDown(index, e)}
-          />
-        ))}
+        <RoleOption
+          selected={selectedRole === 'passenger'}
+          icon="i-user"
+          title="Пассажир"
+          subtitle="Ищу попутку на работу"
+          onSelect={() => handleSelect('passenger')}
+          onKeyDown={(e) => handleKeyDown('passenger', e)}
+        />
+        <RoleOption
+          selected={selectedRole === 'driver'}
+          icon="i-car"
+          title="Водитель"
+          subtitle="Возьму попутчиков"
+          onSelect={() => handleSelect('driver')}
+          onKeyDown={(e) => handleKeyDown('driver', e)}
+        />
       </div>
       <div
         style={{
@@ -112,34 +116,47 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onContinue }) => {
           paddingTop: '6px',
         }}
       >
-        <Button variant="primary" icon="i-arrow-r" onClick={onContinue}>
-          Показать поездки
-        </Button>
-        <div
+        <button
+          onClick={handleContinue}
+          className="focus-ring pressable"
           style={{
-            fontSize: '11px',
-            color: 'var(--muted-foreground)',
-            textAlign: 'center',
-            lineHeight: 1.5,
+            minHeight: '52px',
+            padding: '0 18px',
+            borderRadius: '14px',
+            background: 'var(--brand)',
+            color: '#fff',
+            fontSize: '15px',
+            fontWeight: 700,
+            border: 'none',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-sans)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'transform 0.08s ease, filter 0.12s ease',
           }}
         >
-          Регистрация не нужна, чтобы посмотреть
-        </div>
+          Продолжить
+          <Icon id="i-arrow-r" />
+        </button>
       </div>
     </div>
   );
 };
 
-interface RouteOptionProps {
+interface RoleOptionProps {
   selected: boolean;
+  icon: string;
   title: string;
   subtitle: string;
   onSelect: () => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
-const RouteOption: React.FC<RouteOptionProps> = ({
+const RoleOption: React.FC<RoleOptionProps> = ({
   selected,
+  icon,
   title,
   subtitle,
   onSelect,
@@ -156,34 +173,41 @@ const RouteOption: React.FC<RouteOptionProps> = ({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '12px',
-        minHeight: '54px',
-        padding: '0 15px',
-        borderRadius: '17px',
+        gap: '14px',
+        minHeight: '72px',
+        padding: '0 16px',
+        borderRadius: '18px',
         background: 'var(--surface)',
         border: `1px solid ${selected ? 'var(--brand)' : 'var(--border)'}`,
         boxShadow: selected ? 'inset 0 0 0 1px var(--brand)' : 'none',
-        fontWeight: 700,
         cursor: 'pointer',
+        transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
       }}
     >
-      <span
+      <div
         style={{
-          width: '18px',
-          height: '18px',
-          borderRadius: '999px',
-          border: `2px solid ${selected ? 'var(--brand)' : 'var(--muted-foreground)'}`,
-          background: selected ? 'var(--brand)' : 'transparent',
+          width: '48px',
+          height: '48px',
+          borderRadius: '12px',
+          background: selected ? 'var(--brand)' : 'var(--secondary)',
+          color: selected ? '#fff' : 'var(--foreground)',
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: '20px',
           flexShrink: 0,
+          transition: 'background 0.15s ease, color 0.15s ease',
         }}
-      />
+      >
+        <Icon id={icon} />
+      </div>
       <div>
-        <div>{title}</div>
+        <div style={{ fontWeight: 700, fontSize: '16px' }}>{title}</div>
         <div
           style={{
             color: 'var(--muted-foreground)',
             fontWeight: 500,
-            fontSize: '11px',
+            fontSize: '12px',
+            marginTop: '2px',
           }}
         >
           {subtitle}
