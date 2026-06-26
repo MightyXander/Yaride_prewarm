@@ -238,8 +238,8 @@ function App() {
                 }
                 onRetry={mainDirection === 'morning' ? morningTripsState.retry : eveningTripsState.retry}
                 onTripClick={(trip) => navigate('trip-details', trip)}
-                onEmptyState={() => navigate('empty-state')}
                 onPublish={() => navigate('driver-publish')}
+                onLeaveRequest={() => navigate('passenger-request')}
                 onToggleDirection={() => {
                   window.Telegram?.WebApp.HapticFeedback?.impactOccurred('light');
                   setMainDirection((prev) => (prev === 'morning' ? 'evening' : 'morning'));
@@ -254,8 +254,8 @@ function App() {
                 error={morningTripsState.status === 'error' ? morningTripsState.error : undefined}
                 onRetry={morningTripsState.retry}
                 onTripClick={(trip) => navigate('trip-details', trip)}
-                onEmptyState={() => navigate('empty-state')}
                 onPublish={() => navigate('driver-publish')}
+                onLeaveRequest={() => navigate('passenger-request')}
               />
             )}
             {currentScreen === 'trip-details' && selectedTrip && (
@@ -356,8 +356,8 @@ function App() {
                 error={eveningTripsState.status === 'error' ? eveningTripsState.error : undefined}
                 onRetry={eveningTripsState.retry}
                 onTripClick={(trip) => navigate('trip-details', trip)}
-                onEmptyState={() => navigate('empty-state')}
                 onPublish={() => navigate('evening-publish')}
+                onLeaveRequest={() => navigate('passenger-request')}
               />
             )}
             {currentScreen === 'evening-publish' && (
