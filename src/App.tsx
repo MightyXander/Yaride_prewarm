@@ -73,6 +73,9 @@ function App() {
   const prefersReducedMotion = useReducedMotion();
   const isDesktop = useMediaQuery('(min-width: 430px)');
 
+  // Направление поездки на главном экране (morning/evening)
+  const [mainDirection, setMainDirection] = useState<'morning' | 'evening'>('morning');
+
   // Deep-link обработка: при старте Mini App с start_param (например, 'trip-123')
   // открываем соответствующий экран вместо intro.
   useStartParam(navigate);
@@ -214,13 +217,33 @@ function App() {
             {currentScreen === 'intro' && <IntroScreen onContinue={() => navigate('main')} />}
             {currentScreen === 'main' && (
               <MainScreen
-                trips={morningTrips}
-                loading={morningTripsState.status === 'loading'}
-                error={morningTripsState.status === 'error' ? morningTripsState.error : undefined}
-                onRetry={morningTripsState.retry}
+                trips={mainDirection === 'morning' ? morningTrips : eveningTrips}
+                title={mainDirection === 'morning' ? 'Брагино → Центр' : 'Центр → Брагино'}
+                subtitle={
+                  mainDirection === 'morning' ? 'среда, утро 7:30–8:40' : 'среда, вечер 17:00–18:30'
+                }
+                loading={
+                  mainDirection === 'morning'
+                    ? morningTripsState.status === 'loading'
+                    : eveningTripsState.status === 'loading'
+                }
+                error={
+                  mainDirection === 'morning'
+                    ? morningTripsState.status === 'error'
+                      ? morningTripsState.error
+                      : undefined
+                    : eveningTripsState.status === 'error'
+                      ? eveningTripsState.error
+                      : undefined
+                }
+                onRetry={mainDirection === 'morning' ? morningTripsState.retry : eveningTripsState.retry}
                 onTripClick={(trip) => navigate('trip-details', trip)}
                 onEmptyState={() => navigate('empty-state')}
                 onPublish={() => navigate('driver-publish')}
+                onToggleDirection={() => {
+                  window.Telegram?.WebApp.HapticFeedback?.impactOccurred('light');
+                  setMainDirection((prev) => (prev === 'morning' ? 'evening' : 'morning'));
+                }}
               />
             )}
             {currentScreen === 'main-more' && (

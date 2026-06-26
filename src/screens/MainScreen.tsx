@@ -19,6 +19,7 @@ interface MainScreenProps {
   loading?: boolean;
   error?: Error;
   onRetry?: () => void;
+  onToggleDirection?: () => void;
 }
 
 const MainScreen: React.FC<MainScreenProps> = ({
@@ -32,6 +33,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
   loading = false,
   error,
   onRetry,
+  onToggleDirection,
 }) => {
   const firstTripRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -66,7 +68,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
         gap: '12px',
       }}
     >
-      <Topbar title={title} subtitle={subtitle} />
+      <Topbar title={title} subtitle={subtitle} onToggleDirection={onToggleDirection} />
       {loading ? (
         <TripCardSkeleton count={2} />
       ) : error ? (
