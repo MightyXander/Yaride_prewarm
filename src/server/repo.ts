@@ -596,7 +596,7 @@ export async function getUserTrips(
                 t.time_slot, sp.title AS start_title, ep.title AS end_title,
                 t.price_rub, t.seats_total, t.seats_booked, t.status AS trip_status,
                 NULL::INTEGER AS booking_id, NULL::TEXT AS booking_status,
-                NULL::INTEGER AS passenger_seats
+                NULL::INTEGER AS passenger_seats, NULL::INTEGER AS driver_id
          FROM trips t
          JOIN route_points sp ON sp.id = t.start_point_id
          JOIN route_points ep ON ep.id = t.end_point_id
@@ -605,7 +605,7 @@ export async function getUserTrips(
                 t.time_slot, sp.title AS start_title, ep.title AS end_title,
                 t.price_rub, t.seats_total, t.seats_booked, t.status AS trip_status,
                 NULL::INTEGER AS booking_id, NULL::TEXT AS booking_status,
-                NULL::INTEGER AS passenger_seats
+                NULL::INTEGER AS passenger_seats, NULL::INTEGER AS driver_id
          FROM trips t
          JOIN route_points sp ON sp.id = t.start_point_id
          JOIN route_points ep ON ep.id = t.end_point_id
@@ -617,7 +617,8 @@ export async function getUserTrips(
       ? `SELECT t.id AS trip_id, 'passenger' AS role, t.trip_date, t.departure_time,
                 t.time_slot, sp.title AS start_title, ep.title AS end_title,
                 t.price_rub, t.seats_total, t.seats_booked, t.status AS trip_status,
-                b.id AS booking_id, b.status AS booking_status, b.seats AS passenger_seats
+                b.id AS booking_id, b.status AS booking_status, b.seats AS passenger_seats,
+                t.driver_id
          FROM bookings b
          JOIN trips t ON t.id = b.trip_id
          JOIN route_points sp ON sp.id = t.start_point_id
@@ -626,7 +627,8 @@ export async function getUserTrips(
       : `SELECT t.id AS trip_id, 'passenger' AS role, t.trip_date, t.departure_time,
                 t.time_slot, sp.title AS start_title, ep.title AS end_title,
                 t.price_rub, t.seats_total, t.seats_booked, t.status AS trip_status,
-                b.id AS booking_id, b.status AS booking_status, b.seats AS passenger_seats
+                b.id AS booking_id, b.status AS booking_status, b.seats AS passenger_seats,
+                t.driver_id
          FROM bookings b
          JOIN trips t ON t.id = b.trip_id
          JOIN route_points sp ON sp.id = t.start_point_id

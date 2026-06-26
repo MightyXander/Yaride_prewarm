@@ -5,6 +5,9 @@ import Chip from '../components/ui/Chip';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
+import { createRating, ApiException } from '../lib/api';
+import { showToast } from '../lib/toast';
+import type { RatingContext } from '../types/navigation';
 
 // Экран 11 SPEC: Оценка после поездки
 // Звёзды 1–5, теги настроения, текстовый отзыв (опционально)
@@ -12,6 +15,7 @@ import { hapticSelection, hapticNotify } from '../lib/haptics';
 const RATING_TAGS = ['Пунктуальный', 'Вежливый', 'Чисто в авто', 'Приятная музыка'];
 
 interface RateTripScreenProps {
+  ratingContext?: RatingContext;
   trip?: {
     driver: {
       name: string;
@@ -23,10 +27,11 @@ interface RateTripScreenProps {
   onClose?: () => void;
 }
 
-const RateTripScreen: React.FC<RateTripScreenProps> = ({ trip, onSubmit, onClose }) => {
+const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, trip, onSubmit, onClose }) => {
   const [rating, setRating] = useState(5);
   const [selectedTags, setSelectedTags] = useState<string[]>(['Пунктуальный']);
   const [comment, setComment] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const driverName = trip?.driver.name || 'Андрей К.';
   const driverAvatar = trip?.driver.avatar || 'А';
@@ -43,9 +48,32 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ trip, onSubmit, onClose
     hapticSelection();
   };
 
-  const handleSubmit = () => {
-    hapticNotify('success');
-    onSubmit?.();
+  const handleSubmit = async () => {
+    if (!ratingContext) {
+      showToast('Ошибка: отсутствуют данные о поездке');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await createRating({
+        tripId: ratingContext.tripId,
+        rateeId: ratingContext.rateeId,
+        stars: rating,
+        tags: selectedTags.length > 0 ? selectedTags.join(', ') : null,
+        comment: comment.trim() || null,
+      });
+      hapticNotify('success');
+      showToast('Оценка отправлена');
+      onSubmit?.();
+    } catch (err) {
+      if (err instanceof ApiException && err.status === 401) {
+        showToast('В браузере требуется авторизация через Telegram');
+      } else {
+        showToast(err instanceof Error ? err.message : 'Ошибка при отправке оценки');
+      }
+      setLoading(false);
+    }
   };
 
   return (
@@ -196,8 +224,8 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ trip, onSubmit, onClose
           paddingTop: '6px',
         }}
       >
-        <Button variant="primary" onClick={handleSubmit}>
-          Отправить оценку
+        <Button variant="primary" onClick={handleSubmit} disabled={loading}>
+          {loading ? 'Отправка…' : 'Отправить оценку'}
         </Button>
       </div>
     </div>

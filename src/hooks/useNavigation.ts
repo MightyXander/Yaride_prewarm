@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { Screen, Trip, ConfirmKind, NavigationState } from '../types/navigation';
+import type { Screen, Trip, ConfirmKind, NavigationState, RatingContext } from '../types/navigation';
 
 // Куда возвращает BackButton с каждого экрана
 const PARENT_SCREEN: Record<Screen, Screen> = {
@@ -35,6 +35,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     currentScreen: initialScreen,
     selectedTrip: null,
     confirmKind: 'booking',
+    ratingContext: null,
     scrollPositions: {
       intro: 0,
       main: 0,
@@ -94,6 +95,24 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     [navState.currentScreen, saveScrollPosition]
   );
 
+  // Navigate to rate-trip screen with rating context
+  const navigateToRateTrip = useCallback(
+    (ratingContext: RatingContext) => {
+      const currentPosition = window.scrollY;
+      saveScrollPosition(navState.currentScreen, currentPosition);
+      setDirection(1);
+
+      setNavState((prev) => ({
+        ...prev,
+        currentScreen: 'rate-trip',
+        ratingContext,
+      }));
+
+      window.scrollTo(0, 0);
+    },
+    [navState.currentScreen, saveScrollPosition]
+  );
+
   // Go back to previous screen
   const goBack = useCallback(() => {
     const { currentScreen, scrollPositions } = navState;
@@ -126,8 +145,10 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     currentScreen: navState.currentScreen,
     selectedTrip: navState.selectedTrip,
     confirmKind: navState.confirmKind,
+    ratingContext: navState.ratingContext,
     direction,
     navigate,
+    navigateToRateTrip,
     goBack,
   };
 };

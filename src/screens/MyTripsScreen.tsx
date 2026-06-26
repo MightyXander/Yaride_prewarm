@@ -24,6 +24,7 @@ const DEMO_UPCOMING: UserTripItem[] = [
     booking_id: 10,
     booking_status: 'active',
     passenger_seats: 1,
+    driver_id: 5,
   },
   {
     trip_id: 2,
@@ -40,6 +41,7 @@ const DEMO_UPCOMING: UserTripItem[] = [
     booking_id: null,
     booking_status: null,
     passenger_seats: null,
+    driver_id: null,
   },
 ];
 
@@ -59,12 +61,13 @@ const DEMO_PAST: UserTripItem[] = [
     booking_id: 9,
     booking_status: 'active',
     passenger_seats: 1,
+    driver_id: 7,
   },
 ];
 
 interface MyTripsScreenProps {
   onCreateTrip?: () => void;
-  onRateTrip?: (tripId: string) => void;
+  onRateTrip?: (tripId: number, rateeId: number) => void;
 }
 
 const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip }) => {
@@ -117,9 +120,9 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
   };
 
   const handleTripClick = (trip: UserTripItem) => {
-    if (activeTab === 'past') {
+    if (activeTab === 'past' && trip.driver_id !== null) {
       hapticImpact('light');
-      onRateTrip?.(trip.trip_id.toString());
+      onRateTrip?.(trip.trip_id, trip.driver_id);
     }
   };
 
