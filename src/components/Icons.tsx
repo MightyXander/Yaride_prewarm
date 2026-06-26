@@ -95,6 +95,10 @@ export const Icons = () => (
       <circle cx="12" cy="12" r="1.4" />
       <circle cx="18.5" cy="12" r="1.4" />
     </symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24">
+      <path d="M4 3h16v18l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3L4 21z" />
+      <path d="M8 8h8M8 12h8M8 16h4" />
+    </symbol>
   </svg>
 );
 

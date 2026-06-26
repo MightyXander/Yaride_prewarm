@@ -46,6 +46,13 @@ const MainScreen: React.FC<MainScreenProps> = ({
     }
   };
 
+  const openFirstTrip = () => {
+    if (trips.length > 0) {
+      setExpandedId(trips[0].id);
+      scrollToFirstTrip();
+    }
+  };
+
   const hasTrips = trips.length > 0;
 
   return (
@@ -75,7 +82,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
               </>
             }
             ctaText={`Ближайшая в ${trips[0].time}`}
-            onCtaClick={scrollToFirstTrip}
+            onCtaClick={openFirstTrip}
           />
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {trips.map((trip, index) => (
