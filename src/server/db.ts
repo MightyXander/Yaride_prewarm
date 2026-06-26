@@ -14,7 +14,7 @@ import { Pool } from 'pg';
 import type { PoolClient } from 'pg';
 
 import { initSchema } from './schema.ts';
-import { seedIfEmpty } from './seed.ts';
+import { seedIfEmpty, ensureDemoTripsForToday } from './seed.ts';
 
 let pool: Pool | null = null;
 let readyPromise: Promise<void> | null = null;
@@ -118,6 +118,7 @@ export function ensureReady(): Promise<void> {
     }
     await initSchema(p);
     await seedIfEmpty(p);
+    await ensureDemoTripsForToday(p);
   })();
   return readyPromise;
 }
