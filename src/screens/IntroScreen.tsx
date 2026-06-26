@@ -72,7 +72,7 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onContinue }) => {
           color: 'var(--muted-foreground)',
         }}
       >
-        Утром по одному маршруту — дешевле и живее автобуса.
+        По одному маршруту — вместе выгоднее.
       </div>
       <div
         id="route-group-label"
