@@ -14,8 +14,8 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
         alignItems: 'center',
         justifyContent: 'space-between',
         // Левый отступ — под плавающую кнопку смены темы (слева сверху на главных),
-        // чтобы она не перекрывала заголовок.
-        padding: '6px 2px 6px 40px',
+        // чтобы она не перекрывала заголовок. 52px = зазор ≥12px между кнопкой темы (~48px) и заголовком.
+        padding: '6px 2px 6px 52px',
         gap: '8px',
       }}
     >
@@ -42,8 +42,8 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
         )}
       </div>
       <button
-        aria-label="Фильтры"
-        onClick={() => showToast('Фильтры маршрута — скоро')}
+        aria-label="Уведомления"
+        onClick={() => showToast('Уведомления — скоро')}
         style={{
           minWidth: '44px',
           minHeight: '44px',
@@ -79,7 +79,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
           e.currentTarget.style.filter = 'brightness(1.05)';
         }}
       >
-        <Icon id="i-sliders" />
+        <Icon id="i-bell" />
       </button>
     </div>
   );
