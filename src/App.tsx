@@ -30,6 +30,7 @@ import { useAsync } from './hooks/useAsync';
 import { useStartParam } from './hooks/useStartParam';
 import { getTrips } from './lib/api';
 import { mapTripListItemToTrip } from './lib/mappers';
+import { ProfileProvider } from './contexts/ProfileContext';
 import type { Screen, Trip } from './types/navigation';
 import type { BookingResult } from './types/api';
 
@@ -158,33 +159,34 @@ function App() {
   const navVisible = NAV_VISIBLE_SCREENS.includes(currentScreen);
 
   return (
-    <div
-      className={theme}
-      style={{
-        minHeight: '100dvh',
-        background: 'var(--background)',
-      }}
-    >
-      <Icons />
-      <ToastHost />
-      <BackButton onClick={goBack} show={showBackButton} />
-      {/* На главных (где нет «назад») слева сверху — кнопка смены темы. */}
-      <ThemeToggle onToggle={toggleTheme} show={!showBackButton && currentScreen !== 'intro'} />
+    <ProfileProvider>
       <div
+        className={theme}
         style={{
-          maxWidth: isDesktop ? '430px' : 'none',
-          margin: '0 auto',
-          color: 'var(--foreground)',
-          height: '100dvh',
-          position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)',
-          overflowX: 'clip',
+          minHeight: '100dvh',
+          background: 'var(--background)',
         }}
       >
+        <Icons />
+        <ToastHost />
+        <BackButton onClick={goBack} show={showBackButton} />
+        {/* На главных (где нет «назад») слева сверху — кнопка смены темы. */}
+        <ThemeToggle onToggle={toggleTheme} show={!showBackButton && currentScreen !== 'intro'} />
+        <div
+          style={{
+            maxWidth: isDesktop ? '430px' : 'none',
+            margin: '0 auto',
+            color: 'var(--foreground)',
+            height: '100dvh',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingLeft: 'env(safe-area-inset-left)',
+            paddingRight: 'env(safe-area-inset-right)',
+            overflowX: 'clip',
+          }}
+        >
 <AnimatePresence mode="wait" initial={false} custom={direction}>
           <motion.div
             key={currentScreen}
@@ -349,12 +351,13 @@ function App() {
             )}
           </motion.div>
         </AnimatePresence>
+        </div>
+        <FloatingNav
+          currentScreen={currentScreen}
+          onNavigate={(root) => navigate(root === 'profile' ? 'profile' : 'main')}
+        />
       </div>
-      <FloatingNav
-        currentScreen={currentScreen}
-        onNavigate={(root) => navigate(root === 'profile' ? 'profile' : 'main')}
-      />
-    </div>
+    </ProfileProvider>
   );
 }
 
