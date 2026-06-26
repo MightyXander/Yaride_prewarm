@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import { useProfile } from '../contexts/ProfileContext';
 
 interface LicenseReviewScreenProps {
   onFindRide: () => void;
@@ -78,8 +78,12 @@ const timelineFor = (status: ReviewStatus): TimelineStep[] => [
 ];
 
 const LicenseReviewScreen: React.FC<LicenseReviewScreenProps> = ({ onFindRide, onRetry }) => {
-  // Демонстрационный переключатель статуса (рыба) — без бэкенда модерации.
-  const [status, setStatus] = useState<ReviewStatus>('pending');
+  // Реальный статус ВУ из профиля (ProfileContext из #102).
+  // Маппинг: 'verified'→approved, 'rejected'/'declined'→declined, иначе→pending.
+  const { profile } = useProfile();
+  const rawStatus = profile?.license_status ?? '';
+  const status: ReviewStatus =
+    rawStatus === 'verified' ? 'approved' : rawStatus === 'rejected' || rawStatus === 'declined' ? 'declined' : 'pending';
   const meta = STATUS_META[status];
   const steps = timelineFor(status);
 
@@ -236,37 +240,6 @@ const LicenseReviewScreen: React.FC<LicenseReviewScreenProps> = ({ onFindRide, o
             Найти поездку
           </Button>
         )}
-
-        {/* Демо-переключатель статуса (рыба, до интеграции модерации) */}
-        <div
-          role="group"
-          aria-label="Демо: переключить статус проверки"
-          style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '2px' }}
-        >
-          {(['pending', 'approved', 'declined'] as ReviewStatus[]).map((s) => (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={status === s}
-              className="focus-ring pressable"
-              onClick={() => setStatus(s)}
-              style={{
-                minHeight: '34px',
-                padding: '6px 12px',
-                borderRadius: '999px',
-                fontSize: '11px',
-                fontWeight: 700,
-                fontFamily: 'var(--font-sans)',
-                cursor: 'pointer',
-                border: `1px solid ${status === s ? 'var(--brand)' : 'var(--border)'}`,
-                background: status === s ? 'var(--brand)' : 'transparent',
-                color: status === s ? 'var(--brand-foreground)' : 'var(--muted-foreground)',
-              }}
-            >
-              {s === 'pending' ? 'на проверке' : s === 'approved' ? 'подтверждено' : 'отклонено'}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   );
