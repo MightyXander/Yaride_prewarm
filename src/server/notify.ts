@@ -23,7 +23,9 @@ import { sendMessage } from './telegram.ts';
  * - time_slot: вывести слот алерта из desired_time (час<12 → 'morning', час>=12 → 'evening',
  *   desired_time IS NULL → любой слот) и сматчить с time_slot поездки
  *
- * Кнопка «Открыть поездку» ведёт на deep-link: <MINIAPP_URL>?startapp=trip-<tripId>
+ * Кнопки:
+ * - «Открыть поездку» ведёт на deep-link: <MINIAPP_URL>?startapp=trip-<tripId>
+ * - «🔕 Снять заявку» callback_data=`al:cxl:<alertId>` для отмены алерта
  *
  * @param tripId ID опубликованной поездки
  * @param startPointId ID начальной точки
@@ -53,10 +55,11 @@ export async function notifyPassengersAboutNewTrip(params: {
     //   - час >= 12 → 'evening'
     //   - desired_time IS NULL → любой слот (не исключаем)
     const alertsRes = await pool.query<{
+      alert_id: number;
       passenger_id: number;
       tg_user_id: number;
     }>(
-      `SELECT ra.passenger_id, u.tg_user_id
+      `SELECT ra.id AS alert_id, ra.passenger_id, u.tg_user_id
        FROM route_alerts ra
        JOIN users u ON u.id = ra.passenger_id
        WHERE ra.from_point_id = $1
@@ -85,21 +88,25 @@ export async function notifyPassengersAboutNewTrip(params: {
 
     // Отправить каждому пассажиру (fire-and-forget)
     const promises = alertsRes.rows.map(async (row) => {
-      const opts =
-        miniAppUrl !== ''
-          ? {
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: 'Открыть поездку',
-                      url: `${miniAppUrl}?startapp=trip-${params.tripId}`,
-                    },
-                  ],
-                ],
-              },
-            }
-          : undefined;
+      const buttons: Array<{ text: string; url?: string; callback_data?: string }> = [];
+
+      if (miniAppUrl !== '') {
+        buttons.push({
+          text: 'Открыть поездку',
+          url: `${miniAppUrl}?startapp=trip-${params.tripId}`,
+        });
+      }
+
+      buttons.push({
+        text: '🔕 Снять заявку',
+        callback_data: `al:cxl:${row.alert_id}`,
+      });
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [buttons],
+        },
+      };
 
       await sendMessage(row.tg_user_id, text, opts);
     });
@@ -114,9 +121,13 @@ export async function notifyPassengersAboutNewTrip(params: {
 /**
  * Отправить уведомление водителю о новой брони.
  *
- * Кнопка «Открыть» ведёт на deep-link: <MINIAPP_URL>?startapp=trip-<tripId>
+ * Кнопки:
+ * - «Открыть» ведёт на deep-link: <MINIAPP_URL>?startapp=trip-<tripId>
+ * - «✅ Подтвердить» callback_data=`bk:cfm:<bookingId>`
+ * - «❌ Отклонить» callback_data=`bk:dec:<bookingId>`
  *
  * @param tripId ID поездки
+ * @param bookingId ID брони
  * @param driverTgUserId Telegram ID водителя
  * @param passengerName Имя пассажира (для сообщения)
  * @param startTitle Название начальной точки
@@ -127,6 +138,7 @@ export async function notifyPassengersAboutNewTrip(params: {
  */
 export async function notifyDriverAboutNewBooking(params: {
   tripId: number;
+  bookingId: number;
   driverTgUserId: number;
   passengerName: string;
   startTitle: string;
@@ -140,21 +152,33 @@ export async function notifyDriverAboutNewBooking(params: {
     const seatsText = params.seatsBooked === 1 ? 'место' : 'места';
     const text = `${params.passengerName} забронировал ${params.seatsBooked} ${seatsText} на поездку ${params.startTitle} → ${params.endTitle}, ${params.tripDate} ${params.departureTime}.`;
 
-    const opts =
-      miniAppUrl !== ''
-        ? {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: 'Открыть',
-                    url: `${miniAppUrl}?startapp=trip-${params.tripId}`,
-                  },
-                ],
-              ],
-            },
-          }
-        : undefined;
+    const buttons: Array<Array<{ text: string; url?: string; callback_data?: string }>> = [];
+
+    if (miniAppUrl !== '') {
+      buttons.push([
+        {
+          text: 'Открыть',
+          url: `${miniAppUrl}?startapp=trip-${params.tripId}`,
+        },
+      ]);
+    }
+
+    buttons.push([
+      {
+        text: '✅ Подтвердить',
+        callback_data: `bk:cfm:${params.bookingId}`,
+      },
+      {
+        text: '❌ Отклонить',
+        callback_data: `bk:dec:${params.bookingId}`,
+      },
+    ]);
+
+    const opts = {
+      reply_markup: {
+        inline_keyboard: buttons,
+      },
+    };
 
     await sendMessage(params.driverTgUserId, text, opts);
   } catch (err) {

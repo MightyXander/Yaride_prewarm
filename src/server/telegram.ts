@@ -259,6 +259,168 @@ export async function setWebhook(
   }
 }
 
+/**
+ * Ответить на callback_query через Bot API answerCallbackQuery.
+ *
+ * @param callbackQueryId ID callback_query из update
+ * @param text Текст уведомления (опционально, макс. 200 символов)
+ * @param showAlert true — показать алерт, false — нотификацию (по умолчанию false)
+ * @param botToken BOT_TOKEN (process.env.BOT_TOKEN); если пусто — ошибка
+ * @returns true при успехе, false при ошибке (логируется)
+ */
+export async function answerCallbackQuery(
+  callbackQueryId: string,
+  text?: string,
+  showAlert = false,
+  botToken?: string | null,
+): Promise<boolean> {
+  const token = (botToken ?? process.env.BOT_TOKEN ?? '').trim();
+  if (token === '') {
+    console.error('answerCallbackQuery: BOT_TOKEN отсутствует');
+    return false;
+  }
+
+  const url = `${TELEGRAM_API_BASE}/bot${token}/answerCallbackQuery`;
+  const payload: Record<string, unknown> = {
+    callback_query_id: callbackQueryId,
+  };
+  if (text) {
+    payload.text = text;
+  }
+  if (showAlert) {
+    payload.show_alert = true;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`answerCallbackQuery failed (${response.status}):`, errorText);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('answerCallbackQuery exception:', err);
+    return false;
+  }
+}
+
+/**
+ * Редактировать reply_markup сообщения через Bot API editMessageReplyMarkup.
+ *
+ * @param chatId ID чата
+ * @param messageId ID сообщения
+ * @param replyMarkup Новый reply_markup (или null для удаления)
+ * @param botToken BOT_TOKEN (process.env.BOT_TOKEN); если пусто — ошибка
+ * @returns true при успехе, false при ошибке (логируется)
+ */
+export async function editMessageReplyMarkup(
+  chatId: number | string,
+  messageId: number,
+  replyMarkup:
+    | {
+        inline_keyboard?: Array<Array<{ text: string; url?: string; callback_data?: string }>>;
+      }
+    | null,
+  botToken?: string | null,
+): Promise<boolean> {
+  const token = (botToken ?? process.env.BOT_TOKEN ?? '').trim();
+  if (token === '') {
+    console.error('editMessageReplyMarkup: BOT_TOKEN отсутствует');
+    return false;
+  }
+
+  const url = `${TELEGRAM_API_BASE}/bot${token}/editMessageReplyMarkup`;
+  const payload: Record<string, unknown> = {
+    chat_id: chatId,
+    message_id: messageId,
+  };
+  if (replyMarkup !== null) {
+    payload.reply_markup = replyMarkup;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`editMessageReplyMarkup failed (${response.status}):`, errorText);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('editMessageReplyMarkup exception:', err);
+    return false;
+  }
+}
+
+/**
+ * Редактировать текст сообщения через Bot API editMessageText.
+ *
+ * @param chatId ID чата
+ * @param messageId ID сообщения
+ * @param text Новый текст сообщения
+ * @param opts Опции (parse_mode, reply_markup и т.д.)
+ * @param botToken BOT_TOKEN (process.env.BOT_TOKEN); если пусто — ошибка
+ * @returns true при успехе, false при ошибке (логируется)
+ */
+export async function editMessageText(
+  chatId: number | string,
+  messageId: number,
+  text: string,
+  opts?: {
+    parse_mode?: 'Markdown' | 'HTML';
+    reply_markup?: {
+      inline_keyboard?: Array<Array<{ text: string; url?: string; callback_data?: string }>>;
+    };
+  },
+  botToken?: string | null,
+): Promise<boolean> {
+  const token = (botToken ?? process.env.BOT_TOKEN ?? '').trim();
+  if (token === '') {
+    console.error('editMessageText: BOT_TOKEN отсутствует');
+    return false;
+  }
+
+  const url = `${TELEGRAM_API_BASE}/bot${token}/editMessageText`;
+  const payload: Record<string, unknown> = {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    ...opts,
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`editMessageText failed (${response.status}):`, errorText);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('editMessageText exception:', err);
+    return false;
+  }
+}
+
 // ============================================================================
 // Webhook update handler
 // ============================================================================
@@ -281,11 +443,32 @@ interface TelegramUpdate {
     text?: string;
     entities?: Array<{ type: string; offset: number; length: number }>;
   };
+  callback_query?: {
+    id: string;
+    from: {
+      id: number;
+      first_name?: string;
+      last_name?: string;
+      username?: string;
+      language_code?: string;
+    };
+    message?: {
+      message_id: number;
+      chat: {
+        id: number;
+        type: string;
+      };
+      text?: string;
+    };
+    data?: string;
+  };
 }
 
 /**
  * Обработать входящий update от Telegram webhook.
- * Сейчас обрабатывает команду /start: отправляет приветствие + кнопку открыть Mini App.
+ * Обрабатывает:
+ * - Команды: /start, /myalerts, /mytrips, /help
+ * - callback_query: bk:cfm:<bookingId>, bk:dec:<bookingId>, al:cxl:<alertId>
  *
  * @param update Объект update от Telegram
  * @param miniAppUrl URL Mini App (env MINIAPP_URL), для кнопки
@@ -297,6 +480,14 @@ export async function handleWebhookUpdate(
   miniAppUrl?: string,
   botToken?: string | null,
 ): Promise<boolean> {
+  const token = (botToken ?? process.env.BOT_TOKEN ?? '').trim();
+
+  // Обработка callback_query (кнопки в уведомлениях)
+  if (update.callback_query) {
+    return await handleCallbackQuery(update.callback_query, token);
+  }
+
+  // Обработка message (команды)
   const message = update.message;
   if (!message) {
     return true;
@@ -304,6 +495,11 @@ export async function handleWebhookUpdate(
 
   const chatId = message.chat.id;
   const text = message.text ?? '';
+  const tgUserId = message.from?.id;
+
+  if (!tgUserId) {
+    return true;
+  }
 
   if (text.startsWith('/start')) {
     const appUrl = (miniAppUrl ?? process.env.MINIAPP_URL ?? '').trim();
@@ -318,9 +514,244 @@ export async function handleWebhookUpdate(
       };
     }
 
-    const sent = await sendMessage(chatId, greeting, opts, botToken);
+    const sent = await sendMessage(chatId, greeting, opts, token);
     return sent;
   }
 
+  if (text.startsWith('/help')) {
+    return await handleHelpCommand(chatId, miniAppUrl, token);
+  }
+
+  if (text.startsWith('/myalerts')) {
+    return await handleMyAlertsCommand(chatId, tgUserId, token);
+  }
+
+  if (text.startsWith('/mytrips')) {
+    return await handleMyTripsCommand(chatId, tgUserId, token);
+  }
+
   return true;
+}
+
+/**
+ * Обработать callback_query (нажатие на inline-кнопку).
+ * callback_data format:
+ * - bk:cfm:<bookingId> — подтвердить бронь
+ * - bk:dec:<bookingId> — отклонить бронь
+ * - al:cxl:<alertId> — снять заявку (route_alert)
+ *
+ * Проверяет владельца через from.id (Telegram user ID):
+ * - bk:* — инициатор должен быть водителем поездки брони
+ * - al:cxl — инициатор должен быть владельцем алерта
+ */
+async function handleCallbackQuery(
+  callbackQuery: NonNullable<TelegramUpdate['callback_query']>,
+  botToken: string,
+): Promise<boolean> {
+  const data = callbackQuery.data ?? '';
+  const from = callbackQuery.from;
+  const message = callbackQuery.message;
+
+  if (data === '') {
+    await answerCallbackQuery(callbackQuery.id, 'Неизвестная команда', false, botToken);
+    return true;
+  }
+
+  const parts = data.split(':');
+  if (parts.length < 3) {
+    await answerCallbackQuery(callbackQuery.id, 'Неверный формат данных', false, botToken);
+    return true;
+  }
+
+  const [prefix, action, idStr] = parts;
+  const id = Number(idStr);
+  if (isNaN(id)) {
+    await answerCallbackQuery(callbackQuery.id, 'Неверный ID', false, botToken);
+    return true;
+  }
+
+  try {
+    if (prefix === 'bk') {
+      // Брони: проверка что from.id — водитель поездки
+      if (action === 'cfm') {
+        // Подтвердить бронь
+        const { confirmBookingByDriver } = await import('./repo.ts');
+        const result = await confirmBookingByDriver(id, from.id);
+
+        await answerCallbackQuery(
+          callbackQuery.id,
+          `Бронь подтверждена: ${result.passengerName}, ${result.seats} мест`,
+          false,
+          botToken,
+        );
+
+        if (message) {
+          await editMessageText(
+            message.chat.id,
+            message.message_id,
+            `${message.text ?? ''}\n\n✅ Подтверждено`,
+            { reply_markup: { inline_keyboard: [] } },
+            botToken,
+          );
+        }
+
+        return true;
+      } else if (action === 'dec') {
+        // Отклонить бронь
+        const { cancelBookingByDriver } = await import('./repo.ts');
+        const result = await cancelBookingByDriver(id, from.id);
+
+        await answerCallbackQuery(
+          callbackQuery.id,
+          `Бронь отклонена, освобождено мест: ${result.seatsFreed}`,
+          false,
+          botToken,
+        );
+
+        if (message) {
+          await editMessageText(
+            message.chat.id,
+            message.message_id,
+            `${message.text ?? ''}\n\n❌ Отклонено`,
+            { reply_markup: { inline_keyboard: [] } },
+            botToken,
+          );
+        }
+
+        return true;
+      }
+    } else if (prefix === 'al' && action === 'cxl') {
+      // Снять заявку (route_alert)
+      const { updateAlertStatus } = await import('./repo.ts');
+      await updateAlertStatus(id, 'cancelled', from.id);
+
+      await answerCallbackQuery(callbackQuery.id, 'Заявка снята', false, botToken);
+
+      if (message) {
+        await editMessageText(
+          message.chat.id,
+          message.message_id,
+          `${message.text ?? ''}\n\n🔕 Заявка снята`,
+          { reply_markup: { inline_keyboard: [] } },
+          botToken,
+        );
+      }
+
+      return true;
+    }
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Ошибка обработки';
+    console.error('[handleCallbackQuery] Ошибка:', err);
+    await answerCallbackQuery(callbackQuery.id, errorMsg, true, botToken);
+    return true;
+  }
+
+  await answerCallbackQuery(callbackQuery.id, 'Неизвестная команда', false, botToken);
+  return true;
+}
+
+/**
+ * Команда /help — справка по командам и боту.
+ */
+async function handleHelpCommand(
+  chatId: number,
+  miniAppUrl: string | undefined,
+  botToken: string,
+): Promise<boolean> {
+  const appUrl = (miniAppUrl ?? process.env.MINIAPP_URL ?? '').trim();
+  let text = `Доступные команды:
+
+/start — приветствие и кнопка открыть приложение
+/myalerts — активные заявки на поездки
+/mytrips — мои поездки (водитель и пассажир)
+/help — эта справка`;
+
+  if (appUrl !== '') {
+    text += `\n\nОткрыть приложение: нажмите кнопку ниже или используйте /start`;
+  }
+
+  const opts: SendMessageOptions = {};
+  if (appUrl !== '') {
+    opts.reply_markup = {
+      inline_keyboard: [[{ text: 'Открыть приложение', url: appUrl }]],
+    };
+  }
+
+  return await sendMessage(chatId, text, opts, botToken);
+}
+
+/**
+ * Команда /myalerts — активные route_alerts пользователя.
+ */
+async function handleMyAlertsCommand(
+  chatId: number,
+  tgUserId: number,
+  botToken: string,
+): Promise<boolean> {
+  try {
+    const { getPool } = await import('./db.ts');
+    const pool = getPool();
+
+    const alertsRes = await pool.query<{
+      id: number;
+      from_title: string;
+      to_title: string;
+      desired_date: string;
+      desired_time: string | null;
+    }>(
+      `SELECT ra.id, fp.title AS from_title, tp.title AS to_title,
+              ra.desired_date, ra.desired_time
+       FROM route_alerts ra
+       JOIN route_points fp ON fp.id = ra.from_point_id
+       JOIN route_points tp ON tp.id = ra.to_point_id
+       JOIN users u ON u.id = ra.passenger_id
+       WHERE u.tg_user_id = $1 AND ra.status = 'active'
+       ORDER BY ra.desired_date ASC, ra.desired_time ASC`,
+      [tgUserId],
+    );
+
+    if (alertsRes.rows.length === 0) {
+      return await sendMessage(chatId, 'Активных заявок нет.', undefined, botToken);
+    }
+
+    const lines = alertsRes.rows.map((r) => {
+      const time = r.desired_time ?? 'любое время';
+      return `• ${r.from_title} → ${r.to_title}, ${r.desired_date}, ${time}`;
+    });
+
+    const text = `Активные заявки:\n\n${lines.join('\n')}`;
+    return await sendMessage(chatId, text, undefined, botToken);
+  } catch (err) {
+    console.error('[handleMyAlertsCommand] Ошибка:', err);
+    return await sendMessage(chatId, 'Ошибка загрузки заявок.', undefined, botToken);
+  }
+}
+
+/**
+ * Команда /mytrips — поездки пользователя (как водителя + как пассажира).
+ */
+async function handleMyTripsCommand(
+  chatId: number,
+  tgUserId: number,
+  botToken: string,
+): Promise<boolean> {
+  try {
+    const { getUserTrips } = await import('./repo.ts');
+    const trips = await getUserTrips(tgUserId, 'upcoming');
+
+    if (trips.length === 0) {
+      return await sendMessage(chatId, 'Предстоящих поездок нет.', undefined, botToken);
+    }
+
+    const lines = trips.map((t) => {
+      const role = t.role === 'driver' ? 'Водитель' : 'Пассажир';
+      return `• ${role}: ${t.start_title} → ${t.end_title}, ${t.trip_date} ${t.departure_time}`;
+    });
+
+    const text = `Предстоящие поездки:\n\n${lines.join('\n')}`;
+    return await sendMessage(chatId, text, undefined, botToken);
+  } catch (err) {
+    console.error('[handleMyTripsCommand] Ошибка:', err);
+    return await sendMessage(chatId, 'Ошибка загрузки поездок.', undefined, botToken);
+  }
 }

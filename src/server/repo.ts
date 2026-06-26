@@ -843,6 +843,124 @@ export async function cancelBookingByDriver(
 }
 
 /**
+ * Подтвердить бронь водителем (callback-кнопка в Telegram).
+ * Переводит бронь в status='confirmed' (добавим новый статус или оставим 'active'?
+ * В схеме нет 'confirmed', поэтому просто проверяем, что бронь активна).
+ * В текущей схеме bookings.status: 'active' | 'cancelled_by_passenger' | 'cancelled_by_driver'.
+ * Для подтверждения можно оставить 'active' (уже подтверждено созданием).
+ * Эта функция просто проверяет, что бронь принадлежит поездке водителя и активна.
+ * Возвращает подтверждение без изменения status.
+ *
+ * @param bookingId ID брони
+ * @param tgDriverId Telegram ID водителя
+ * @returns Детали брони (пассажир, места, статус)
+ */
+export async function confirmBookingByDriver(
+  bookingId: number,
+  tgDriverId: number,
+): Promise<{ bookingId: number; tripId: number; passengerName: string; seats: number }> {
+  await ensureReady();
+
+  return withTransaction(async (client) => {
+    const driverId = await getInternalUserId(client, tgDriverId);
+    if (driverId === null) {
+      throw new Error('Профиль водителя не найден.');
+    }
+
+    const bookingRes = await client.query<{
+      id: number;
+      trip_id: number;
+      status: string;
+      seats: number;
+      driver_id: number;
+      passenger_name: string;
+    }>(
+      `SELECT b.id, b.trip_id, b.status, b.seats, t.driver_id, u.name AS passenger_name
+       FROM bookings b
+       JOIN trips t ON t.id = b.trip_id
+       JOIN users u ON u.id = b.passenger_id
+       WHERE b.id = $1`,
+      [bookingId],
+    );
+    const booking = bookingRes.rows[0];
+
+    if (!booking) {
+      throw new Error('Бронь не найдена.');
+    }
+    if (booking.driver_id !== driverId) {
+      throw new Error('Вы не водитель этой поездки.');
+    }
+    if (booking.status !== 'active') {
+      throw new Error('Бронь уже отменена или недоступна.');
+    }
+
+    // В текущей схеме нет статуса 'confirmed', поэтому просто возвращаем подтверждение
+    // Можно добавить логирование или дополнительный флаг, но для MVP достаточно проверки
+    return {
+      bookingId: booking.id,
+      tripId: booking.trip_id,
+      passengerName: booking.passenger_name,
+      seats: booking.seats,
+    };
+  });
+}
+
+export interface UpdateAlertStatusResult {
+  alertId: number;
+  status: string;
+}
+
+/**
+ * Обновить статус route_alert (для отмены через callback-кнопку в Telegram).
+ *
+ * @param alertId ID алерта
+ * @param newStatus Новый статус ('cancelled', 'active', 'notified')
+ * @param tgPassengerId Telegram ID пассажира (владелец алерта)
+ * @returns Обновлённый статус
+ */
+export async function updateAlertStatus(
+  alertId: number,
+  newStatus: 'active' | 'notified' | 'cancelled',
+  tgPassengerId: number,
+): Promise<UpdateAlertStatusResult> {
+  await ensureReady();
+
+  return withTransaction(async (client) => {
+    const passengerId = await getInternalUserId(client, tgPassengerId);
+    if (passengerId === null) {
+      throw new Error('Профиль пассажира не найден.');
+    }
+
+    const alertRes = await client.query<{
+      id: number;
+      passenger_id: number;
+      status: string;
+    }>(
+      'SELECT id, passenger_id, status FROM route_alerts WHERE id = $1',
+      [alertId],
+    );
+    const alert = alertRes.rows[0];
+
+    if (!alert) {
+      throw new Error('Заявка не найдена.');
+    }
+    if (alert.passenger_id !== passengerId) {
+      throw new Error('Вы не владелец этой заявки.');
+    }
+
+    const upd = await client.query<{ id: number; status: string }>(
+      'UPDATE route_alerts SET status = $1 WHERE id = $2 RETURNING id, status',
+      [newStatus, alertId],
+    );
+
+    return {
+      alertId: upd.rows[0].id,
+      status: upd.rows[0].status,
+    };
+  });
+}
+
+/**
  * Диагностика наполнения БД (для проверки demo-seed в dev/проде).
  * Возвращает счётчики: route_points, users, trips, trips_today, demo_drivers (без ПДн).
  */
