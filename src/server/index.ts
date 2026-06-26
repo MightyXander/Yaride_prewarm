@@ -51,6 +51,7 @@ export {
   handleCreateRating,
   handleGetTripBookings,
   handleCancelBooking,
+  handleDebugCounts,
 } from './api.ts';
 export type { ApiRequest, ApiResponse } from './api.ts';
 
