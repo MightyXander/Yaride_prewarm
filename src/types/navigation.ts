@@ -49,9 +49,15 @@ export interface Trip {
   };
 }
 
+export interface RatingContext {
+  tripId: number;
+  rateeId: number;
+}
+
 export interface NavigationState {
   currentScreen: Screen;
   selectedTrip: Trip | null;
   confirmKind: ConfirmKind;
   scrollPositions: Record<Screen, number>;
+  ratingContext: RatingContext | null;
 }

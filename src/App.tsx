@@ -66,7 +66,7 @@ function App() {
     });
   };
 
-  const { currentScreen, selectedTrip, confirmKind, direction, navigate, goBack } =
+  const { currentScreen, selectedTrip, confirmKind, ratingContext, direction, navigate, navigateToRateTrip, goBack } =
     useNavigation('intro');
   const prefersReducedMotion = useReducedMotion();
   const isDesktop = useMediaQuery('(min-width: 430px)');
@@ -302,11 +302,11 @@ function App() {
             {currentScreen === 'my-trips' && (
               <MyTripsScreen
                 onCreateTrip={() => navigate('driver-publish')}
-                onRateTrip={() => navigate('rate-trip')}
+                onRateTrip={(tripId, rateeId) => navigateToRateTrip({ tripId, rateeId })}
               />
             )}
             {currentScreen === 'rate-trip' && (
-              <RateTripScreen trip={selectedTrip ?? undefined} onSubmit={goBack} onClose={goBack} />
+              <RateTripScreen ratingContext={ratingContext ?? undefined} onSubmit={goBack} onClose={goBack} />
             )}
             {currentScreen === 'habit-home' && regularDriver && (
               <HabitHomeScreen

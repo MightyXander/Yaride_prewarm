@@ -147,6 +147,7 @@ export interface UserTripItem {
   booking_id: number | null;
   booking_status: string | null;
   passenger_seats: number | null;
+  driver_id: number | null;
 }
 
 export interface GetMyTripsRequest {
