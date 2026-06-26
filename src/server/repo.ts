@@ -625,7 +625,7 @@ export async function getUserTrips(
          JOIN trips t ON t.id = b.trip_id
          JOIN route_points sp ON sp.id = t.start_point_id
          JOIN route_points ep ON ep.id = t.end_point_id
-         WHERE b.passenger_id = $1 AND b.status = 'active' AND t.trip_date >= $2`
+         WHERE b.passenger_id = $1 AND b.status = 'active' AND t.trip_date >= $2 AND t.status = 'open'`
       : `SELECT t.id AS trip_id, 'passenger' AS role, t.trip_date, t.departure_time,
                 t.time_slot, sp.title AS start_title, ep.title AS end_title,
                 t.price_rub, t.seats_total, t.seats_booked, t.status AS trip_status,
@@ -635,7 +635,7 @@ export async function getUserTrips(
          JOIN trips t ON t.id = b.trip_id
          JOIN route_points sp ON sp.id = t.start_point_id
          JOIN route_points ep ON ep.id = t.end_point_id
-         WHERE b.passenger_id = $1 AND (t.trip_date < $2 OR b.status IN ('cancelled_by_passenger', 'cancelled_by_driver'))`;
+         WHERE b.passenger_id = $1 AND (t.trip_date < $2 OR b.status IN ('cancelled_by_passenger', 'cancelled_by_driver') OR t.status IN ('cancelled', 'completed'))`;
 
   const unionQuery = `
     (${driverQuery})
