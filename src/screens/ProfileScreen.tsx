@@ -27,11 +27,13 @@ interface ProfileScreenProps {
   onSafety?: () => void;
   /** Открыть экран «Мои поездки» (экран 17). */
   onMyTrips?: () => void;
-  /** Открыть экран «Домой как вчера» (экран 24). */
-  onHabitHome?: () => void;
+  /** Переключение темы (light/dark). */
+  onToggleTheme?: () => void;
+  /** Текущая тема. */
+  theme?: 'light' | 'dark';
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onHabitHome }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onToggleTheme, theme }) => {
   const { profile, loading } = useProfile();
 
   const avatar = profile ? profile.name.charAt(0).toUpperCase() : 'Н';
@@ -228,7 +230,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
         </>
       )}
 
-      {/* Меню: мои поездки (экран 17), безопасность (экран 19), вечер домой (экран 24) */}
+      {/* Меню: мои поездки (экран 17), безопасность (экран 19), переключатель темы */}
       <Card style={{ padding: '4px 6px' }}>
         <button
           type="button"
@@ -321,7 +323,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
           className="focus-ring pressable"
           onClick={() => {
             window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-            onHabitHome?.();
+            onToggleTheme?.();
           }}
           style={{
             width: '100%',
@@ -350,9 +352,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
               flexShrink: 0,
             }}
           >
-            <Icon id="i-clock" style={{ width: '17px', height: '17px' }} />
+            <Icon id={theme === 'dark' ? 'i-moon' : 'i-sun'} style={{ width: '17px', height: '17px' }} />
           </div>
-          <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>Вечер: домой как вчера</span>
+          <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>
+            {theme === 'dark' ? 'Тёмная тема' : 'Светлая тема'}
+          </span>
           <Icon
             id="i-chev-r"
             style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }}

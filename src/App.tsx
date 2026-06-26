@@ -2,12 +2,10 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icons } from './components/Icons';
 import BackButton from './components/BackButton';
-import ThemeToggle from './components/ThemeToggle';
 import { ToastHost } from './components/ToastHost';
 import IntroScreen from './screens/IntroScreen';
 import MainScreen from './screens/MainScreen';
 import TripDetailsScreen from './screens/TripDetailsScreen';
-import EmptyStateScreen from './screens/EmptyStateScreen';
 import BookingProfileScreen from './screens/BookingProfileScreen';
 import DriverPublishScreen from './screens/DriverPublishScreen';
 import BookingConfirmedScreen from './screens/BookingConfirmedScreen';
@@ -19,10 +17,8 @@ import InTripScreen from './screens/InTripScreen';
 import SafetyScreen from './screens/SafetyScreen';
 import PassengerRequestScreen from './screens/PassengerRequestScreen';
 import RequestPublishedScreen from './screens/RequestPublishedScreen';
-import AlertPushScreen from './screens/AlertPushScreen';
 import MyTripsScreen from './screens/MyTripsScreen';
 import RateTripScreen from './screens/RateTripScreen';
-import HabitHomeScreen from './screens/HabitHomeScreen';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -31,7 +27,7 @@ import { useStartParam } from './hooks/useStartParam';
 import { getTrips } from './lib/api';
 import { mapTripListItemToTrip } from './lib/mappers';
 import { ProfileProvider } from './contexts/ProfileContext';
-import type { Screen, Trip } from './types/navigation';
+import type { Screen } from './types/navigation';
 import type { BookingResult } from './types/api';
 
 // Направленный слайд + fade при смене экрана. direction: 1 — вперёд, -1 — назад.
@@ -137,15 +133,12 @@ function App() {
   const eveningTrips =
     eveningTripsState.status === 'success' ? eveningTripsState.data : [];
 
-  // Постоянный водитель для экрана 24 «Домой как вчера»
-  const regularDriver: Trip | undefined = eveningTrips[0];
-
   // Текущая бронь (для передачи из booking-profile в booking-confirmed)
   const [currentBooking, setCurrentBooking] = useState<BookingResult | null>(null);
 
   // BackButton показываем везде, кроме «главных» (списки поездок с left-topbar
-  // и нижней навигацией): intro/main/main-more/evening-main/habit-home.
-  const showBackButton = !['intro', 'main', 'main-more', 'evening-main', 'habit-home'].includes(
+  // и нижней навигацией): intro/main/main-more/evening-main.
+  const showBackButton = !['intro', 'main', 'main-more', 'evening-main'].includes(
     currentScreen
   );
 
@@ -154,10 +147,8 @@ function App() {
     'main',
     'main-more',
     'trip-details',
-    'empty-state',
     'profile',
     'evening-main',
-    'habit-home',
   ];
   const navVisible = NAV_VISIBLE_SCREENS.includes(currentScreen);
 
@@ -173,8 +164,6 @@ function App() {
         <Icons />
         <ToastHost />
         <BackButton onClick={goBack} show={showBackButton} />
-        {/* На главных (где нет «назад») слева сверху — кнопка смены темы. */}
-        <ThemeToggle onToggle={toggleTheme} show={!showBackButton && currentScreen !== 'intro'} />
         <div
           style={{
             maxWidth: isDesktop ? '430px' : 'none',
@@ -261,12 +250,6 @@ function App() {
             {currentScreen === 'trip-details' && selectedTrip && (
               <TripDetailsScreen trip={selectedTrip} onBook={() => navigate('booking-profile')} />
             )}
-            {currentScreen === 'empty-state' && (
-              <EmptyStateScreen
-                onRequestRide={() => navigate('passenger-request')}
-                onAlertMe={() => navigate('alert-push')}
-              />
-            )}
             {currentScreen === 'booking-profile' && selectedTrip && (
               <BookingProfileScreen
                 trip={selectedTrip}
@@ -298,7 +281,8 @@ function App() {
                 onLicenseReview={() => navigate('license-review')}
                 onSafety={() => navigate('safety')}
                 onMyTrips={() => navigate('my-trips')}
-                onHabitHome={() => navigate('habit-home')}
+                onToggleTheme={toggleTheme}
+                theme={theme}
               />
             )}
             {currentScreen === 'driver-bookings' && (
@@ -324,12 +308,6 @@ function App() {
                 onCancel={goBack}
               />
             )}
-            {currentScreen === 'alert-push' && morningTrips[1] && (
-              <AlertPushScreen
-                trip={morningTrips[1]}
-                onBook={() => navigate('trip-details', morningTrips[1])}
-              />
-            )}
             {currentScreen === 'my-trips' && (
               <MyTripsScreen
                 onCreateTrip={() => navigate('driver-publish')}
@@ -338,13 +316,6 @@ function App() {
             )}
             {currentScreen === 'rate-trip' && (
               <RateTripScreen ratingContext={ratingContext ?? undefined} onSubmit={goBack} onClose={goBack} />
-            )}
-            {currentScreen === 'habit-home' && regularDriver && (
-              <HabitHomeScreen
-                regularDriver={regularDriver}
-                onBookRegular={() => navigate('booking-confirmed', regularDriver, 'booking')}
-                onViewOthers={() => navigate('evening-main')}
-              />
             )}
             {currentScreen === 'evening-main' && (
               <MainScreen
