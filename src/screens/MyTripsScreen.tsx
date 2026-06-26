@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
@@ -6,6 +7,7 @@ import { Icon } from '../components/Icons';
 import { hapticSelection, hapticImpact } from '../lib/haptics';
 import { getMyTrips, ApiException } from '../lib/api';
 import type { UserTripItem } from '../types/api';
+import { Appear, AppearList } from '../components/Appear';
 
 // Демо-данные для браузера без Telegram (graceful fallback при 401).
 // Даты относительно сегодня: upcoming = сегодня/завтра, past = вчера/позавчера.
@@ -248,206 +250,214 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
         </button>
       </div>
 
-      {loading ? (
-        <>
-          {[1, 2].map((i) => (
-            <Card key={i} style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '140px' }}>
-              <div
+      <AnimatePresence mode="wait">
+        {loading ? (
+          <Appear key="loading-skeleton" instant>
+            <>
+              {[1, 2].map((i) => (
+                <Card key={i} style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '140px', marginBottom: '12px' }}>
+                  <div
+                    style={{
+                      height: '16px',
+                      width: '50%',
+                      borderRadius: '8px',
+                      background: 'var(--secondary)',
+                      animation: 'pulse 1.5s ease-in-out infinite',
+                    }}
+                  />
+                  <div
+                    style={{
+                      height: '20px',
+                      width: '70%',
+                      borderRadius: '10px',
+                      background: 'var(--secondary)',
+                      animation: 'pulse 1.5s ease-in-out infinite',
+                    }}
+                  />
+                  <div
+                    style={{
+                      height: '14px',
+                      width: '90%',
+                      borderRadius: '7px',
+                      background: 'var(--secondary)',
+                      animation: 'pulse 1.5s ease-in-out infinite',
+                    }}
+                  />
+                  <div
+                    style={{
+                      height: '14px',
+                      width: '90%',
+                      borderRadius: '7px',
+                      background: 'var(--secondary)',
+                      animation: 'pulse 1.5s ease-in-out infinite',
+                    }}
+                  />
+                </Card>
+              ))}
+            </>
+          </Appear>
+        ) : trips.length === 0 ? (
+          <Appear key={`empty-${activeTab}`} animateKey={`empty-${activeTab}`}>
+            <Card style={{ textAlign: 'center', padding: '32px 16px' }}>
+              <Icon
+                id="i-receipt"
                 style={{
-                  height: '16px',
-                  width: '50%',
-                  borderRadius: '8px',
-                  background: 'var(--secondary)',
-                  animation: 'pulse 1.5s ease-in-out infinite',
+                  width: '48px',
+                  height: '48px',
+                  color: 'var(--muted-foreground)',
+                  margin: '0 auto 12px',
+                  display: 'block',
                 }}
               />
-              <div
-                style={{
-                  height: '20px',
-                  width: '70%',
-                  borderRadius: '10px',
-                  background: 'var(--secondary)',
-                  animation: 'pulse 1.5s ease-in-out infinite',
-                }}
-              />
-              <div
-                style={{
-                  height: '14px',
-                  width: '90%',
-                  borderRadius: '7px',
-                  background: 'var(--secondary)',
-                  animation: 'pulse 1.5s ease-in-out infinite',
-                }}
-              />
-              <div
-                style={{
-                  height: '14px',
-                  width: '90%',
-                  borderRadius: '7px',
-                  background: 'var(--secondary)',
-                  animation: 'pulse 1.5s ease-in-out infinite',
-                }}
-              />
+              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--muted-foreground)' }}>
+                {activeTab === 'upcoming' ? 'Нет предстоящих поездок' : 'Нет прошлых поездок'}
+              </div>
             </Card>
-          ))}
-        </>
-      ) : trips.length === 0 ? (
-        <Card style={{ textAlign: 'center', padding: '32px 16px' }}>
-          <Icon
-            id="i-receipt"
-            style={{
-              width: '48px',
-              height: '48px',
-              color: 'var(--muted-foreground)',
-              margin: '0 auto 12px',
-              display: 'block',
-            }}
-          />
-          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--muted-foreground)' }}>
-            {activeTab === 'upcoming' ? 'Нет предстоящих поездок' : 'Нет прошлых поездок'}
-          </div>
-        </Card>
-      ) : (
-        trips.map((trip) => {
-          const status = getStatusLabel(trip);
-          const name = trip.role === 'driver' ? 'Моя поездка' : 'Поездка';
+          </Appear>
+        ) : (
+          <AppearList key={`trips-${activeTab}`} animateKey={`trips-${activeTab}`} stagger={40} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {trips.map((trip) => {
+              const status = getStatusLabel(trip);
+              const name = trip.role === 'driver' ? 'Моя поездка' : 'Поездка';
 
-          return (
-            <Card
-              key={trip.trip_id}
-              role={activeTab === 'past' ? 'button' : undefined}
-              tabIndex={activeTab === 'past' ? 0 : undefined}
-              className={activeTab === 'past' ? 'focus-ring pressable' : undefined}
-              onClick={() => handleTripClick(trip)}
-              onKeyDown={
-                activeTab === 'past'
-                  ? (e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleTripClick(trip);
-                      }
-                    }
-                  : undefined
-              }
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '9px',
-                cursor: activeTab === 'past' ? 'pointer' : 'default',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '8px',
-                  margin: 0,
-                }}
-              >
-                <div style={{ fontWeight: 700, fontSize: '13.5px' }}>
-                  {name}{' '}
-                  <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '12px' }}>
-                    · {getRoleLabel(trip.role)}
-                  </span>
-                </div>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color:
-                      status === 'бронь' ? 'var(--success-foreground)' : status === 'завершено' ? 'var(--muted-foreground)' : 'var(--foreground)',
-                    background:
-                      status === 'бронь'
-                        ? 'var(--success)'
-                        : status === 'завершено'
-                          ? 'var(--secondary)'
-                          : 'var(--accent)',
-                    padding: '3px 10px',
-                    borderRadius: '999px',
-                    whiteSpace: 'nowrap',
-                    boxShadow:
-                      status === 'ожидает'
-                        ? 'inset 0 0 0 1px rgba(255, 221, 45, .35)'
-                        : 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  {status === 'бронь' && (
-                    <Icon id="i-check" style={{ width: '12px', height: '12px' }} />
-                  )}
-                  {status}
-                </span>
-              </div>
-              <div
-                style={{
-                  fontWeight: 800,
-                  fontSize: '16px',
-                  letterSpacing: '-0.02em',
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                {formatTime(trip.trip_date, trip.departure_time)}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                <div
+              return (
+                <Card
+                  key={trip.trip_id}
+                  role={activeTab === 'past' ? 'button' : undefined}
+                  tabIndex={activeTab === 'past' ? 0 : undefined}
+                  className={activeTab === 'past' ? 'focus-ring pressable' : undefined}
+                  onClick={() => handleTripClick(trip)}
+                  onKeyDown={
+                    activeTab === 'past'
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleTripClick(trip);
+                          }
+                        }
+                      : undefined
+                  }
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '11px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    minHeight: '24px',
+                    flexDirection: 'column',
+                    gap: '9px',
+                    cursor: activeTab === 'past' ? 'pointer' : 'default',
                   }}
                 >
                   <div
                     style={{
-                      width: '11px',
-                      height: '11px',
-                      borderRadius: '999px',
-                      border: '2px solid var(--brand)',
-                      background: 'var(--brand)',
-                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      margin: 0,
                     }}
-                  />
-                  {trip.start_title}
-                </div>
-                <div
-                  style={{
-                    height: '16px',
-                    borderLeft: '2px dotted var(--muted-foreground)',
-                    marginLeft: '4.5px',
-                  }}
-                />
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '11px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    minHeight: '24px',
-                  }}
-                >
+                  >
+                    <div style={{ fontWeight: 700, fontSize: '13.5px' }}>
+                      {name}{' '}
+                      <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '12px' }}>
+                        · {getRoleLabel(trip.role)}
+                      </span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color:
+                          status === 'бронь' ? 'var(--success-foreground)' : status === 'завершено' ? 'var(--muted-foreground)' : 'var(--foreground)',
+                        background:
+                          status === 'бронь'
+                            ? 'var(--success)'
+                            : status === 'завершено'
+                              ? 'var(--secondary)'
+                              : 'var(--accent)',
+                        padding: '3px 10px',
+                        borderRadius: '999px',
+                        whiteSpace: 'nowrap',
+                        boxShadow:
+                          status === 'ожидает'
+                            ? 'inset 0 0 0 1px rgba(255, 221, 45, .35)'
+                            : 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      {status === 'бронь' && (
+                        <Icon id="i-check" style={{ width: '12px', height: '12px' }} />
+                      )}
+                      {status}
+                    </span>
+                  </div>
                   <div
                     style={{
-                      width: '11px',
-                      height: '11px',
-                      borderRadius: '999px',
-                      border: '2px solid var(--brand)',
-                      background: activeTab === 'upcoming' ? 'transparent' : 'var(--brand)',
-                      flexShrink: 0,
+                      fontWeight: 800,
+                      fontSize: '16px',
+                      letterSpacing: '-0.02em',
+                      fontVariantNumeric: 'tabular-nums',
                     }}
-                  />
-                  {trip.end_title}
-                </div>
-              </div>
-            </Card>
-          );
-        })
-      )}
+                  >
+                    {formatTime(trip.trip_date, trip.departure_time)}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '11px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        minHeight: '24px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '11px',
+                          height: '11px',
+                          borderRadius: '999px',
+                          border: '2px solid var(--brand)',
+                          background: 'var(--brand)',
+                          flexShrink: 0,
+                        }}
+                      />
+                      {trip.start_title}
+                    </div>
+                    <div
+                      style={{
+                        height: '16px',
+                        borderLeft: '2px dotted var(--muted-foreground)',
+                        marginLeft: '4.5px',
+                      }}
+                    />
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '11px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        minHeight: '24px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '11px',
+                          height: '11px',
+                          borderRadius: '999px',
+                          border: '2px solid var(--brand)',
+                          background: activeTab === 'upcoming' ? 'transparent' : 'var(--brand)',
+                          flexShrink: 0,
+                        }}
+                      />
+                      {trip.end_title}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </AppearList>
+        )}
+      </AnimatePresence>
 
       <div
         style={{
