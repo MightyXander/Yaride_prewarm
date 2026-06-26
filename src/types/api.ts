@@ -30,6 +30,7 @@ export interface TripListItem {
   driver_rating_count: number;
   driver_trips_count: number;
   driver_license_status: string;
+  is_own: boolean;
 }
 
 export interface GetTripsRequest {

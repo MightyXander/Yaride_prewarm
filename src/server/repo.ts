@@ -35,6 +35,7 @@ export interface TripListItem {
   driver_rating_count: number;
   driver_trips_count: number;
   driver_license_status: string;
+  is_own: boolean;
 }
 
 export interface TripCard extends TripListItem {
@@ -61,9 +62,16 @@ export interface FindTripsParams {
   /** Дата YYYY-MM-DD; по умолчанию — сегодня. */
   tripDate?: string;
   limit?: number;
+  /** Внутренний user.id для определения is_own (опционально). */
+  currentUserId?: number;
 }
 
-const TRIP_LIST_SELECT = `
+function buildTripListSelect(currentUserId?: number): string {
+  const isOwnExpr = currentUserId !== undefined
+    ? `(t.driver_id = ${currentUserId}) AS is_own`
+    : `false AS is_own`;
+
+  return `
   SELECT
     t.id,
     t.driver_id,
@@ -84,12 +92,14 @@ const TRIP_LIST_SELECT = `
     u.rating_avg AS driver_rating,
     u.rating_count AS driver_rating_count,
     u.trips_driver_count AS driver_trips_count,
-    u.license_status AS driver_license_status
+    u.license_status AS driver_license_status,
+    ${isOwnExpr}
   FROM trips t
   JOIN route_points sp ON sp.id = t.start_point_id
   JOIN route_points ep ON ep.id = t.end_point_id
   JOIN users u ON u.id = t.driver_id
 `;
+}
 
 /**
  * Поездки по коридору/окну на дату (status='open'), есть свободные места.
@@ -102,7 +112,8 @@ export async function findOpenTrips(
   const tripDate = params.tripDate ?? todayISO();
   const limit = params.limit ?? 25;
 
-  let query = `${TRIP_LIST_SELECT}
+  const selectPart = buildTripListSelect(params.currentUserId);
+  let query = `${selectPart}
     WHERE t.status = 'open'
       AND t.trip_date = $1
       AND (t.seats_total - t.seats_booked) > 0`;
@@ -129,8 +140,12 @@ export async function findOpenTrips(
 }
 
 /** Карточка поездки по id с профилем водителя и координатами точек (или null). */
-export async function getTripCard(tripId: number): Promise<TripCard | null> {
+export async function getTripCard(tripId: number, currentUserId?: number): Promise<TripCard | null> {
   await ensureReady();
+  const isOwnExpr = currentUserId !== undefined
+    ? `(t.driver_id = ${currentUserId}) AS is_own`
+    : `false AS is_own`;
+
   const query = `
     SELECT
       t.id,
@@ -160,7 +175,8 @@ export async function getTripCard(tripId: number): Promise<TripCard | null> {
       u.trips_driver_count AS driver_trips_count,
       u.license_status AS driver_license_status,
       u.created_at AS driver_created_at,
-      u.tg_user_id AS driver_tg_user_id
+      u.tg_user_id AS driver_tg_user_id,
+      ${isOwnExpr}
     FROM trips t
     JOIN route_points sp ON sp.id = t.start_point_id
     JOIN route_points ep ON ep.id = t.end_point_id

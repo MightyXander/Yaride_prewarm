@@ -150,6 +150,18 @@ function authenticate(
 export async function handleListTrips(req: ApiRequest): Promise<ApiResponse> {
   const params: FindTripsParams = {};
 
+  // Опциональная аутентификация для определения is_own
+  const authResult = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('user' in authResult) {
+    // JIT-профиль при аутентифицированном запросе
+    const userProfile = await ensureUser({
+      tgUserId: authResult.user.id,
+      name: telegramDisplayName(authResult.user),
+      username: authResult.user.username ?? null,
+    });
+    params.currentUserId = userProfile.id;
+  }
+
   // corridor: "startPointId-endPointId" (необязательно). Любой край опционален.
   const corridor = req.query.corridor;
   if (corridor !== undefined && corridor.trim() !== '') {
@@ -194,7 +206,20 @@ export async function handleGetTrip(req: ApiRequest): Promise<ApiResponse> {
   if (id === undefined) {
     return err(400, 'Некорректный id поездки');
   }
-  const card = await getTripCard(id);
+
+  // Опциональная аутентификация для определения is_own
+  const authResult = authenticate(req, req.headers['x-telegram-init-data']);
+  let currentUserId: number | undefined;
+  if ('user' in authResult) {
+    const userProfile = await ensureUser({
+      tgUserId: authResult.user.id,
+      name: telegramDisplayName(authResult.user),
+      username: authResult.user.username ?? null,
+    });
+    currentUserId = userProfile.id;
+  }
+
+  const card = await getTripCard(id, currentUserId);
   if (card === null) {
     return err(404, 'Поездка не найдена');
   }
