@@ -22,6 +22,7 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
         flexDirection: 'column',
         justifyContent: 'center',
         boxShadow: 'var(--shadow-hero)',
+        flexShrink: 0,
       }}
     >
       <svg

@@ -48,6 +48,7 @@ const HabitHomeScreen: React.FC<HabitHomeScreenProps> = ({
           display: 'flex',
           gap: '11px',
           alignItems: 'flex-start',
+          flexShrink: 0,
         }}
       >
         {/* Аватар */}
@@ -172,6 +173,7 @@ const HabitHomeScreen: React.FC<HabitHomeScreenProps> = ({
           gap: '9px',
           marginTop: 'auto',
           paddingTop: '6px',
+          flexShrink: 0,
         }}
       >
         <Button variant="primary" onClick={onBookRegular}>
