@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -115,13 +115,47 @@ const BOOTSTRAP_SQL = `
   CREATE INDEX IF NOT EXISTS idx_route_alerts_route
     ON route_alerts(from_point_id, to_point_id, desired_date);
   CREATE INDEX IF NOT EXISTS idx_route_alerts_status ON route_alerts(status);
+
+  CREATE TABLE IF NOT EXISTS ratings (
+    id SERIAL PRIMARY KEY,
+    trip_id INTEGER NOT NULL REFERENCES trips(id),
+    rater_id INTEGER NOT NULL REFERENCES users(id),
+    ratee_id INTEGER NOT NULL REFERENCES users(id),
+    stars INTEGER NOT NULL CHECK (stars >= 1 AND stars <= 5),
+    tags TEXT,
+    comment TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(trip_id, rater_id, ratee_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_ratings_trip ON ratings(trip_id);
+  CREATE INDEX IF NOT EXISTS idx_ratings_ratee ON ratings(ratee_id);
 `;
 
 /**
  * Применить одну линейную миграцию from_v → to_v.
- * Пока схема на v1 (полный bootstrap) и доп. миграций нет; задел под рост.
+ * v1→v2: добавление таблицы ratings + пересчёт агрегатов users.rating_avg/rating_count.
  */
-function applyMigration(_pool: Pool, fromV: number, toV: number): never {
+async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
+  if (fromV === 1 && toV === 2) {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ratings (
+        id SERIAL PRIMARY KEY,
+        trip_id INTEGER NOT NULL REFERENCES trips(id),
+        rater_id INTEGER NOT NULL REFERENCES users(id),
+        ratee_id INTEGER NOT NULL REFERENCES users(id),
+        stars INTEGER NOT NULL CHECK (stars >= 1 AND stars <= 5),
+        tags TEXT,
+        comment TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(trip_id, rater_id, ratee_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_ratings_trip ON ratings(trip_id);
+      CREATE INDEX IF NOT EXISTS idx_ratings_ratee ON ratings(ratee_id);
+    `);
+    return;
+  }
   throw new Error(`No migration defined from v${fromV} to v${toV}`);
 }
 
@@ -154,7 +188,7 @@ export async function initSchema(pool: Pool): Promise<void> {
   let v = res.rows[0].version;
   while (v < CURRENT_SCHEMA_VERSION) {
     const next = v + 1;
-    applyMigration(pool, v, next);
+    await applyMigration(pool, v, next);
     await pool.query('UPDATE schema_version SET version = $1 WHERE id = 1', [next]);
     v = next;
   }

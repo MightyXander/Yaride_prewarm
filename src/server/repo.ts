@@ -515,3 +515,321 @@ export async function createBooking(
     return { bookingId, tripId, seatsAvailable: afterRes.rows[0].avail };
   });
 }
+
+export interface UserProfile {
+  id: number;
+  tg_user_id: number;
+  name: string;
+  username: string | null;
+  age: number | null;
+  rating_avg: number;
+  rating_count: number;
+  trips_driver_count: number;
+  trips_passenger_count: number;
+  license_status: string;
+}
+
+/**
+ * Профиль пользователя по telegram-id (для GET /api/me/profile).
+ * Возвращает null если пользователь не найден.
+ */
+export async function getUserProfile(tgUserId: number): Promise<UserProfile | null> {
+  await ensureReady();
+  const res = await getPool().query<UserProfile>(
+    `SELECT id, tg_user_id, name, username, age, rating_avg, rating_count,
+            trips_driver_count, trips_passenger_count, license_status
+     FROM users WHERE tg_user_id = $1`,
+    [tgUserId],
+  );
+  return res.rows[0] ?? null;
+}
+
+export interface UserTripItem {
+  trip_id: number;
+  role: 'driver' | 'passenger';
+  trip_date: string;
+  departure_time: string;
+  time_slot: TimeSlot;
+  start_title: string;
+  end_title: string;
+  price_rub: number;
+  seats_total: number;
+  seats_booked: number;
+  trip_status: string;
+  booking_id: number | null;
+  booking_status: string | null;
+  passenger_seats: number | null;
+}
+
+export type TripStatusFilter = 'upcoming' | 'past';
+
+/**
+ * Список поездок пользователя (как водителя + как пассажира) для GET /api/me/trips.
+ * status='upcoming' — поездки с trip_date >= сегодня, status='open'/'active'.
+ * status='past' — trip_date < сегодня ИЛИ завершённые (cancelled/completed).
+ */
+export async function getUserTrips(
+  tgUserId: number,
+  statusFilter: TripStatusFilter,
+): Promise<UserTripItem[]> {
+  await ensureReady();
+
+  const userId = await getPool().query<{ id: number }>(
+    'SELECT id FROM users WHERE tg_user_id = $1',
+    [tgUserId],
+  );
+  const internalId = userId.rows[0]?.id;
+  if (internalId === undefined) {
+    return [];
+  }
+
+  const today = todayISO();
+
+  // Поездки где пользователь — водитель
+  const driverQuery =
+    statusFilter === 'upcoming'
+      ? `SELECT t.id AS trip_id, 'driver' AS role, t.trip_date, t.departure_time,
+                t.time_slot, sp.title AS start_title, ep.title AS end_title,
+                t.price_rub, t.seats_total, t.seats_booked, t.status AS trip_status,
+                NULL::INTEGER AS booking_id, NULL::TEXT AS booking_status,
+                NULL::INTEGER AS passenger_seats
+         FROM trips t
+         JOIN route_points sp ON sp.id = t.start_point_id
+         JOIN route_points ep ON ep.id = t.end_point_id
+         WHERE t.driver_id = $1 AND t.trip_date >= $2 AND t.status = 'open'`
+      : `SELECT t.id AS trip_id, 'driver' AS role, t.trip_date, t.departure_time,
+                t.time_slot, sp.title AS start_title, ep.title AS end_title,
+                t.price_rub, t.seats_total, t.seats_booked, t.status AS trip_status,
+                NULL::INTEGER AS booking_id, NULL::TEXT AS booking_status,
+                NULL::INTEGER AS passenger_seats
+         FROM trips t
+         JOIN route_points sp ON sp.id = t.start_point_id
+         JOIN route_points ep ON ep.id = t.end_point_id
+         WHERE t.driver_id = $1 AND (t.trip_date < $2 OR t.status IN ('cancelled', 'completed'))`;
+
+  // Поездки где пользователь — пассажир
+  const passengerQuery =
+    statusFilter === 'upcoming'
+      ? `SELECT t.id AS trip_id, 'passenger' AS role, t.trip_date, t.departure_time,
+                t.time_slot, sp.title AS start_title, ep.title AS end_title,
+                t.price_rub, t.seats_total, t.seats_booked, t.status AS trip_status,
+                b.id AS booking_id, b.status AS booking_status, b.seats AS passenger_seats
+         FROM bookings b
+         JOIN trips t ON t.id = b.trip_id
+         JOIN route_points sp ON sp.id = t.start_point_id
+         JOIN route_points ep ON ep.id = t.end_point_id
+         WHERE b.passenger_id = $1 AND b.status = 'active' AND t.trip_date >= $2`
+      : `SELECT t.id AS trip_id, 'passenger' AS role, t.trip_date, t.departure_time,
+                t.time_slot, sp.title AS start_title, ep.title AS end_title,
+                t.price_rub, t.seats_total, t.seats_booked, t.status AS trip_status,
+                b.id AS booking_id, b.status AS booking_status, b.seats AS passenger_seats
+         FROM bookings b
+         JOIN trips t ON t.id = b.trip_id
+         JOIN route_points sp ON sp.id = t.start_point_id
+         JOIN route_points ep ON ep.id = t.end_point_id
+         WHERE b.passenger_id = $1 AND (t.trip_date < $2 OR b.status IN ('cancelled_by_passenger', 'cancelled_by_driver'))`;
+
+  const unionQuery = `
+    (${driverQuery})
+    UNION ALL
+    (${passengerQuery})
+    ORDER BY trip_date DESC, departure_time DESC
+  `;
+
+  const res = await getPool().query<UserTripItem>(unionQuery, [internalId, today]);
+  return res.rows;
+}
+
+export interface CreateRatingParams {
+  tgRaterId: number;
+  tripId: number;
+  rateeId: number;
+  stars: number;
+  tags?: string | null;
+  comment?: string | null;
+}
+
+export interface CreateRatingResult {
+  ratingId: number;
+  tripId: number;
+  rateeId: number;
+  stars: number;
+  rateeNewAvg: number;
+  rateeNewCount: number;
+}
+
+/**
+ * Создать рейтинг после поездки. Оценивающий (rater) — по telegram-id, оцениваемый (ratee)
+ * — по внутреннему id. После вставки рейтинга пересчитывается users.rating_avg/rating_count
+ * у оцениваемого. UNIQUE(trip_id, rater_id, ratee_id) защищает от дублей.
+ * Бросает Error при дублях, несуществующих пользователях/поездках, нарушении диапазона stars.
+ */
+export async function createRating(
+  params: CreateRatingParams,
+): Promise<CreateRatingResult> {
+  await ensureReady();
+
+  return withTransaction(async (client): Promise<CreateRatingResult> => {
+    const raterId = await getInternalUserId(client, params.tgRaterId);
+    if (raterId === null) {
+      throw new Error('Профиль оценивающего не найден.');
+    }
+
+    if (params.stars < 1 || params.stars > 5) {
+      throw new Error('Оценка должна быть от 1 до 5 звёзд.');
+    }
+
+    // Проверить существование trip и ratee
+    const tripCheck = await client.query<{ id: number }>(
+      'SELECT id FROM trips WHERE id = $1',
+      [params.tripId],
+    );
+    if (tripCheck.rows.length === 0) {
+      throw new Error('Поездка не найдена.');
+    }
+
+    const rateeCheck = await client.query<{ id: number }>(
+      'SELECT id FROM users WHERE id = $1',
+      [params.rateeId],
+    );
+    if (rateeCheck.rows.length === 0) {
+      throw new Error('Оцениваемый пользователь не найден.');
+    }
+
+    // Вставить рейтинг
+    const ins = await client.query<{ id: number }>(
+      `INSERT INTO ratings(trip_id, rater_id, ratee_id, stars, tags, comment)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+      [params.tripId, raterId, params.rateeId, params.stars, params.tags ?? null, params.comment ?? null],
+    );
+
+    // Пересчитать агрегаты у ratee
+    const aggRes = await client.query<{ avg: number; cnt: number }>(
+      `SELECT COALESCE(AVG(stars), 0.0) AS avg, COUNT(*) AS cnt
+       FROM ratings WHERE ratee_id = $1`,
+      [params.rateeId],
+    );
+    const newAvg = Number(aggRes.rows[0].avg);
+    const newCount = Number(aggRes.rows[0].cnt);
+
+    await client.query(
+      'UPDATE users SET rating_avg = $1, rating_count = $2 WHERE id = $3',
+      [newAvg, newCount, params.rateeId],
+    );
+
+    return {
+      ratingId: ins.rows[0].id,
+      tripId: params.tripId,
+      rateeId: params.rateeId,
+      stars: params.stars,
+      rateeNewAvg: newAvg,
+      rateeNewCount: newCount,
+    };
+  });
+}
+
+export interface BookingDetail {
+  booking_id: number;
+  passenger_id: number;
+  passenger_name: string;
+  passenger_username: string | null;
+  seats: number;
+  status: string;
+  created_at: string;
+}
+
+/**
+ * Список броней для поездки (для водителя, GET /api/trips/:id/bookings).
+ * Возвращает все брони независимо от статуса.
+ */
+export async function getTripBookings(tripId: number): Promise<BookingDetail[]> {
+  await ensureReady();
+  const res = await getPool().query<BookingDetail>(
+    `SELECT b.id AS booking_id, b.passenger_id, u.name AS passenger_name,
+            u.username AS passenger_username, b.seats, b.status, b.created_at
+     FROM bookings b
+     JOIN users u ON u.id = b.passenger_id
+     WHERE b.trip_id = $1
+     ORDER BY b.created_at ASC`,
+    [tripId],
+  );
+  return res.rows;
+}
+
+export interface CancelBookingResult {
+  bookingId: number;
+  tripId: number;
+  seatsFreed: number;
+  newAvailable: number;
+}
+
+/**
+ * Отменить бронь водителем (PATCH /api/bookings/:id action='cancel_by_driver').
+ * Переводит бронь в status='cancelled_by_driver', освобождает seats в trips.seats_booked.
+ * Бросает Error если бронь не найдена или уже отменена.
+ */
+export async function cancelBookingByDriver(
+  bookingId: number,
+  tgDriverId: number,
+): Promise<CancelBookingResult> {
+  await ensureReady();
+
+  return withTransaction(async (client): Promise<CancelBookingResult> => {
+    const driverId = await getInternalUserId(client, tgDriverId);
+    if (driverId === null) {
+      throw new Error('Профиль водителя не найден.');
+    }
+
+    const bookingRes = await client.query<{
+      id: number;
+      trip_id: number;
+      status: string;
+      seats: number;
+      driver_id: number;
+    }>(
+      `SELECT b.id, b.trip_id, b.status, b.seats, t.driver_id
+       FROM bookings b
+       JOIN trips t ON t.id = b.trip_id
+       WHERE b.id = $1`,
+      [bookingId],
+    );
+    const booking = bookingRes.rows[0];
+
+    if (!booking) {
+      throw new Error('Бронь не найдена.');
+    }
+    if (booking.driver_id !== driverId) {
+      throw new Error('Вы не водитель этой поездки.');
+    }
+    if (booking.status !== 'active') {
+      throw new Error('Бронь уже отменена или недоступна.');
+    }
+
+    // Отменить бронь
+    await client.query(
+      `UPDATE bookings
+       SET status = 'cancelled_by_driver', cancelled_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [bookingId],
+    );
+
+    // Освободить места
+    await client.query(
+      'UPDATE trips SET seats_booked = seats_booked - $1 WHERE id = $2',
+      [booking.seats, booking.trip_id],
+    );
+
+    const availRes = await client.query<{ avail: number }>(
+      'SELECT seats_total - seats_booked AS avail FROM trips WHERE id = $1',
+      [booking.trip_id],
+    );
+
+    return {
+      bookingId,
+      tripId: booking.trip_id,
+      seatsFreed: booking.seats,
+      newAvailable: availRes.rows[0].avail,
+    };
+  });
+}

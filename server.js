@@ -24,6 +24,11 @@ try {
     createBooking: mod.handleCreateBooking,
     createAlert: mod.handleCreateAlert,
     publishTrip: mod.handlePublishTrip,
+    getMyProfile: mod.handleGetMyProfile,
+    getMyTrips: mod.handleGetMyTrips,
+    createRating: mod.handleCreateRating,
+    getTripBookings: mod.handleGetTripBookings,
+    cancelBooking: mod.handleCancelBooking,
   };
   console.log('Data layer + API ready (PostgreSQL).');
 } catch (err) {
@@ -85,6 +90,13 @@ app.get('/api/trips/:id', wrap(api?.getTrip));
 app.post('/api/trips', wrap(api?.publishTrip));
 app.post('/api/bookings', wrap(api?.createBooking));
 app.post('/api/alerts', wrap(api?.createAlert));
+
+// Issue #42: новые эндпоинты для профиля, поездок пользователя, рейтингов, броней водителя.
+app.get('/api/me/profile', wrap(api?.getMyProfile));
+app.get('/api/me/trips', wrap(api?.getMyTrips));
+app.post('/api/ratings', wrap(api?.createRating));
+app.get('/api/trips/:id/bookings', wrap(api?.getTripBookings));
+app.patch('/api/bookings/:id', wrap(api?.cancelBooking));
 
 app.use(express.static(path.join(__dirname, 'dist')));
 
