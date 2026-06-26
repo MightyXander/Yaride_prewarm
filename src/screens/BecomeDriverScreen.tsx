@@ -31,8 +31,8 @@ const fieldStyle: React.CSSProperties = {
 };
 
 const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => {
-  const [license, setLicense] = useState('9916 АВ 123456');
-  const [validUntil, setValidUntil] = useState('03 / 2030');
+  const [license, setLicense] = useState('');
+  const [validUntil, setValidUntil] = useState('');
   const [uploaded, setUploaded] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const licenseId = useId();
