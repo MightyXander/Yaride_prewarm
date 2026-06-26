@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { Icon } from './Icons';
 
 interface ThemeToggleProps {
@@ -7,10 +8,12 @@ interface ThemeToggleProps {
 
 // Кнопка смены темы — слева сверху, на месте кнопки «назад» (на главных экранах,
 // где «назад» нет). Позиция привязана к центрированной 390px-колонке.
+// Рендерится через portal в document.body для гарантированной фиксации к viewport
+// (исключает проблемы с containing-block от transform/motion предков).
 const ThemeToggle: React.FC<ThemeToggleProps> = ({ onToggle, show }) => {
   if (!show) return null;
 
-  return (
+  return createPortal(
     <button
       onClick={onToggle}
       aria-label="Сменить тему"
@@ -54,7 +57,8 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ onToggle, show }) => {
       }}
     >
       <Icon id="i-theme" style={{ width: '17px', height: '17px' }} />
-    </button>
+    </button>,
+    document.body
   );
 };
 
