@@ -12,6 +12,7 @@ interface BookingConfirmedScreenProps {
   kind: ConfirmKind;
   trip: Trip | null;
   booking?: BookingResult | null;
+  publishedTripId?: number;
   onDone: () => void;
   /** Только для publish: открыть список броней пассажиров на свой рейс. */
   onViewBookings?: () => void;
@@ -32,6 +33,7 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
   kind,
   trip,
   booking,
+  publishedTripId,
   onDone,
   onViewBookings,
   onStartTrip,
@@ -228,7 +230,7 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
       )}
       {isPublish && (
         <>
-          {onViewBookings && (
+          {onViewBookings && publishedTripId && (
             <Button variant="secondary" icon="i-user" onClick={onViewBookings}>
               Брони на рейс
             </Button>

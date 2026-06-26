@@ -60,4 +60,5 @@ export interface NavigationState {
   confirmKind: ConfirmKind;
   scrollPositions: Record<Screen, number>;
   ratingContext: RatingContext | null;
+  publishedTripId: number | null;
 }

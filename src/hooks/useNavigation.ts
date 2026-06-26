@@ -36,6 +36,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     selectedTrip: null,
     confirmKind: 'booking',
     ratingContext: null,
+    publishedTripId: null,
     scrollPositions: {
       intro: 0,
       main: 0,
@@ -75,7 +76,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
 
   // Navigate to a screen
   const navigate = useCallback(
-    (screen: Screen, trip: Trip | null = null, confirmKind?: ConfirmKind) => {
+    (screen: Screen, trip: Trip | null = null, confirmKind?: ConfirmKind, publishedTripId?: number) => {
       // Save current scroll position
       const currentPosition = window.scrollY;
       saveScrollPosition(navState.currentScreen, currentPosition);
@@ -87,6 +88,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
         // Поездку сохраняем, если передали; иначе оставляем выбранную ранее
         selectedTrip: trip !== null ? trip : prev.selectedTrip,
         confirmKind: confirmKind ?? prev.confirmKind,
+        publishedTripId: publishedTripId !== undefined ? publishedTripId : prev.publishedTripId,
       }));
 
       // Scroll to top for new screen
@@ -146,6 +148,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     selectedTrip: navState.selectedTrip,
     confirmKind: navState.confirmKind,
     ratingContext: navState.ratingContext,
+    publishedTripId: navState.publishedTripId,
     direction,
     navigate,
     navigateToRateTrip,

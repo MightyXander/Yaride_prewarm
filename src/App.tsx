@@ -66,7 +66,7 @@ function App() {
     });
   };
 
-  const { currentScreen, selectedTrip, confirmKind, ratingContext, direction, navigate, navigateToRateTrip, goBack } =
+  const { currentScreen, selectedTrip, confirmKind, ratingContext, publishedTripId, direction, navigate, navigateToRateTrip, goBack } =
     useNavigation('intro');
   const prefersReducedMotion = useReducedMotion();
   const isDesktop = useMediaQuery('(min-width: 430px)');
@@ -248,7 +248,7 @@ function App() {
             )}
             {currentScreen === 'driver-publish' && (
               <DriverPublishScreen
-                onPublish={() => navigate('booking-confirmed', null, 'publish')}
+                onPublish={(tripId) => navigate('booking-confirmed', null, 'publish', tripId)}
               />
             )}
             {currentScreen === 'booking-confirmed' && (
@@ -256,6 +256,7 @@ function App() {
                 kind={confirmKind}
                 trip={selectedTrip}
                 booking={confirmKind === 'booking' ? currentBooking : null}
+                publishedTripId={confirmKind === 'publish' ? publishedTripId ?? undefined : undefined}
                 onDone={() => navigate('main-more')}
                 onViewBookings={() => navigate('driver-bookings')}
                 onStartTrip={() => navigate('in-trip')}
@@ -271,7 +272,7 @@ function App() {
               />
             )}
             {currentScreen === 'driver-bookings' && (
-              <DriverBookingsScreen onDone={() => navigate('main')} />
+              <DriverBookingsScreen tripId={publishedTripId ?? undefined} onDone={() => navigate('main')} />
             )}
             {currentScreen === 'become-driver' && (
               <BecomeDriverScreen onSubmit={() => navigate('license-review')} />
@@ -338,7 +339,7 @@ function App() {
                 routeTo="Брагино, ул. Урицкого, 12"
                 routeLabel="Маршрут · обратный, из шаблона"
                 defaultPickup="volkova"
-                onPublish={() => navigate('booking-confirmed', null, 'publish')}
+                onPublish={(tripId) => navigate('booking-confirmed', null, 'publish', tripId)}
               />
             )}
           </motion.div>
