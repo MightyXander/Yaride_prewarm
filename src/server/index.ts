@@ -48,6 +48,7 @@ export {
   handlePublishTrip,
   handleGetMyProfile,
   handleGetMyTrips,
+  handleGetMyTemplate,
   handleCreateRating,
   handleGetTripBookings,
   handleCancelBooking,

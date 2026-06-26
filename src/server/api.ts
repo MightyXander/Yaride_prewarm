@@ -16,6 +16,7 @@
  *   POST /api/trips           { templateId, date, departureTime, initData }
  *   GET  /api/me/profile      (initData в заголовке X-Telegram-Init-Data)
  *   GET  /api/me/trips?status=upcoming|past
+ *   GET  /api/me/template     (initData в заголовке X-Telegram-Init-Data)
  *   POST /api/ratings         { tripId, rateeId, stars, tags?, comment?, initData }
  *   GET  /api/trips/:id/bookings
  *   PATCH /api/bookings/:id   { action: 'cancel_by_driver', initData }
@@ -37,6 +38,7 @@ import {
   getTripBookings,
   cancelBookingByDriver,
   listRoutePoints,
+  getOrCreateDriverTemplate,
   type FindTripsParams,
   type TimeSlot,
   type TripStatusFilter,
@@ -480,6 +482,46 @@ export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse>
     return { status: 200, body: { result } };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не удалось отменить бронь';
+    const status = message.includes('не найден') ? 404 : 400;
+    return err(status, message);
+  }
+}
+
+/**
+ * GET /api/me/template — получить/создать trip_template водителя для коридора.
+ * Идемпотентно: если шаблон уже есть — вернуть, иначе создать дефолтный
+ * (Брагино↔Центр, morning, 120 руб, 3 места). Аутентификация через initData
+ * в заголовке X-Telegram-Init-Data с dev-bypass без BOT_TOKEN.
+ */
+export async function handleGetMyTemplate(req: ApiRequest): Promise<ApiResponse> {
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+  const { user } = auth;
+
+  // JIT-профиль при первом обращении
+  await ensureUser({
+    tgUserId: user.id,
+    name: telegramDisplayName(user),
+    username: user.username ?? null,
+  });
+
+  try {
+    const template = await getOrCreateDriverTemplate(user.id);
+    return {
+      status: 200,
+      body: {
+        id: template.id,
+        start_point_id: template.start_point_id,
+        end_point_id: template.end_point_id,
+        time_slot: template.time_slot,
+        price_rub: template.price_rub,
+        seats_total: template.seats_total,
+      },
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Не удалось получить шаблон';
     const status = message.includes('не найден') ? 404 : 400;
     return err(status, message);
   }
