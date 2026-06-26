@@ -45,6 +45,7 @@ export interface TripCard extends TripListItem {
   end_lng: number | null;
   driver_username: string | null;
   driver_created_at: string;
+  driver_tg_user_id: number;
 }
 
 export interface BookingResult {
@@ -158,7 +159,8 @@ export async function getTripCard(tripId: number): Promise<TripCard | null> {
       u.rating_count AS driver_rating_count,
       u.trips_driver_count AS driver_trips_count,
       u.license_status AS driver_license_status,
-      u.created_at AS driver_created_at
+      u.created_at AS driver_created_at,
+      u.tg_user_id AS driver_tg_user_id
     FROM trips t
     JOIN route_points sp ON sp.id = t.start_point_id
     JOIN route_points ep ON ep.id = t.end_point_id

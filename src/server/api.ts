@@ -48,6 +48,10 @@ import {
   verifyInitData,
   type TelegramUser,
 } from './telegram.ts';
+import {
+  notifyPassengersAboutNewTrip,
+  notifyDriverAboutNewBooking,
+} from './notify.ts';
 
 export interface ApiRequest {
   query: Record<string, string | undefined>;
@@ -222,14 +226,38 @@ export async function handleCreateBooking(req: ApiRequest): Promise<ApiResponse>
   }
 
   // JIT-профиль: имя из Telegram initData.
+  const passengerName = telegramDisplayName(user);
   await ensureUser({
     tgUserId: user.id,
-    name: telegramDisplayName(user),
+    name: passengerName,
     username: user.username ?? null,
   });
 
   try {
     const result = await createBooking(user.id, tripId, seats);
+
+    // Fire-and-forget уведомление водителю о новой брони (не блокируем ответ)
+    // Загружаем данные поездки для уведомления
+    getTripCard(tripId)
+      .then((tripCard) => {
+        if (tripCard !== null) {
+          void notifyDriverAboutNewBooking({
+            tripId,
+            driverTgUserId: tripCard.driver_tg_user_id,
+            passengerName,
+            startTitle: tripCard.start_title,
+            endTitle: tripCard.end_title,
+            tripDate: tripCard.trip_date,
+            departureTime: tripCard.departure_time,
+            seatsBooked: seats,
+          });
+        }
+      })
+      .catch((err) => {
+        // Ошибка уведомлений не должна ломать API — только логируем
+        console.error('[handleCreateBooking] Ошибка fire-and-forget уведомлений:', err);
+      });
+
     return { status: 201, body: { booking: result } };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не удалось создать бронь';
@@ -328,6 +356,28 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
       tripDate: rawDate,
       departureTime: rawTime,
     });
+
+    // Fire-and-forget уведомления пассажирам по route_alerts (не блокируем ответ)
+    // Загружаем данные поездки для уведомления (названия точек)
+    getTripCard(trip.tripId)
+      .then((tripCard) => {
+        if (tripCard !== null) {
+          void notifyPassengersAboutNewTrip({
+            tripId: trip.tripId,
+            startPointId: tripCard.start_point_id,
+            endPointId: tripCard.end_point_id,
+            tripDate: trip.tripDate,
+            departureTime: trip.departureTime,
+            startTitle: tripCard.start_title,
+            endTitle: tripCard.end_title,
+          });
+        }
+      })
+      .catch((err) => {
+        // Ошибка уведомлений не должна ломать API — только логируем
+        console.error('[handlePublishTrip] Ошибка fire-and-forget уведомлений:', err);
+      });
+
     return { status: 201, body: { trip } };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не удалось опубликовать поездку';
