@@ -11,6 +11,7 @@ interface MainScreenProps {
   trips: Trip[];
   onTripClick: (trip: Trip) => void;
   onPublish: () => void;
+  onLeaveRequest?: () => void;
   subtitle?: string;
   title?: string;
   heroKicker?: string;
@@ -25,6 +26,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
   trips,
   onTripClick,
   onPublish,
+  onLeaveRequest,
   subtitle = 'среда, утро 7:30–8:40',
   title = 'Брагино → Центр',
   heroKicker = 'Сегодня по маршруту',
@@ -88,7 +90,10 @@ const MainScreen: React.FC<MainScreenProps> = ({
           </div>
         </>
       ) : (
-        <EmptyTripsState timeWindow={subtitle.includes('утро') ? 'утро' : 'вечер'} />
+        <EmptyTripsState
+          timeWindow={subtitle.includes('утро') ? 'утро' : 'вечер'}
+          onLeaveRequest={onLeaveRequest}
+        />
       )}
     </div>
   );

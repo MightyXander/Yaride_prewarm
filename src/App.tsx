@@ -239,6 +239,7 @@ function App() {
                 onRetry={mainDirection === 'morning' ? morningTripsState.retry : eveningTripsState.retry}
                 onTripClick={(trip) => navigate('trip-details', trip)}
                 onPublish={() => navigate('driver-publish')}
+                onLeaveRequest={() => navigate('passenger-request')}
                 onToggleDirection={() => {
                   window.Telegram?.WebApp.HapticFeedback?.impactOccurred('light');
                   setMainDirection((prev) => (prev === 'morning' ? 'evening' : 'morning'));
@@ -254,6 +255,7 @@ function App() {
                 onRetry={morningTripsState.retry}
                 onTripClick={(trip) => navigate('trip-details', trip)}
                 onPublish={() => navigate('driver-publish')}
+                onLeaveRequest={() => navigate('passenger-request')}
               />
             )}
             {currentScreen === 'trip-details' && selectedTrip && (
@@ -355,6 +357,7 @@ function App() {
                 onRetry={eveningTripsState.retry}
                 onTripClick={(trip) => navigate('trip-details', trip)}
                 onPublish={() => navigate('evening-publish')}
+                onLeaveRequest={() => navigate('passenger-request')}
               />
             )}
             {currentScreen === 'evening-publish' && (

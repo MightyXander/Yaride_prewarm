@@ -4,9 +4,10 @@
 
 interface EmptyTripsStateProps {
   timeWindow?: string;
+  onLeaveRequest?: () => void;
 }
 
-const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ timeWindow = 'это время' }) => {
+const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ timeWindow = 'это время', onLeaveRequest }) => {
   return (
     <div
       style={{
@@ -15,7 +16,7 @@ const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ timeWindow = 'это 
         alignItems: 'center',
         justifyContent: 'center',
         padding: '48px 24px',
-        gap: '12px',
+        gap: '20px',
         textAlign: 'center',
         color: 'var(--muted-foreground)',
       }}
@@ -44,6 +45,35 @@ const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ timeWindow = 'это 
           Попробуй другое время или опубликуй свою
         </div>
       </div>
+      {onLeaveRequest && (
+        <button
+          onClick={onLeaveRequest}
+          style={{
+            marginTop: '8px',
+            padding: '14px 28px',
+            fontSize: '16px',
+            fontWeight: 500,
+            color: 'var(--background)',
+            background: 'var(--primary)',
+            border: 'none',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            minHeight: '48px',
+            transition: 'opacity 0.15s ease',
+          }}
+          onPointerDown={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.opacity = '0.8';
+          }}
+          onPointerUp={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+          }}
+          onPointerLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+          }}
+        >
+          Оставить заявку
+        </button>
+      )}
     </div>
   );
 };
