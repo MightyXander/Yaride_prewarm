@@ -30,6 +30,88 @@ const fieldStyle: React.CSSProperties = {
   outline: 'none',
 };
 
+/**
+ * Форматирует номер ВУ: NNNN ЛЛ NNNNNN (4 цифры, пробел, 2 буквы рус, пробел, 6 цифр).
+ * Автоматически расставляет пробелы, конвертирует буквы в ВЕРХНИЙ регистр.
+ */
+function formatLicenseNumber(input: string): string {
+  // Убираем все символы кроме цифр и русских букв
+  const cleaned = input.replace(/[^0-9А-Яа-я]/g, '').toUpperCase();
+
+  let formatted = '';
+  let digitCount = 0;
+  let letterCount = 0;
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const char = cleaned[i];
+    const isDigit = /[0-9]/.test(char);
+    const isLetter = /[А-Я]/.test(char);
+
+    // Первые 4 символа — только цифры
+    if (formatted.length < 4) {
+      if (isDigit) {
+        formatted += char;
+        digitCount++;
+      }
+      if (formatted.length === 4) formatted += ' ';
+    }
+    // Символы 5-6 (после первого пробела) — только буквы
+    else if (formatted.length < 7) {
+      if (isLetter) {
+        formatted += char;
+        letterCount++;
+      }
+      if (formatted.length === 7) formatted += ' ';
+    }
+    // Последние 6 символов — только цифры
+    else if (formatted.length < 15) {
+      if (isDigit) {
+        formatted += char;
+      }
+    }
+  }
+
+  return formatted;
+}
+
+/**
+ * Форматирует дату действия: MM / YYYY (автоматически расставляет разделитель).
+ * Валидирует месяц (01-12).
+ */
+function formatValidUntilDate(input: string): string {
+  // Убираем всё кроме цифр
+  const cleaned = input.replace(/[^0-9]/g, '');
+
+  let formatted = '';
+
+  for (let i = 0; i < cleaned.length && formatted.length < 9; i++) {
+    const char = cleaned[i];
+
+    // Первые 2 символа — месяц (MM)
+    if (formatted.length < 2) {
+      formatted += char;
+      // Мягкая валидация: если первая цифра > 1, автоматом дополняем до 0X
+      if (formatted.length === 1 && parseInt(char) > 1) {
+        formatted = '0' + formatted;
+      }
+      // После двух цифр добавляем разделитель
+      if (formatted.length === 2) {
+        // Валидация месяца 01-12
+        const month = parseInt(formatted);
+        if (month < 1) formatted = '01';
+        if (month > 12) formatted = '12';
+        formatted += ' / ';
+      }
+    }
+    // Следующие 4 символа — год (YYYY)
+    else if (formatted.length < 9) {
+      formatted += char;
+    }
+  }
+
+  return formatted;
+}
+
 const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => {
   const [license, setLicense] = useState('');
   const [validUntil, setValidUntil] = useState('');
@@ -37,6 +119,16 @@ const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => 
   const [agreed, setAgreed] = useState(false);
   const licenseId = useId();
   const validId = useId();
+
+  const handleLicenseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatLicenseNumber(e.target.value);
+    setLicense(formatted);
+  };
+
+  const handleValidUntilChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatValidUntilDate(e.target.value);
+    setValidUntil(formatted);
+  };
 
   const canSubmit = license.trim().length > 0 && validUntil.trim().length > 0 && uploaded && agreed;
 
@@ -67,9 +159,10 @@ const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => 
           className="focus-ring"
           inputMode="text"
           value={license}
-          onChange={(e) => setLicense(e.target.value)}
+          onChange={handleLicenseChange}
           style={fieldStyle}
           placeholder="9916 АВ 123456"
+          maxLength={15}
         />
       </div>
 
@@ -83,9 +176,10 @@ const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => 
           className="focus-ring"
           inputMode="numeric"
           value={validUntil}
-          onChange={(e) => setValidUntil(e.target.value)}
+          onChange={handleValidUntilChange}
           style={fieldStyle}
           placeholder="03 / 2030"
+          maxLength={9}
         />
       </div>
 
