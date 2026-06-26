@@ -182,8 +182,32 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
 
         {isLoadingPoints ? (
           <Card>
-            <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', padding: '8px 0' }}>
-              Загрузка точек маршрута...
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <Select
+                options={[]}
+                value=""
+                onChange={() => {}}
+                placeholder="Загрузка..."
+                aria-label="Точка отправления"
+                disabled
+              />
+
+              <div
+                style={{
+                  height: '16px',
+                  borderLeft: '2px dotted var(--muted-foreground)',
+                  marginLeft: '22px',
+                }}
+              />
+
+              <Select
+                options={[]}
+                value=""
+                onChange={() => {}}
+                placeholder="Загрузка..."
+                aria-label="Точка назначения"
+                disabled
+              />
             </div>
           </Card>
         ) : pointsError ? (
