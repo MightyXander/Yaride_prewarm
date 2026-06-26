@@ -90,6 +90,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   defaultPickup = 'uritskogo',
 }) => {
   const [time, setTime] = useState<string>(defaultTime);
+  const [customTime, setCustomTime] = useState<string>('');
   const [seats, setSeats] = useState<number>(2);
   const [pickup, setPickup] = useState<string>(defaultPickup);
   const [template, setTemplate] = useState<GetMyTemplateResponse | null>(null);
@@ -98,6 +99,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const [publishing, setPublishing] = useState<boolean>(false);
   const timeLabelId = useId();
   const seatsLabelId = useId();
+  const customTimeLabelId = useId();
 
   // Загрузить шаблон при монтировании
   useEffect(() => {
@@ -119,8 +121,26 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     void loadTemplate();
   }, []);
 
+  // Форматирование времени в HH:MM (паддинг часа до 2 цифр)
+  const formatTimeToHHMM = (timeStr: string): string => {
+    const parts = timeStr.split(':');
+    if (parts.length !== 2) return timeStr;
+    const hour = parts[0].padStart(2, '0');
+    const minute = parts[1];
+    return `${hour}:${minute}`;
+  };
+
   const handlePublish = async () => {
     if (!template) return;
+
+    // Выбрать актуальное время: кастомное (если "другое") или выбранное
+    const actualTime = time === 'другое' ? customTime : time;
+
+    // Валидация при выборе "другое"
+    if (time === 'другое' && !customTime.trim()) {
+      showToast('Укажите время выезда');
+      return;
+    }
 
     try {
       setPublishing(true);
@@ -128,7 +148,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
       const response = await publishTrip({
         templateId: template.id,
         date: today,
-        departureTime: time,
+        departureTime: formatTimeToHHMM(actualTime),
       });
       onPublish(response.trip.tripId);
     } catch (err) {
@@ -234,6 +254,33 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
             <SelectableChip key={t} label={t} active={time === t} onClick={() => setTime(t)} />
           ))}
         </div>
+
+        {/* Кастомный ввод времени при выборе "другое" */}
+        {time === 'другое' && (
+          <div style={{ marginTop: '12px' }}>
+            <label htmlFor={customTimeLabelId} style={{ ...sectionLabelStyle, display: 'block' }}>
+              Укажите время (HH:MM)
+            </label>
+            <input
+              id={customTimeLabelId}
+              type="time"
+              value={customTime}
+              onChange={(e) => setCustomTime(e.target.value)}
+              className="focus-ring"
+              style={{
+                width: '100%',
+                minHeight: '44px',
+                padding: '0 14px',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+                background: 'var(--secondary)',
+                color: 'var(--foreground)',
+                fontSize: '15px',
+                fontFamily: 'var(--font-sans)',
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Число мест — степпер */}
