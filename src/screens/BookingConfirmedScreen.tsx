@@ -228,17 +228,10 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
           </Button>
         </>
       )}
-      {isPublish && (
-        <>
-          {onViewBookings && publishedTripId && (
-            <Button variant="secondary" icon="i-user" onClick={onViewBookings}>
-              Брони на рейс
-            </Button>
-          )}
-          <Button variant="ghost" icon="i-share">
-            Позвать попутчиков в чат района
-          </Button>
-        </>
+      {isPublish && onViewBookings && publishedTripId && (
+        <Button variant="secondary" icon="i-user" onClick={onViewBookings}>
+          Брони на рейс
+        </Button>
       )}
 
       <Card variant="accent" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
