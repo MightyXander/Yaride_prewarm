@@ -70,6 +70,12 @@ function App() {
   const prefersReducedMotion = useReducedMotion();
   const isDesktop = useMediaQuery('(min-width: 430px)');
 
+  // Применяем тема-класс к <html> для глобальной доступности CSS-переменных
+  // (portaled-элементы ThemeToggle/BackButton/FloatingNav/ToastHost тоже их видят).
+  useEffect(() => {
+    document.documentElement.className = theme;
+  }, [theme]);
+
   useEffect(() => {
     // Если пользователь уже выбрал тему вручную — не перетираем её авто-источником.
     const hasManual = () => {
@@ -165,7 +171,6 @@ function App() {
           display: 'flex',
           flexDirection: 'column',
           paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: navVisible ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
           paddingLeft: 'env(safe-area-inset-left)',
           paddingRight: 'env(safe-area-inset-right)',
           overflowX: 'clip',
@@ -192,6 +197,7 @@ function App() {
               left: 0,
               right: 0,
               bottom: 0,
+              paddingBottom: navVisible ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
             }}
           >
             {currentScreen === 'intro' && <IntroScreen onContinue={() => navigate('main')} />}
