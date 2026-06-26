@@ -1,23 +1,10 @@
-import { useEffect, useState } from 'react';
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { showToast } from '../lib/toast';
-import { getMyProfile, ApiException } from '../lib/api';
-import type { UserProfile } from '../types/api';
-
-// Демо-данные для браузера без Telegram (graceful fallback при 401).
-const DEMO_PROFILE: UserProfile = {
-  name: 'Никита Р.',
-  age: 28,
-  rating_avg: 4.9,
-  rating_count: 23,
-  trips_driver_count: 12,
-  trips_passenger_count: 11,
-  license_status: 'verified',
-};
+import { useProfile } from '../contexts/ProfileContext';
 
 const statValueStyle: React.CSSProperties = {
   fontSize: '20px',
@@ -45,37 +32,7 @@ interface ProfileScreenProps {
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onHabitHome }) => {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadProfile = async () => {
-      try {
-        const res = await getMyProfile();
-        if (mounted) {
-          setProfile(res.profile);
-          setLoading(false);
-        }
-      } catch (err) {
-        if (err instanceof ApiException && err.status === 401) {
-          if (mounted) {
-            setProfile(DEMO_PROFILE);
-            setLoading(false);
-          }
-        } else {
-          if (mounted) {
-            setProfile(DEMO_PROFILE);
-            setLoading(false);
-          }
-        }
-      }
-    };
-
-    loadProfile();
-    return () => { mounted = false; };
-  }, []);
+  const { profile, loading } = useProfile();
 
   const avatar = profile ? profile.name.charAt(0).toUpperCase() : 'Н';
   const name = profile?.name ?? 'Загрузка…';
@@ -98,7 +55,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
       <Header title="Профиль" />
 
       {loading ? (
-        <Card style={{ display: 'flex', gap: '12px', alignItems: 'center', minHeight: '78px' }}>
+        <Card style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '14px' }}>
+          {/* Аватар-плейсхолдер: точно 54px */}
           <div
             style={{
               width: '54px',
@@ -106,35 +64,56 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
               borderRadius: '50%',
               background: 'var(--secondary)',
               animation: 'pulse 1.5s ease-in-out infinite',
+              flexShrink: 0,
             }}
           />
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            {/* Имя + возраст: резервируем высоту строки (17px fontSize * 1.4 ≈ 24px) */}
             <div
               style={{
-                height: '16px',
-                width: '60%',
-                borderRadius: '8px',
-                background: 'var(--secondary)',
-                animation: 'pulse 1.5s ease-in-out infinite',
+                height: '24px',
+                display: 'flex',
+                alignItems: 'center',
               }}
-            />
+            >
+              <div
+                style={{
+                  height: '16px',
+                  width: '60%',
+                  borderRadius: '8px',
+                  background: 'var(--secondary)',
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                }}
+              />
+            </div>
+            {/* Бейдж ВУ: резервируем высоту (marginTop: 5px + fontSize: 12px + иконка 14px ≈ 19px) */}
             <div
               style={{
-                height: '12px',
-                width: '40%',
-                borderRadius: '6px',
-                background: 'var(--secondary)',
-                animation: 'pulse 1.5s ease-in-out infinite',
+                height: '19px',
+                marginTop: '5px',
+                display: 'flex',
+                alignItems: 'center',
               }}
-            />
+            >
+              <div
+                style={{
+                  height: '12px',
+                  width: '40%',
+                  borderRadius: '6px',
+                  background: 'var(--secondary)',
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                }}
+              />
+            </div>
           </div>
         </Card>
       ) : (
         <>
-          <Card style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <Card style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '14px' }}>
             <Avatar label={avatar} rating={rating} size={54} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '17px', fontWeight: 700 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              {/* Имя + возраст: зарезервированная высота строки */}
+              <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.4 }}>
                 {name}
                 {age && (
                   <span style={{ color: 'var(--muted-foreground)', fontWeight: 600 }}>
@@ -143,6 +122,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
                   </span>
                 )}
               </div>
+              {/* Бейдж ВУ: фиксированная высота и отступ */}
               {licenseVerified ? (
                 <div
                   style={{
@@ -153,6 +133,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
                     gap: '4px',
                     fontSize: '12px',
                     marginTop: '5px',
+                    minHeight: '19px',
                   }}
                 >
                   <Icon id="i-check" style={{ width: '14px', height: '14px' }} />
@@ -168,6 +149,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
                     gap: '4px',
                     fontSize: '12px',
                     marginTop: '5px',
+                    minHeight: '19px',
                   }}
                 >
                   <Icon id="i-shield" style={{ width: '14px', height: '14px' }} />
