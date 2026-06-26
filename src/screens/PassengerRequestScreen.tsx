@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Chip from '../components/ui/Chip';
@@ -19,9 +19,11 @@ interface PassengerRequestScreenProps {
 
 const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPublish }) => {
   const [selectedTime, setSelectedTime] = useState('8:30');
+  const [customTime, setCustomTime] = useState('');
   const [passengerCount, setPassengerCount] = useState('1');
   const [isPublishing, setIsPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const customTimeLabelId = useId();
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
@@ -33,11 +35,30 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
     hapticSelection();
   };
 
+  const formatTimeToHHMM = (timeStr: string): string => {
+    const parts = timeStr.split(':');
+    if (parts.length !== 2) return timeStr;
+    const hour = parts[0].padStart(2, '0');
+    const minute = parts[1];
+    return `${hour}:${minute}`;
+  };
+
   const handlePublish = async () => {
     setIsPublishing(true);
     setError(null);
 
     try {
+      // Выбрать актуальное время: кастомное (если "другое") или выбранное
+      const actualTime = selectedTime === 'другое' ? customTime : selectedTime;
+
+      // Валидация при выборе "другое"
+      if (selectedTime === 'другое' && !customTime.trim()) {
+        setError('Укажите время прибытия');
+        hapticNotify('error');
+        setIsPublishing(false);
+        return;
+      }
+
       // Резолвинг точек маршрута: Брагино → Центр
       const routePointsRes = await getRoutePoints();
       const points = routePointsRes.points;
@@ -63,12 +84,12 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
       const today = new Date();
       const dateStr = today.toISOString().split('T')[0];
 
-      // Создание заявки через API
+      // Создание заявки через API (форматирование времени в HH:MM)
       await createAlert({
         fromPointId: fromPoint.id,
         toPointId: toPoint.id,
         date: dateStr,
-        time: selectedTime === 'другое' ? null : selectedTime,
+        time: formatTimeToHHMM(actualTime),
       });
 
       hapticNotify('success');
@@ -196,6 +217,32 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
             />
           ))}
         </div>
+
+        {selectedTime === 'другое' && (
+          <div style={{ marginTop: '12px' }}>
+            <label htmlFor={customTimeLabelId} style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted-foreground)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+              Укажите время (HH:MM)
+            </label>
+            <input
+              id={customTimeLabelId}
+              type="time"
+              value={customTime}
+              onChange={(e) => setCustomTime(e.target.value)}
+              className="focus-ring"
+              style={{
+                width: '100%',
+                minHeight: '44px',
+                padding: '0 14px',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+                background: 'var(--secondary)',
+                color: 'var(--foreground)',
+                fontSize: '15px',
+                fontFamily: 'var(--font-sans)',
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <div>

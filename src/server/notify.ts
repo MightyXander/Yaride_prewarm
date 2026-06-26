@@ -19,7 +19,9 @@ import { sendMessage } from './telegram.ts';
  * - from_point_id = start_point_id поездки
  * - to_point_id = end_point_id поездки
  * - status = 'active'
- * - desired_date (опционально) соответствует trip_date (если не пустая строка)
+ * - desired_date = trip_date поездки
+ * - time_slot: вывести слот алерта из desired_time (час<12 → 'morning', час>=12 → 'evening',
+ *   desired_time IS NULL → любой слот) и сматчить с time_slot поездки
  *
  * Кнопка «Открыть поездку» ведёт на deep-link: <MINIAPP_URL>?startapp=trip-<tripId>
  *
@@ -27,6 +29,7 @@ import { sendMessage } from './telegram.ts';
  * @param startPointId ID начальной точки
  * @param endPointId ID конечной точки
  * @param tripDate Дата поездки (YYYY-MM-DD)
+ * @param timeSlot Слот времени поездки ('morning' | 'evening')
  * @param departureTime Время отправления (HH:MM)
  * @param startTitle Название начальной точки (для сообщения)
  * @param endTitle Название конечной точки (для сообщения)
@@ -36,6 +39,7 @@ export async function notifyPassengersAboutNewTrip(params: {
   startPointId: number;
   endPointId: number;
   tripDate: string;
+  timeSlot: 'morning' | 'evening';
   departureTime: string;
   startTitle: string;
   endTitle: string;
@@ -43,8 +47,11 @@ export async function notifyPassengersAboutNewTrip(params: {
   try {
     const pool = getPool();
 
-    // Найти совпадающие алерты (активные, по маршруту)
-    // desired_date может быть пустым (любая дата) или конкретной датой
+    // Найти совпадающие алерты (активные, по маршруту, дате и слоту)
+    // Слот алерта вычисляется из desired_time:
+    //   - час < 12 → 'morning'
+    //   - час >= 12 → 'evening'
+    //   - desired_time IS NULL → любой слот (не исключаем)
     const alertsRes = await pool.query<{
       passenger_id: number;
       tg_user_id: number;
@@ -55,8 +62,17 @@ export async function notifyPassengersAboutNewTrip(params: {
        WHERE ra.from_point_id = $1
          AND ra.to_point_id = $2
          AND ra.status = 'active'
-         AND (ra.desired_date = '' OR ra.desired_date = $3)`,
-      [params.startPointId, params.endPointId, params.tripDate],
+         AND ra.desired_date = $3
+         AND (
+           ra.desired_time IS NULL
+           OR (
+             CASE
+               WHEN CAST(SPLIT_PART(ra.desired_time, ':', 1) AS INTEGER) < 12 THEN 'morning'
+               ELSE 'evening'
+             END = $4
+           )
+         )`,
+      [params.startPointId, params.endPointId, params.tripDate, params.timeSlot],
     );
 
     if (alertsRes.rows.length === 0) {
