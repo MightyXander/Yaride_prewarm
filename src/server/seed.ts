@@ -280,3 +280,102 @@ export async function seedIfEmpty(pool: Pool): Promise<void> {
     client.release();
   }
 }
+
+/**
+ * Идемпотентный per-day refresh демо-поездок на сегодня.
+ *
+ * Вызывается на каждом старте (после seedIfEmpty) для гарантии, что демо-коридор
+ * населён на текущую дату. Если демо-trips на сегодня уже есть — ничего не делаем
+ * (идемпотентно за день). Иначе вставляем демо-коридор утро+вечер Брагино↔Центр
+ * по существующим демо-водителям/route_points, status='open', свободные места.
+ */
+export async function ensureDemoTripsForToday(pool: Pool): Promise<void> {
+  const today = todayISO();
+
+  // Получить демо-водителей (по tg_user_id из SEED_DRIVERS)
+  const demoTgIds = SEED_DRIVERS.map((d) => d.tgUserId);
+  const driverRes = await pool.query<{ id: number; tg_user_id: number }>(
+    'SELECT id, tg_user_id FROM users WHERE tg_user_id = ANY($1::bigint[])',
+    [demoTgIds],
+  );
+  if (driverRes.rows.length === 0) {
+    // Демо-водители ещё не засеяны (первый старт до seedIfEmpty) — skip
+    return;
+  }
+  const demoDriverIds = driverRes.rows.map((r) => r.id);
+
+  // Проверить, есть ли уже демо-trips на сегодня
+  const existingRes = await pool.query<{ cnt: string }>(
+    `SELECT COUNT(*) AS cnt FROM trips
+     WHERE trip_date = $1 AND driver_id = ANY($2::int[])`,
+    [today, demoDriverIds],
+  );
+  if (Number(existingRes.rows[0].cnt) > 0) {
+    // Демо-trips на сегодня уже есть — идемпотентно
+    return;
+  }
+
+  // Получить точки маршрута (Брагино, Центр)
+  const pointsRes = await pool.query<{ id: number; title: string }>(
+    `SELECT id, title FROM route_points
+     WHERE (locality = 'Ярославль' AND district = 'Дзержинский район' AND title = 'Брагино')
+        OR (locality = 'Ярославль' AND district = 'Кировский район' AND title = 'Центр')`,
+  );
+  const pointIdByTitle = new Map<string, number>();
+  for (const p of pointsRes.rows) {
+    pointIdByTitle.set(p.title, p.id);
+  }
+  const braginoId = pointIdByTitle.get('Брагино');
+  const centrId = pointIdByTitle.get('Центр');
+  if (braginoId === undefined || centrId === undefined) {
+    // Точки ещё не засеяны (не должно случиться после seedIfEmpty) — skip
+    return;
+  }
+
+  // Маппинг демо-водителей: tg_user_id → internal id
+  const driverIdByTg = new Map<number, number>();
+  for (const r of driverRes.rows) {
+    driverIdByTg.set(r.tg_user_id, r.id);
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Вставить демо-trips на сегодня (по шаблону SEED_TRIPS)
+    for (const t of SEED_TRIPS) {
+      const driverId = driverIdByTg.get(SEED_DRIVERS[t.driverIndex].tgUserId);
+      if (driverId === undefined) {
+        continue;
+      }
+      const startId = pointIdByTitle.get(t.fromTitle);
+      const endId = pointIdByTitle.get(t.toTitle);
+      if (startId === undefined || endId === undefined) {
+        continue;
+      }
+      await client.query(
+        `INSERT INTO trips(driver_id, start_point_id, end_point_id, trip_date,
+                           departure_time, time_slot, price_rub, seats_total, comment, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')`,
+        [
+          driverId,
+          startId,
+          endId,
+          today,
+          t.departureTime,
+          t.timeSlot,
+          t.priceRub,
+          t.seatsTotal,
+          t.comment,
+        ],
+      );
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
