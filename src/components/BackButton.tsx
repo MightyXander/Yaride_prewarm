@@ -39,10 +39,11 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
       style={{
         position: 'fixed',
         top: 'calc(env(safe-area-inset-top) + 12px)',
-        // Привязываем к левому краю центрированной 390px-колонки приложения,
+        // Привязываем к левому краю центрированной 430px-колонки приложения (#40),
         // а не к краю вьюпорта: иначе на широком десктопе кнопка улетает влево
-        // от приложения. 179px = 195 (половина колонки) − 16 (внутр. отступ).
-        left: 'max(calc(env(safe-area-inset-left) + 16px), calc(50% - 179px))',
+        // от приложения. 199px = 430/2 − 16 (внутр. отступ). На вьюпортах ≤430
+        // кнопка встаёт на 16px (край full-width приложения), на ≥430 — у левого края колонки.
+        left: 'max(calc(env(safe-area-inset-left) + 16px), calc(50% - 199px))',
         width: '32px',
         height: '32px',
         borderRadius: '11px',
