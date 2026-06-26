@@ -71,12 +71,9 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
         }}
         onFocus={(e) => {
           e.currentTarget.style.filter = 'brightness(1.08)';
-          e.currentTarget.style.outline = '2px solid var(--brand)';
-          e.currentTarget.style.outlineOffset = '2px';
         }}
         onBlur={(e) => {
           e.currentTarget.style.filter = 'none';
-          e.currentTarget.style.outline = 'none';
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.filter = 'brightness(1.05)';
