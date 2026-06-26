@@ -1,7 +1,11 @@
 /**
- * Валидация Telegram Mini App initData (WebApp.initData).
+ * Работа с Telegram Bot API:
+ *  - Валидация initData для Mini App (WebApp.initData)
+ *  - Отправка сообщений через Bot API (sendMessage)
+ *  - Регистрация webhook (setWebhook)
+ *  - Обработка входящих updates (handleWebhookUpdate)
  *
- * Алгоритм (https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app):
+ * Алгоритм валидации initData (https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app):
  *  1. Разобрать initData как query-string (urlencoded пары key=value).
  *  2. Вынуть hash, оставшиеся пары отсортировать по ключу и склеить как
  *     "key=value\nkey=value" → data_check_string.
@@ -140,4 +144,183 @@ export function verifyInitData(
   }
 
   return { ok: true, user, devBypass: false };
+}
+
+// ============================================================================
+// Telegram Bot API helpers
+// ============================================================================
+
+const TELEGRAM_API_BASE = 'https://api.telegram.org';
+
+interface SendMessageOptions {
+  parse_mode?: 'Markdown' | 'HTML';
+  reply_markup?: {
+    inline_keyboard?: Array<Array<{ text: string; url?: string; callback_data?: string }>>;
+  };
+}
+
+/**
+ * Отправить сообщение через Bot API sendMessage.
+ *
+ * @param chatId ID чата (Telegram user ID или chat ID)
+ * @param text Текст сообщения
+ * @param opts Опции (parse_mode, reply_markup и т.д.)
+ * @param botToken BOT_TOKEN (process.env.BOT_TOKEN); если пусто — ошибка
+ * @returns true при успехе, false при ошибке (логируется)
+ */
+export async function sendMessage(
+  chatId: number | string,
+  text: string,
+  opts?: SendMessageOptions,
+  botToken?: string | null,
+): Promise<boolean> {
+  const token = (botToken ?? process.env.BOT_TOKEN ?? '').trim();
+  if (token === '') {
+    console.error('sendMessage: BOT_TOKEN отсутствует');
+    return false;
+  }
+
+  const url = `${TELEGRAM_API_BASE}/bot${token}/sendMessage`;
+  const payload = {
+    chat_id: chatId,
+    text,
+    ...opts,
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`sendMessage failed (${response.status}):`, errorText);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('sendMessage exception:', err);
+    return false;
+  }
+}
+
+/**
+ * Зарегистрировать webhook через Bot API setWebhook.
+ *
+ * @param webhookUrl Полный URL webhook endpoint (напр. https://example.com/webhook/telegram)
+ * @param secretToken Секрет для заголовка X-Telegram-Bot-Api-Secret-Token
+ * @param botToken BOT_TOKEN (process.env.BOT_TOKEN); если пусто — ошибка
+ * @returns true при успехе, false при ошибке (логируется)
+ */
+export async function setWebhook(
+  webhookUrl: string,
+  secretToken?: string,
+  botToken?: string | null,
+): Promise<boolean> {
+  const token = (botToken ?? process.env.BOT_TOKEN ?? '').trim();
+  if (token === '') {
+    console.error('setWebhook: BOT_TOKEN отсутствует');
+    return false;
+  }
+
+  const url = `${TELEGRAM_API_BASE}/bot${token}/setWebhook`;
+  const payload: Record<string, unknown> = { url: webhookUrl };
+  if (secretToken) {
+    payload.secret_token = secretToken;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`setWebhook failed (${response.status}):`, errorText);
+      return false;
+    }
+
+    const result = (await response.json()) as { ok: boolean; description?: string };
+    if (!result.ok) {
+      console.error('setWebhook returned ok=false:', result.description ?? '');
+      return false;
+    }
+
+    console.log(`Webhook установлен: ${webhookUrl}`);
+    return true;
+  } catch (err) {
+    console.error('setWebhook exception:', err);
+    return false;
+  }
+}
+
+// ============================================================================
+// Webhook update handler
+// ============================================================================
+
+interface TelegramUpdate {
+  update_id: number;
+  message?: {
+    message_id: number;
+    from?: {
+      id: number;
+      first_name?: string;
+      last_name?: string;
+      username?: string;
+      language_code?: string;
+    };
+    chat: {
+      id: number;
+      type: string;
+    };
+    text?: string;
+    entities?: Array<{ type: string; offset: number; length: number }>;
+  };
+}
+
+/**
+ * Обработать входящий update от Telegram webhook.
+ * Сейчас обрабатывает команду /start: отправляет приветствие + кнопку открыть Mini App.
+ *
+ * @param update Объект update от Telegram
+ * @param miniAppUrl URL Mini App (env MINIAPP_URL), для кнопки
+ * @param botToken BOT_TOKEN (process.env.BOT_TOKEN)
+ * @returns true при успешной обработке
+ */
+export async function handleWebhookUpdate(
+  update: TelegramUpdate,
+  miniAppUrl?: string,
+  botToken?: string | null,
+): Promise<boolean> {
+  const message = update.message;
+  if (!message) {
+    return true;
+  }
+
+  const chatId = message.chat.id;
+  const text = message.text ?? '';
+
+  if (text.startsWith('/start')) {
+    const appUrl = (miniAppUrl ?? process.env.MINIAPP_URL ?? '').trim();
+    const greeting =
+      'Привет! Это бот Yaride — попутчики из Екатеринбурга в Пермь (и обратно).';
+
+    const opts: SendMessageOptions = {};
+
+    if (appUrl !== '') {
+      opts.reply_markup = {
+        inline_keyboard: [[{ text: 'Открыть приложение', url: appUrl }]],
+      };
+    }
+
+    const sent = await sendMessage(chatId, greeting, opts, botToken);
+    return sent;
+  }
+
+  return true;
 }
