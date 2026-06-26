@@ -64,16 +64,18 @@ const MainScreen: React.FC<MainScreenProps> = ({
             ctaText={`Ближайшая в ${trips[0].time}`}
             onCtaClick={scrollToFirstTrip}
           />
-          {trips.map((trip, index) => (
-            <TripCard
-              key={trip.id}
-              {...trip}
-              ref={index === 0 ? firstTripRef : null}
-              expanded={expandedId === trip.id}
-              onToggle={() => setExpandedId((prev) => (prev === trip.id ? null : trip.id))}
-              onBook={() => onTripClick(trip)}
-            />
-          ))}
+          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {trips.map((trip, index) => (
+              <TripCard
+                key={trip.id}
+                {...trip}
+                ref={index === 0 ? firstTripRef : null}
+                expanded={expandedId === trip.id}
+                onToggle={() => setExpandedId((prev) => (prev === trip.id ? null : trip.id))}
+                onBook={() => onTripClick(trip)}
+              />
+            ))}
+          </div>
           <div
             style={{
               display: 'flex',
@@ -81,6 +83,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
               gap: '9px',
               marginTop: 'auto',
               paddingTop: '6px',
+              flexShrink: 0,
             }}
           >
             <Button variant="primary" icon="i-car" onClick={onPublish}>
