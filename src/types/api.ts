@@ -226,6 +226,25 @@ export interface GetRoutePointsResponse {
   points: RoutePoint[];
 }
 
+// GET /api/me/template
+export interface DriverTemplate {
+  id: number;
+  start_point_id: number;
+  end_point_id: number;
+  time_slot: TimeSlot;
+  price_rub: number;
+  seats_total: number;
+}
+
+export interface GetMyTemplateResponse {
+  id: number;
+  start_point_id: number;
+  end_point_id: number;
+  time_slot: TimeSlot;
+  price_rub: number;
+  seats_total: number;
+}
+
 // Ошибки
 export interface ApiErrorResponse {
   error: string;

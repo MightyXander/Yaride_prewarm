@@ -1,51 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Avatar from '../components/ui/Avatar';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { showToast } from '../lib/toast';
+import { getTripBookings, cancelBookingByDriver, ApiException } from '../lib/api';
+import type { BookingDetail } from '../types/api';
 
 interface DriverBookingsScreenProps {
+  tripId?: number;
   onDone: () => void;
 }
 
-// Статусы брони пассажира на рейс водителя.
-type BookingStatus = 'pending' | 'accepted' | 'declined';
-
-interface PassengerBooking {
-  id: string;
-  name: string;
-  avatar: string;
-  rating: number;
-  tripCount: number;
-  pickup: string;
-  status: BookingStatus;
-}
-
-// Рыба-данные броней пассажиров на поездку 7:40.
-const INITIAL_BOOKINGS: PassengerBooking[] = [
-  {
-    id: 'b1',
-    name: 'Дмитрий',
-    avatar: 'Д',
-    rating: 4.8,
-    tripCount: 21,
-    pickup: 'ул. Урицкого, 12',
-    status: 'accepted',
-  },
-  {
-    id: 'b2',
-    name: 'Елена',
-    avatar: 'Е',
-    rating: 5.0,
-    tripCount: 9,
-    pickup: 'пр-т Дзержинского, 8',
-    status: 'pending',
-  },
-];
-
-const TOTAL_SEATS = 3;
+// Рыба-данные на случай отсутствия tripId
+const FALLBACK_TOTAL_SEATS = 3;
 
 const linkBtnStyle: React.CSSProperties = {
   display: 'inline-flex',
@@ -64,8 +33,8 @@ const linkBtnStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const statusPill = (status: BookingStatus): React.ReactNode => {
-  if (status === 'accepted') {
+const statusPill = (status: string): React.ReactNode => {
+  if (status === 'active') {
     return (
       <span
         style={{
@@ -78,36 +47,136 @@ const statusPill = (status: BookingStatus): React.ReactNode => {
         }}
       >
         <Icon id="i-check" style={{ width: '13px', height: '13px', strokeWidth: 2.4 }} />
-        Принят
+        Активна
+      </span>
+    );
+  }
+  if (status === 'cancelled_by_driver') {
+    return (
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          fontSize: '12px',
+          fontWeight: 700,
+          color: 'var(--muted-foreground)',
+        }}
+      >
+        <Icon id="i-x" style={{ width: '13px', height: '13px', strokeWidth: 2.4 }} />
+        Отклонена
       </span>
     );
   }
   return (
     <span
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '4px',
         fontSize: '12px',
         fontWeight: 700,
         color: 'var(--muted-foreground)',
       }}
     >
-      <Icon id="i-x" style={{ width: '13px', height: '13px', strokeWidth: 2.4 }} />
-      Отклонён
+      {status}
     </span>
   );
 };
 
-const DriverBookingsScreen: React.FC<DriverBookingsScreenProps> = ({ onDone }) => {
-  const [bookings, setBookings] = useState<PassengerBooking[]>(INITIAL_BOOKINGS);
+const DriverBookingsScreen: React.FC<DriverBookingsScreenProps> = ({ tripId, onDone }) => {
+  const [bookings, setBookings] = useState<BookingDetail[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<number | null>(null);
 
-  const setStatus = (id: string, status: BookingStatus) => {
-    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
+  useEffect(() => {
+    if (!tripId) {
+      setLoading(false);
+      setError('ID поездки не передан');
+      return;
+    }
+
+    const loadBookings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await getTripBookings(tripId);
+        setBookings(response.bookings);
+      } catch (err) {
+        const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки броней';
+        setError(msg);
+        showToast(msg);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadBookings();
+  }, [tripId]);
+
+  const handleCancelBooking = async (bookingId: number) => {
+    try {
+      setCancelling(bookingId);
+      await cancelBookingByDriver(bookingId);
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.booking_id === bookingId ? { ...b, status: 'cancelled_by_driver' } : b,
+        ),
+      );
+      showToast('Бронь отклонена');
+    } catch (err) {
+      const msg = err instanceof ApiException ? err.message : 'Ошибка отклонения брони';
+      showToast(msg);
+    } finally {
+      setCancelling(null);
+    }
   };
 
-  const takenSeats = bookings.filter((b) => b.status === 'accepted').length;
-  const seatsLeft = Math.max(0, TOTAL_SEATS - takenSeats);
+  const activeBookings = bookings.filter((b) => b.status === 'active');
+  const takenSeats = activeBookings.reduce((sum, b) => sum + b.seats, 0);
+  const totalSeats = FALLBACK_TOTAL_SEATS;
+  const seatsLeft = Math.max(0, totalSeats - takenSeats);
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+        }}
+      >
+        <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>
+          Загрузка броней...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '6px 16px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+        }}
+      >
+        <Header title="Мои брони" />
+        <Card variant="accent" style={{ borderColor: 'var(--destructive)', background: 'var(--destructive-background, var(--secondary))' }}>
+          <div style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--destructive)' }}>
+            {error}
+          </div>
+        </Card>
+        <Button variant="ghost" onClick={onDone}>
+          Назад
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -121,8 +190,8 @@ const DriverBookingsScreen: React.FC<DriverBookingsScreenProps> = ({ onDone }) =
       }}
     >
       <Header
-        title="Моя поездка 7:40"
-        subtitle={`Брагино → Центр · ${takenSeats} из ${TOTAL_SEATS} занято`}
+        title="Мои брони"
+        subtitle={`${takenSeats} из ${totalSeats} занято`}
         right={
           <button
             type="button"
@@ -140,24 +209,35 @@ const DriverBookingsScreen: React.FC<DriverBookingsScreenProps> = ({ onDone }) =
               placeItems: 'center',
               cursor: 'pointer',
             }}
+            onClick={() => showToast('Редактирование — скоро')}
           >
             <Icon id="i-edit" style={{ width: '16px', height: '16px' }} />
           </button>
         }
       />
 
+      {bookings.length === 0 && (
+        <Card>
+          <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', padding: '20px' }}>
+            Пока нет броней
+          </div>
+        </Card>
+      )}
+
       {bookings.map((b) => (
-        <Card key={b.id} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-          <Avatar label={b.avatar} rating={b.rating} size={44} />
+        <Card key={b.booking_id} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+          <Avatar label={b.passenger_name.charAt(0)} rating={0} size={44} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '15px', fontWeight: 700 }}>
-              {b.name}
-              <span style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontWeight: 600 }}>
-                · {b.tripCount} поездок
-              </span>
+              {b.passenger_name}
+              {b.passenger_username && (
+                <span style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontWeight: 600 }}>
+                  @{b.passenger_username}
+                </span>
+              )}
             </div>
             <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '2px' }}>
-              {b.pickup}
+              {b.seats} {b.seats === 1 ? 'место' : b.seats < 5 ? 'места' : 'мест'}
             </div>
 
             <div
@@ -170,59 +250,31 @@ const DriverBookingsScreen: React.FC<DriverBookingsScreenProps> = ({ onDone }) =
                 flexWrap: 'wrap',
               }}
             >
-              {b.status === 'pending' ? (
-                <>
-                  <button
-                    type="button"
-                    className="focus-ring pressable"
-                    onClick={() => setStatus(b.id, 'declined')}
-                    style={{ ...linkBtnStyle, color: 'var(--muted-foreground)' }}
-                  >
-                    Отклонить
-                  </button>
-                  <button
-                    type="button"
-                    className="focus-ring pressable"
-                    onClick={() => setStatus(b.id, 'accepted')}
-                    disabled={seatsLeft === 0}
-                    style={{
-                      ...linkBtnStyle,
-                      border: 'none',
-                      background: seatsLeft === 0 ? 'var(--secondary)' : 'var(--brand)',
-                      color: seatsLeft === 0 ? 'var(--muted-foreground)' : 'var(--brand-foreground)',
-                      cursor: seatsLeft === 0 ? 'not-allowed' : 'pointer',
-                      opacity: seatsLeft === 0 ? 0.6 : 1,
-                      flex: 1,
-                    }}
-                  >
-                    <Icon id="i-check" style={{ width: '14px', height: '14px', strokeWidth: 2.4 }} />
-                    Принять
-                  </button>
-                </>
-              ) : (
+              {b.status === 'active' ? (
                 <>
                   {statusPill(b.status)}
-                  {b.status === 'declined' && (
-                    <button
-                      type="button"
-                      className="focus-ring pressable"
-                      onClick={() => setStatus(b.id, 'pending')}
-                      style={{ ...linkBtnStyle, color: 'var(--muted-foreground)' }}
-                    >
-                      Вернуть
-                    </button>
-                  )}
                   <button
                     type="button"
                     className="focus-ring pressable"
-                    aria-label={`Написать ${b.name}`}
-                    onClick={() => showToast(`Чат с ${b.name} — скоро`)}
+                    onClick={() => handleCancelBooking(b.booking_id)}
+                    disabled={cancelling === b.booking_id}
+                    style={{ ...linkBtnStyle, color: 'var(--muted-foreground)' }}
+                  >
+                    {cancelling === b.booking_id ? 'Отклоняем...' : 'Отклонить'}
+                  </button>
+                  <button
+                    type="button"
+                    className="focus-ring pressable"
+                    aria-label={`Написать ${b.passenger_name}`}
+                    onClick={() => showToast(`Чат с ${b.passenger_name} — скоро`)}
                     style={linkBtnStyle}
                   >
                     <Icon id="i-msg" style={{ width: '14px', height: '14px' }} />
                     Написать
                   </button>
                 </>
+              ) : (
+                statusPill(b.status)
               )}
             </div>
           </div>
