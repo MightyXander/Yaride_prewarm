@@ -4,6 +4,7 @@ import Card from './ui/Card';
 import Avatar from './ui/Avatar';
 import Chip from './ui/Chip';
 import Button from './ui/Button';
+import { showToast } from '../lib/toast';
 
 interface TripCardProps {
   driver: {
@@ -25,10 +26,11 @@ interface TripCardProps {
   expanded: boolean;
   onToggle: () => void;
   onBook: () => void;
+  isOwn: boolean;
 }
 
 const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
-  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook }, ref) => {
+  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook, isOwn }, ref) => {
     const [pressed, setPressed] = useState(false);
 
     const seatsLabel = seats === 1 ? 'место' : seats < 5 ? 'места' : 'мест';
@@ -38,6 +40,10 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
 
     const handleBook = (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
+      if (isOwn) {
+        showToast('Нельзя забронировать свою поездку');
+        return;
+      }
       onBook();
     };
 
@@ -252,7 +258,19 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                 </div>
 
                 {/* CTA */}
-                <Button variant="primary" onClick={handleBook} style={{ marginTop: '2px' }}>
+                <Button
+                  variant="primary"
+                  onClick={handleBook}
+                  style={{
+                    marginTop: '2px',
+                    ...(isOwn && {
+                      opacity: 0.5,
+                      background: 'var(--muted)',
+                      color: 'var(--muted-foreground)',
+                      cursor: 'not-allowed',
+                    }),
+                  }}
+                >
                   Забронировать
                 </Button>
               </div>

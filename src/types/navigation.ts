@@ -47,6 +47,7 @@ export interface Trip {
     to: string;
     duration?: string;
   };
+  isOwn: boolean;
 }
 
 export interface RatingContext {

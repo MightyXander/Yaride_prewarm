@@ -3,6 +3,7 @@ import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import { showToast } from '../lib/toast';
 import type { Trip } from '../types/navigation';
 
 interface TripDetailsScreenProps {
@@ -14,6 +15,14 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
   const age = trip.driver.age || 34;
   const verified = trip.driver.verified !== false;
   const memberSince = trip.driver.memberSince || 'мая 2026';
+
+  const handleBook = () => {
+    if (trip.isOwn) {
+      showToast('Нельзя забронировать свою поездку');
+      return;
+    }
+    onBook();
+  };
 
   return (
     <div
@@ -207,7 +216,18 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
           paddingTop: '6px',
         }}
       >
-        <Button variant="primary" onClick={onBook}>
+        <Button
+          variant="primary"
+          onClick={handleBook}
+          style={{
+            ...(trip.isOwn && {
+              opacity: 0.5,
+              background: 'var(--muted)',
+              color: 'var(--muted-foreground)',
+              cursor: 'not-allowed',
+            }),
+          }}
+        >
           Забронировать место
         </Button>
         <Button variant="ghost" icon="i-share" style={{ minHeight: '44px' }}>

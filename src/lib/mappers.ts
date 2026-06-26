@@ -48,6 +48,7 @@ export function mapTripListItemToTrip(item: TripListItem): Trip {
       to: item.end_title,
       duration: undefined, // API не возвращает duration в списке
     },
+    isOwn: item.is_own,
   };
 }
 

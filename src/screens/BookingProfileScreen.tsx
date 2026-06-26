@@ -110,6 +110,13 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
   };
 
   const handleConfirmBooking = async () => {
+    if (trip.isOwn) {
+      setError('Нельзя забронировать свою поездку');
+      showToast('Нельзя забронировать свою поездку');
+      hapticNotify('error');
+      return;
+    }
+
     setIsCreating(true);
     setError(null);
 
