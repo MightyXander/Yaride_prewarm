@@ -70,3 +70,6 @@ export async function pingDb(): Promise<boolean> {
   const res = await getPool().query<{ ok: number }>('SELECT 1 AS ok');
   return res.rows[0]?.ok === 1;
 }
+
+// Telegram Bot API helpers (issue #85).
+export { sendMessage, setWebhook, handleWebhookUpdate } from './telegram.ts';

@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 let pingDb = null;
 let api = null;
 let dbSchema = null;
+let telegram = null;
 try {
   const mod = await import('./dist-server/index.js');
   await mod.initDb();
@@ -33,7 +34,47 @@ try {
     listRoutePoints: mod.handleListRoutePoints,
     debugCounts: mod.handleDebugCounts,
   };
+  telegram = {
+    sendMessage: mod.sendMessage,
+    setWebhook: mod.setWebhook,
+    handleWebhookUpdate: mod.handleWebhookUpdate,
+  };
   console.log('Data layer + API ready (PostgreSQL).');
+
+  // Issue #85: установить webhook для Telegram-бота при наличии BOT_TOKEN и PUBLIC_URL.
+  const botToken = (process.env.BOT_TOKEN ?? '').trim();
+  const webhookSecret = (process.env.WEBHOOK_SECRET ?? '').trim();
+  const publicUrl =
+    (
+      process.env.WEBHOOK_URL ??
+      process.env.RAILWAY_PUBLIC_DOMAIN ??
+      process.env.RAILWAY_STATIC_URL ??
+      ''
+    ).trim();
+
+  if (botToken !== '' && publicUrl !== '') {
+    const webhookPath = '/webhook/telegram';
+    const fullWebhookUrl = publicUrl.startsWith('http')
+      ? `${publicUrl}${webhookPath}`
+      : `https://${publicUrl}${webhookPath}`;
+
+    const webhookOk = await telegram.setWebhook(
+      fullWebhookUrl,
+      webhookSecret || undefined,
+      botToken,
+    );
+    if (!webhookOk) {
+      console.error('Не удалось установить webhook для Telegram-бота');
+    }
+  } else {
+    if (botToken === '') {
+      console.log('BOT_TOKEN отсутствует — webhook для Telegram-бота не установлен (dev mode)');
+    } else if (publicUrl === '') {
+      console.log(
+        'PUBLIC_URL отсутствует (WEBHOOK_URL / RAILWAY_PUBLIC_DOMAIN / RAILWAY_STATIC_URL) — webhook для Telegram-бота не установлен',
+      );
+    }
+  }
 } catch (err) {
   console.error(
     'Data layer not initialized (build with `npm run build:server` and set DATABASE_URL):',
@@ -107,6 +148,37 @@ app.get('/api/route-points', wrap(api?.listRoutePoints));
 
 // Issue #54: debug endpoint для проверки наполнения БД (dev/прод demo-seed).
 app.get('/api/_debug/counts', wrap(api?.debugCounts));
+
+// Issue #85: Telegram webhook endpoint.
+app.post('/webhook/telegram', async (req, res) => {
+  if (!telegram) {
+    res.status(503).json({ error: 'Telegram handler недоступен' });
+    return;
+  }
+
+  const webhookSecret = (process.env.WEBHOOK_SECRET ?? '').trim();
+  if (webhookSecret !== '') {
+    const headerSecret = req.headers['x-telegram-bot-api-secret-token'];
+    if (headerSecret !== webhookSecret) {
+      console.error('Webhook: неверный X-Telegram-Bot-Api-Secret-Token');
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+  }
+
+  try {
+    const update = req.body;
+    await telegram.handleWebhookUpdate(
+      update,
+      process.env.MINIAPP_URL,
+      process.env.BOT_TOKEN,
+    );
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('Webhook handler error:', err?.message ?? err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
 
 app.use(express.static(path.join(__dirname, 'dist')));
 
