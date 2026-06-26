@@ -8,62 +8,82 @@ import { getMyTrips, ApiException } from '../lib/api';
 import type { UserTripItem } from '../types/api';
 
 // Демо-данные для браузера без Telegram (graceful fallback при 401).
-const DEMO_UPCOMING: UserTripItem[] = [
-  {
-    trip_id: 1,
-    role: 'passenger',
-    trip_date: '2026-06-27',
-    departure_time: '07:40:00',
-    time_slot: 'morning',
-    start_title: 'Брагино, ул. Урицкого, 12',
-    end_title: 'Центр, пл. Волкова',
-    price_rub: 100,
-    seats_total: 3,
-    seats_booked: 1,
-    trip_status: 'open',
-    booking_id: 10,
-    booking_status: 'active',
-    passenger_seats: 1,
-    driver_id: 5,
-  },
-  {
-    trip_id: 2,
-    role: 'driver',
-    trip_date: '2026-06-26',
-    departure_time: '17:40:00',
-    time_slot: 'evening',
-    start_title: 'Центр, пл. Волкова',
-    end_title: 'Брагино, ул. Урицкого, 12',
-    price_rub: 150,
-    seats_total: 3,
-    seats_booked: 0,
-    trip_status: 'open',
-    booking_id: null,
-    booking_status: null,
-    passenger_seats: null,
-    driver_id: null,
-  },
-];
+// Даты относительно сегодня: upcoming = сегодня/завтра, past = вчера/позавчера.
+const getDemoData = () => {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const twoDaysAgo = new Date(today);
+  twoDaysAgo.setDate(today.getDate() - 2);
 
-const DEMO_PAST: UserTripItem[] = [
-  {
-    trip_id: 3,
-    role: 'passenger',
-    trip_date: '2026-06-25',
-    departure_time: '07:55:00',
-    time_slot: 'morning',
-    start_title: 'Брагино, пр-т Дзержинского, 8',
-    end_title: 'Центр, пл. Волкова',
-    price_rub: 100,
-    seats_total: 3,
-    seats_booked: 2,
-    trip_status: 'completed',
-    booking_id: 9,
-    booking_status: 'active',
-    passenger_seats: 1,
-    driver_id: 7,
-  },
-];
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const upcomingTrips: UserTripItem[] = [
+    {
+      trip_id: 1,
+      role: 'passenger',
+      trip_date: formatDate(today),
+      departure_time: '07:40:00',
+      time_slot: 'morning',
+      start_title: 'Брагино, ул. Урицкого, 12',
+      end_title: 'Центр, пл. Волкова',
+      price_rub: 100,
+      seats_total: 3,
+      seats_booked: 1,
+      trip_status: 'open',
+      booking_id: 10,
+      booking_status: 'active',
+      passenger_seats: 1,
+      driver_id: 5,
+    },
+    {
+      trip_id: 2,
+      role: 'driver',
+      trip_date: formatDate(tomorrow),
+      departure_time: '17:40:00',
+      time_slot: 'evening',
+      start_title: 'Центр, пл. Волкова',
+      end_title: 'Брагино, ул. Урицкого, 12',
+      price_rub: 150,
+      seats_total: 3,
+      seats_booked: 0,
+      trip_status: 'open',
+      booking_id: null,
+      booking_status: null,
+      passenger_seats: null,
+      driver_id: null,
+    },
+  ];
+
+  const pastTrips: UserTripItem[] = [
+    {
+      trip_id: 3,
+      role: 'passenger',
+      trip_date: formatDate(yesterday),
+      departure_time: '07:55:00',
+      time_slot: 'morning',
+      start_title: 'Брагино, пр-т Дзержинского, 8',
+      end_title: 'Центр, пл. Волкова',
+      price_rub: 100,
+      seats_total: 3,
+      seats_booked: 2,
+      trip_status: 'completed',
+      booking_id: 9,
+      booking_status: 'active',
+      passenger_seats: 1,
+      driver_id: 7,
+    },
+  ];
+
+  return { upcomingTrips, pastTrips };
+};
 
 interface MyTripsScreenProps {
   onCreateTrip?: () => void;
@@ -94,14 +114,16 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
       } catch (err) {
         if (err instanceof ApiException && err.status === 401) {
           if (mounted) {
-            setUpcomingTrips(DEMO_UPCOMING);
-            setPastTrips(DEMO_PAST);
+            const { upcomingTrips: demoUp, pastTrips: demoPast } = getDemoData();
+            setUpcomingTrips(demoUp);
+            setPastTrips(demoPast);
             setLoading(false);
           }
         } else {
           if (mounted) {
-            setUpcomingTrips(DEMO_UPCOMING);
-            setPastTrips(DEMO_PAST);
+            const { upcomingTrips: demoUp, pastTrips: demoPast } = getDemoData();
+            setUpcomingTrips(demoUp);
+            setPastTrips(demoPast);
             setLoading(false);
           }
         }
