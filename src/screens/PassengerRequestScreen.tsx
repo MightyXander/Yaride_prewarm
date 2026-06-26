@@ -1,11 +1,14 @@
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Chip from '../components/ui/Chip';
 import Header from '../components/Header';
+import Select from '../components/ui/Select';
+import type { SelectOption } from '../components/ui/Select';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
 import { createAlert, getRoutePoints } from '../lib/api';
 import { ApiException } from '../lib/api';
+import type { RoutePoint } from '../types/api';
 
 // Экран 12 SPEC: Заявка пассажира
 // Форма «нужно к HH:MM туда-то». Маршрут + время прибытия + сколько вас.
@@ -25,6 +28,13 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
   const [error, setError] = useState<string | null>(null);
   const customTimeLabelId = useId();
 
+  // Состояние для точек маршрута
+  const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
+  const [isLoadingPoints, setIsLoadingPoints] = useState(true);
+  const [pointsError, setPointsError] = useState<string | null>(null);
+  const [fromPointId, setFromPointId] = useState<string>('');
+  const [toPointId, setToPointId] = useState<string>('');
+
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
     hapticSelection();
@@ -34,6 +44,42 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
     setPassengerCount(count);
     hapticSelection();
   };
+
+  // Загрузка точек маршрута при монтировании
+  useEffect(() => {
+    const loadRoutePoints = async () => {
+      setIsLoadingPoints(true);
+      setPointsError(null);
+      try {
+        const response = await getRoutePoints();
+        setRoutePoints(response.points);
+
+        // Устанавливаем дефолтные значения: Брагино → Центр
+        const defaultFrom = response.points.find(
+          (p) =>
+            p.title.includes('Брагино') ||
+            p.district === 'Брагино' ||
+            p.title.includes('Урицкого')
+        );
+        const defaultTo = response.points.find(
+          (p) =>
+            p.title.includes('Центр') ||
+            p.title.includes('Волкова') ||
+            p.district === 'Центр'
+        );
+
+        if (defaultFrom) setFromPointId(String(defaultFrom.id));
+        if (defaultTo) setToPointId(String(defaultTo.id));
+      } catch (err) {
+        console.error('Ошибка загрузки точек маршрута:', err);
+        setPointsError('Не удалось загрузить точки маршрута');
+      } finally {
+        setIsLoadingPoints(false);
+      }
+    };
+
+    loadRoutePoints();
+  }, []);
 
   const formatTimeToHHMM = (timeStr: string): string => {
     const parts = timeStr.split(':');
@@ -59,25 +105,19 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
         return;
       }
 
-      // Резолвинг точек маршрута: Брагино → Центр
-      const routePointsRes = await getRoutePoints();
-      const points = routePointsRes.points;
+      // Валидация точек маршрута
+      if (!fromPointId || !toPointId) {
+        setError('Выберите точки маршрута');
+        hapticNotify('error');
+        setIsPublishing(false);
+        return;
+      }
 
-      const fromPoint = points.find(
-        (p) =>
-          p.title.includes('Брагино') ||
-          p.district === 'Брагино' ||
-          p.title.includes('Урицкого')
-      );
-      const toPoint = points.find(
-        (p) =>
-          p.title.includes('Центр') ||
-          p.title.includes('Волкова') ||
-          p.district === 'Центр'
-      );
-
-      if (!fromPoint || !toPoint) {
-        throw new Error('Не удалось найти точки маршрута');
+      if (fromPointId === toPointId) {
+        setError('Точки отправления и назначения должны отличаться');
+        hapticNotify('error');
+        setIsPublishing(false);
+        return;
       }
 
       // Получение текущей даты в формате YYYY-MM-DD
@@ -86,8 +126,8 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
 
       // Создание заявки через API (форматирование времени в HH:MM)
       await createAlert({
-        fromPointId: fromPoint.id,
-        toPointId: toPoint.id,
+        fromPointId: Number(fromPointId),
+        toPointId: Number(toPointId),
         date: dateStr,
         time: formatTimeToHHMM(actualTime),
       });
@@ -126,7 +166,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
         Поездок сейчас нет — оставь заявку, и водители этого маршрута увидят, что ты ищешь.
       </div>
 
-      <Card>
+      <div>
         <div
           style={{
             fontSize: '11px',
@@ -139,60 +179,61 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
         >
           Маршрут
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', margin: '4px 0' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '11px',
-              fontSize: '13px',
-              fontWeight: 600,
-              minHeight: '24px',
-            }}
-          >
-            <div
-              style={{
-                width: '11px',
-                height: '11px',
-                borderRadius: '999px',
-                border: '2px solid var(--brand)',
-                background: 'var(--brand)',
-                flexShrink: 0,
-              }}
-            />
-            Брагино, ул. Урицкого, 12
-          </div>
-          <div
-            style={{
-              height: '16px',
-              borderLeft: '2px dotted var(--muted-foreground)',
-              marginLeft: '4.5px',
-            }}
-          />
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '11px',
-              fontSize: '13px',
-              fontWeight: 600,
-              minHeight: '24px',
-            }}
-          >
-            <div
-              style={{
-                width: '11px',
-                height: '11px',
-                borderRadius: '999px',
-                border: '2px solid var(--brand)',
-                background: 'var(--brand)',
-                flexShrink: 0,
-              }}
-            />
-            Центр, пл. Волкова
-          </div>
-        </div>
-      </Card>
+
+        {isLoadingPoints ? (
+          <Card>
+            <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', padding: '8px 0' }}>
+              Загрузка точек маршрута...
+            </div>
+          </Card>
+        ) : pointsError ? (
+          <Card>
+            <div style={{ fontSize: '13px', color: 'var(--destructive)', padding: '8px 0' }}>
+              {pointsError}
+            </div>
+          </Card>
+        ) : (
+          <Card>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <Select
+                options={routePoints.map((point): SelectOption => ({
+                  value: String(point.id),
+                  label: point.title,
+                }))}
+                value={fromPointId}
+                onChange={(value) => {
+                  setFromPointId(value);
+                  hapticSelection();
+                }}
+                placeholder="Откуда"
+                aria-label="Точка отправления"
+              />
+
+              <div
+                style={{
+                  height: '16px',
+                  borderLeft: '2px dotted var(--muted-foreground)',
+                  marginLeft: '22px',
+                }}
+              />
+
+              <Select
+                options={routePoints.map((point): SelectOption => ({
+                  value: String(point.id),
+                  label: point.title,
+                }))}
+                value={toPointId}
+                onChange={(value) => {
+                  setToPointId(value);
+                  hapticSelection();
+                }}
+                placeholder="Куда"
+                aria-label="Точка назначения"
+              />
+            </div>
+          </Card>
+        )}
+      </div>
 
       <div>
         <div
