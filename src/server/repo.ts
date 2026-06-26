@@ -175,7 +175,9 @@ export async function listRoutePoints(): Promise<
     id: number;
     locality: string;
     district: string;
+    admin_area: string;
     title: string;
+    kind: string;
     latitude: number | null;
     longitude: number | null;
   }>
@@ -185,11 +187,13 @@ export async function listRoutePoints(): Promise<
     id: number;
     locality: string;
     district: string;
+    admin_area: string;
     title: string;
+    kind: string;
     latitude: number | null;
     longitude: number | null;
   }>(
-    'SELECT id, locality, district, title, latitude, longitude FROM route_points ORDER BY id ASC',
+    'SELECT id, locality, district, admin_area, title, kind, latitude, longitude FROM route_points ORDER BY id ASC',
   );
   return res.rows;
 }
