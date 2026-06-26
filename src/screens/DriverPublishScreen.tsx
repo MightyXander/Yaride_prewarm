@@ -10,7 +10,7 @@ import type { SelectOption } from '../components/ui/Select';
 import type { GetMyTemplateResponse } from '../types/api';
 
 interface DriverPublishScreenProps {
-  onPublish: () => void;
+  onPublish: (tripId: number) => void;
   title?: string;
   timeOptions?: string[];
   defaultTime?: string;
@@ -125,12 +125,12 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     try {
       setPublishing(true);
       const today = new Date().toISOString().split('T')[0];
-      await publishTrip({
+      const response = await publishTrip({
         templateId: template.id,
         date: today,
         departureTime: time,
       });
-      onPublish();
+      onPublish(response.trip.tripId);
     } catch (err) {
       const msg = err instanceof ApiException ? err.message : 'Ошибка публикации поездки';
       showToast(msg);
