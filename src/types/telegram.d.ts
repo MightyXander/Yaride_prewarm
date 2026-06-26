@@ -15,6 +15,7 @@ declare global {
             last_name?: string;
             username?: string;
           };
+          start_param?: string;
         };
         onEvent: (eventType: string, callback: () => void) => void;
         offEvent: (eventType: string, callback: () => void) => void;

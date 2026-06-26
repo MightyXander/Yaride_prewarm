@@ -27,6 +27,7 @@ import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/Floating
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useAsync } from './hooks/useAsync';
+import { useStartParam } from './hooks/useStartParam';
 import { getTrips } from './lib/api';
 import { mapTripListItemToTrip } from './lib/mappers';
 import type { Screen, Trip } from './types/navigation';
@@ -70,6 +71,10 @@ function App() {
     useNavigation('intro');
   const prefersReducedMotion = useReducedMotion();
   const isDesktop = useMediaQuery('(min-width: 430px)');
+
+  // Deep-link обработка: при старте Mini App с start_param (например, 'trip-123')
+  // открываем соответствующий экран вместо intro.
+  useStartParam(navigate);
 
   // Применяем тема-класс к <html> для глобальной доступности CSS-переменных
   // (portaled-элементы ThemeToggle/BackButton/FloatingNav/ToastHost тоже их видят).
