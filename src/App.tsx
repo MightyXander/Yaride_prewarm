@@ -30,6 +30,7 @@ import { useAsync } from './hooks/useAsync';
 import { getTrips } from './lib/api';
 import { mapTripListItemToTrip } from './lib/mappers';
 import type { Screen, Trip } from './types/navigation';
+import type { BookingResult } from './types/api';
 
 // Направленный слайд + fade при смене экрана. direction: 1 — вперёд, -1 — назад.
 const screenVariants = {
@@ -129,6 +130,9 @@ function App() {
 
   // Постоянный водитель для экрана 24 «Домой как вчера»
   const regularDriver: Trip | undefined = eveningTrips[0];
+
+  // Текущая бронь (для передачи из booking-profile в booking-confirmed)
+  const [currentBooking, setCurrentBooking] = useState<BookingResult | null>(null);
 
   // BackButton показываем везде, кроме «главных» (списки поездок с left-topbar
   // и нижней навигацией): intro/main/main-more/evening-main/habit-home.
@@ -236,7 +240,10 @@ function App() {
             {currentScreen === 'booking-profile' && selectedTrip && (
               <BookingProfileScreen
                 trip={selectedTrip}
-                onConfirm={() => navigate('booking-confirmed', null, 'booking')}
+                onConfirm={(booking) => {
+                  setCurrentBooking(booking);
+                  navigate('booking-confirmed', null, 'booking');
+                }}
               />
             )}
             {currentScreen === 'driver-publish' && (
@@ -248,6 +255,7 @@ function App() {
               <BookingConfirmedScreen
                 kind={confirmKind}
                 trip={selectedTrip}
+                booking={confirmKind === 'booking' ? currentBooking : null}
                 onDone={() => navigate('main-more')}
                 onViewBookings={() => navigate('driver-bookings')}
                 onStartTrip={() => navigate('in-trip')}
