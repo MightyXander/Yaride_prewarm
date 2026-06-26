@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './Icons';
 
 interface BackButtonProps {
@@ -25,12 +26,13 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
     }
   }, [onClick, show]);
 
-  // In-app fallback button рендерим ВСЕГДА при show=true (даже внутри Telegram, если нет BackButton API)
+  // In-app fallback button рендерим ВСЕГДА при show=true (даже внутри Telegram, если нет BackButton API).
+  // Рендерится через portal в document.body для гарантированной фиксации к viewport.
   if (!show) {
     return null;
   }
 
-  return (
+  return createPortal(
     <button
       onClick={onClick}
       aria-label="Назад"
@@ -77,7 +79,8 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
       }}
     >
       <Icon id="i-chev-l" />
-    </button>
+    </button>,
+    document.body
   );
 };
 
