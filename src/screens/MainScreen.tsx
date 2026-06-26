@@ -3,6 +3,9 @@ import Topbar from '../components/Topbar';
 import Hero from '../components/Hero';
 import TripCard from '../components/TripCard';
 import Button from '../components/ui/Button';
+import TripCardSkeleton from '../components/TripCardSkeleton';
+import EmptyTripsState from '../components/EmptyTripsState';
+import ErrorTripsState from '../components/ErrorTripsState';
 import type { Trip } from '../types/navigation';
 
 interface MainScreenProps {
@@ -13,6 +16,9 @@ interface MainScreenProps {
   subtitle?: string;
   title?: string;
   heroKicker?: string;
+  loading?: boolean;
+  error?: Error;
+  onRetry?: () => void;
 }
 
 const MainScreen: React.FC<MainScreenProps> = ({
@@ -23,6 +29,9 @@ const MainScreen: React.FC<MainScreenProps> = ({
   subtitle = 'среда, утро 7:30–8:40',
   title = 'Брагино → Центр',
   heroKicker = 'Сегодня по маршруту',
+  loading = false,
+  error,
+  onRetry,
 }) => {
   const firstTripRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -51,7 +60,11 @@ const MainScreen: React.FC<MainScreenProps> = ({
       }}
     >
       <Topbar title={title} subtitle={subtitle} />
-      {hasTrips ? (
+      {loading ? (
+        <TripCardSkeleton count={2} />
+      ) : error ? (
+        <ErrorTripsState error={error} onRetry={onRetry ?? (() => {})} />
+      ) : hasTrips ? (
         <>
           <Hero
             subtitle={heroKicker}
@@ -95,18 +108,26 @@ const MainScreen: React.FC<MainScreenProps> = ({
           </div>
         </>
       ) : (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            marginTop: '20px',
-          }}
-        >
-          <Button variant="primary" onClick={onEmptyState}>
-            Посмотреть пустой результат
-          </Button>
-        </div>
+        <>
+          <EmptyTripsState timeWindow={subtitle.includes('утро') ? 'утро' : 'вечер'} />
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '9px',
+              marginTop: 'auto',
+              paddingTop: '6px',
+              flexShrink: 0,
+            }}
+          >
+            <Button variant="primary" icon="i-car" onClick={onPublish}>
+              Возьму попутчиков
+            </Button>
+            <Button variant="secondary" icon="i-search" onClick={onEmptyState}>
+              Ищу, кто подвезёт
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );
