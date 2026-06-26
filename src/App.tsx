@@ -26,6 +26,9 @@ import HabitHomeScreen from './screens/HabitHomeScreen';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
+import { useAsync } from './hooks/useAsync';
+import { getTrips } from './lib/api';
+import { mapTripListItemToTrip } from './lib/mappers';
 import type { Screen, Trip } from './types/navigation';
 
 // Направленный слайд + fade при смене экрана. direction: 1 — вперёд, -1 — назад.
@@ -101,130 +104,25 @@ function App() {
     }
   }, []);
 
-  const trips: Trip[] = [
-    {
-      id: '1',
-      driver: {
-        name: 'Андрей К.',
-        rating: 4.9,
-        tripCount: 37,
-        avatar: 'А',
-        age: 34,
-        verified: true,
-        memberSince: 'мая 2026',
-      },
-      address: 'ул. Урицкого, 12',
-      car: 'Kia Rio',
-      price: '80',
-      time: '7:40',
-      seats: 2,
-      route: {
-        from: 'Брагино, ул. Урицкого, 12',
-        to: 'Центр, пл. Волкова',
-        duration: '22 мин',
-      },
-    },
-    {
-      id: '2',
-      driver: {
-        name: 'Марина С.',
-        rating: 5.0,
-        tripCount: 12,
-        avatar: 'М',
-        age: 29,
-        verified: true,
-        memberSince: 'января 2026',
-      },
-      address: 'пр-т Дзержинского, 8',
-      car: 'VW Polo',
-      price: '70',
-      time: '7:55',
-      seats: 3,
-      route: {
-        from: 'Брагино, пр-т Дзержинского, 8',
-        to: 'Центр, пл. Волкова',
-        duration: '25 мин',
-      },
-    },
-  ];
+  // Загрузка утренних поездок
+  const morningTripsState = useAsync(
+    () => getTrips({ window: 'morning' }).then((res) => res.trips.map(mapTripListItemToTrip)),
+    []
+  );
 
-  // Экран 8 «Главный — другие поездки»: тот же главный, но с бóльшим списком рыба-trips
-  const tripsMore: Trip[] = [
-    ...trips,
-    {
-      id: '3',
-      driver: {
-        name: 'Игорь П.',
-        rating: 4.7,
-        tripCount: 54,
-        avatar: 'И',
-        age: 41,
-        verified: true,
-        memberSince: 'марта 2026',
-      },
-      address: 'ул. Свободы, 60',
-      car: 'Skoda Octavia',
-      price: '90',
-      time: '8:10',
-      seats: 1,
-      route: {
-        from: 'Брагино, ул. Свободы, 60',
-        to: 'Центр, пл. Волкова',
-        duration: '24 мин',
-      },
-    },
-  ];
+  // Загрузка вечерних поездок
+  const eveningTripsState = useAsync(
+    () => getTrips({ window: 'evening' }).then((res) => res.trips.map(mapTripListItemToTrip)),
+    []
+  );
 
-  // Вечерние поездки (экраны 21–24): Центр → Брагино, 17:30–19:00
-  const eveningTrips: Trip[] = [
-    {
-      id: 'e1',
-      driver: {
-        name: 'Марина С.',
-        rating: 5.0,
-        tripCount: 12,
-        avatar: 'М',
-        age: 29,
-        verified: true,
-        memberSince: 'апреля 2026',
-      },
-      address: 'от пл. Волкова',
-      car: 'VW Polo',
-      price: '70',
-      time: '17:40',
-      seats: 2,
-      route: {
-        from: 'Центр, пл. Волкова',
-        to: 'Брагино, ул. Урицкого, 12',
-        duration: '24 мин',
-      },
-    },
-    {
-      id: 'e2',
-      driver: {
-        name: 'Олег В.',
-        rating: 4.8,
-        tripCount: 43,
-        avatar: 'О',
-        age: 35,
-        verified: true,
-        memberSince: 'марта 2026',
-      },
-      address: 'ул. Свободы, 60',
-      car: 'Hyundai Solaris',
-      price: '80',
-      time: '18:05',
-      seats: 3,
-      route: {
-        from: 'Центр, ул. Свободы, 60',
-        to: 'Брагино, ул. Урицкого, 12',
-        duration: '26 мин',
-      },
-    },
-  ];
+  const morningTrips =
+    morningTripsState.status === 'success' ? morningTripsState.data : [];
+  const eveningTrips =
+    eveningTripsState.status === 'success' ? eveningTripsState.data : [];
 
   // Постоянный водитель для экрана 24 «Домой как вчера»
-  const regularDriver: Trip = eveningTrips[0];
+  const regularDriver: Trip | undefined = eveningTrips[0];
 
   // BackButton показываем везде, кроме «главных» (списки поездок с left-topbar
   // и нижней навигацией): intro/main/main-more/evening-main/habit-home.
@@ -299,7 +197,10 @@ function App() {
             {currentScreen === 'intro' && <IntroScreen onContinue={() => navigate('main')} />}
             {currentScreen === 'main' && (
               <MainScreen
-                trips={trips}
+                trips={morningTrips}
+                loading={morningTripsState.status === 'loading'}
+                error={morningTripsState.status === 'error' ? morningTripsState.error : undefined}
+                onRetry={morningTripsState.retry}
                 onTripClick={(trip) => navigate('trip-details', trip)}
                 onEmptyState={() => navigate('empty-state')}
                 onPublish={() => navigate('driver-publish')}
@@ -307,8 +208,11 @@ function App() {
             )}
             {currentScreen === 'main-more' && (
               <MainScreen
-                trips={tripsMore}
+                trips={morningTrips}
                 subtitle="среда, утро 7:30–8:40 · обновлено"
+                loading={morningTripsState.status === 'loading'}
+                error={morningTripsState.status === 'error' ? morningTripsState.error : undefined}
+                onRetry={morningTripsState.retry}
                 onTripClick={(trip) => navigate('trip-details', trip)}
                 onEmptyState={() => navigate('empty-state')}
                 onPublish={() => navigate('driver-publish')}
@@ -375,8 +279,11 @@ function App() {
                 onCancel={goBack}
               />
             )}
-            {currentScreen === 'alert-push' && (
-              <AlertPushScreen trip={trips[1]} onBook={() => navigate('trip-details', trips[1])} />
+            {currentScreen === 'alert-push' && morningTrips[1] && (
+              <AlertPushScreen
+                trip={morningTrips[1]}
+                onBook={() => navigate('trip-details', morningTrips[1])}
+              />
             )}
             {currentScreen === 'my-trips' && (
               <MyTripsScreen
@@ -387,7 +294,7 @@ function App() {
             {currentScreen === 'rate-trip' && (
               <RateTripScreen trip={selectedTrip ?? undefined} onSubmit={goBack} onClose={goBack} />
             )}
-            {currentScreen === 'habit-home' && (
+            {currentScreen === 'habit-home' && regularDriver && (
               <HabitHomeScreen
                 regularDriver={regularDriver}
                 onBookRegular={() => navigate('booking-confirmed', regularDriver, 'booking')}
@@ -400,6 +307,9 @@ function App() {
                 title="Центр → Брагино"
                 subtitle="среда, вечер 17:30–19:00"
                 heroKicker="Сегодня домой"
+                loading={eveningTripsState.status === 'loading'}
+                error={eveningTripsState.status === 'error' ? eveningTripsState.error : undefined}
+                onRetry={eveningTripsState.retry}
                 onTripClick={(trip) => navigate('trip-details', trip)}
                 onEmptyState={() => navigate('empty-state')}
                 onPublish={() => navigate('evening-publish')}
