@@ -1,9 +1,10 @@
 /**
- * Сид при первом старте: коридор «Брагино ↔ Центр», несколько водителей
+ * Self-healing демо-данных: коридор «Брагино ↔ Центр», несколько водителей
  * и рыба-поездки на сегодня (утро 7:30–8:40 / вечер 17:30–19:00, SPEC §1).
  *
- * Идемпотентно: сидим только если route_points пуст (свежая БД). Поездки
- * привязываются к текущей дате (today), чтобы вход «список на сегодня» был непустым.
+ * Идемпотентно: upsert-based логика достраивает недостающие демо-зависимости
+ * (точки/водители/шаблоны) независимо от частичного состояния БД. Поездки
+ * на сегодня вставляет ensureDemoTripsForToday (вызывается после).
  */
 
 import type { Pool } from 'pg';
@@ -162,25 +163,20 @@ const SEED_TRIPS: readonly SeedTrip[] = [
 ];
 
 /**
- * Засеять коридор/водителей/поездки, если БД ещё пуста (route_points).
+ * Self-healing демо-данных: идемпотентно гарантирует наличие всех демо-зависимостей
+ * независимо от частичного состояния БД.
  *
- * Идемпотентно: гард по пустому route_points + INSERT ... ON CONFLICT DO NOTHING
- * на точках/пользователях (естественные ключи uq_route_point и tg_user_id), так
- * что повторный запуск на уже засеянной БД ничего не дублирует. Рыба-trips
- * вставляется только в ветке первичного сида (нет естественного ключа).
+ * Убран гард "route_points пуст" — теперь на каждом старте upsert-логика достраивает
+ * недостающее (ON CONFLICT DO NOTHING на точках/водителях), не дублируя существующее.
+ * Шаблоны вставляются только если ещё нет (проверка по driver_id + точкам + time_slot).
+ * Поездки на сегодня вставляет ensureDemoTripsForToday (вызывается после).
  */
-export async function seedIfEmpty(pool: Pool): Promise<void> {
-  const existing = await pool.query<{ cnt: string }>(
-    'SELECT COUNT(*) AS cnt FROM route_points',
-  );
-  if (Number(existing.rows[0].cnt) > 0) {
-    return;
-  }
-
+export async function ensureDemoData(pool: Pool): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
+    // Upsert route_points (ON CONFLICT DO NOTHING по естественному ключу)
     const pointIdByTitle = new Map<string, number>();
     for (const p of SEED_POINTS) {
       const res = await client.query<{ id: number }>(
@@ -192,6 +188,7 @@ export async function seedIfEmpty(pool: Pool): Promise<void> {
       );
       let id = res.rows[0]?.id;
       if (id === undefined) {
+        // Точка уже существует — получить id через SELECT
         const sel = await client.query<{ id: number }>(
           `SELECT id FROM route_points
            WHERE locality = $1 AND district = $2 AND admin_area = '' AND title = $3`,
@@ -202,6 +199,7 @@ export async function seedIfEmpty(pool: Pool): Promise<void> {
       pointIdByTitle.set(p.title, id);
     }
 
+    // Upsert демо-водителей (ON CONFLICT (tg_user_id) DO NOTHING)
     const driverIds: number[] = [];
     for (const d of SEED_DRIVERS) {
       const res = await client.query<{ id: number }>(
@@ -223,6 +221,7 @@ export async function seedIfEmpty(pool: Pool): Promise<void> {
       );
       let id = res.rows[0]?.id;
       if (id === undefined) {
+        // Водитель уже существует — получить id через SELECT
         const sel = await client.query<{ id: number }>(
           'SELECT id FROM users WHERE tg_user_id = $1',
           [d.tgUserId],
@@ -232,45 +231,24 @@ export async function seedIfEmpty(pool: Pool): Promise<void> {
       driverIds.push(id);
     }
 
-    const date = todayISO();
-    for (const t of SEED_TRIPS) {
-      const startId = pointIdByTitle.get(t.fromTitle);
-      const endId = pointIdByTitle.get(t.toTitle);
-      if (startId === undefined || endId === undefined) {
-        continue;
-      }
+    // Upsert шаблон для постоянного водителя (SPEC экран 24 «домой как вчера»).
+    // Проверка существования по driver_id + точкам + time_slot.
+    const templateDriverId = driverIds[0];
+    const templateStartId = pointIdByTitle.get('Центр');
+    const templateEndId = pointIdByTitle.get('Брагино');
+    const templateCheck = await client.query<{ cnt: string }>(
+      `SELECT COUNT(*) AS cnt FROM trip_templates
+       WHERE driver_id = $1 AND start_point_id = $2 AND end_point_id = $3 AND time_slot = 'evening'`,
+      [templateDriverId, templateStartId, templateEndId],
+    );
+    if (Number(templateCheck.rows[0].cnt) === 0) {
       await client.query(
-        `INSERT INTO trips(driver_id, start_point_id, end_point_id, trip_date,
-                           departure_time, time_slot, price_rub, seats_total, comment, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')`,
-        [
-          driverIds[t.driverIndex],
-          startId,
-          endId,
-          date,
-          t.departureTime,
-          t.timeSlot,
-          t.priceRub,
-          t.seatsTotal,
-          t.comment,
-        ],
+        `INSERT INTO trip_templates(driver_id, start_point_id, end_point_id, time_slot,
+                                    price_rub, seats_total, comment)
+         VALUES ($1, $2, $3, 'evening', $4, $5, $6)`,
+        [templateDriverId, templateStartId, templateEndId, 120, 3, 'Домой как обычно'],
       );
     }
-
-    // Шаблон для постоянного водителя (SPEC экран 24 «домой как вчера»).
-    await client.query(
-      `INSERT INTO trip_templates(driver_id, start_point_id, end_point_id, time_slot,
-                                  price_rub, seats_total, comment)
-       VALUES ($1, $2, $3, 'evening', $4, $5, $6)`,
-      [
-        driverIds[0],
-        pointIdByTitle.get('Центр'),
-        pointIdByTitle.get('Брагино'),
-        120,
-        3,
-        'Домой как обычно',
-      ],
-    );
 
     await client.query('COMMIT');
   } catch (err) {
@@ -284,10 +262,13 @@ export async function seedIfEmpty(pool: Pool): Promise<void> {
 /**
  * Идемпотентный per-day refresh демо-поездок на сегодня.
  *
- * Вызывается на каждом старте (после seedIfEmpty) для гарантии, что демо-коридор
+ * Вызывается на каждом старте (после ensureDemoData) для гарантии, что демо-коридор
  * населён на текущую дату. Если демо-trips на сегодня уже есть — ничего не делаем
  * (идемпотентно за день). Иначе вставляем демо-коридор утро+вечер Брагино↔Центр
  * по существующим демо-водителям/route_points, status='open', свободные места.
+ *
+ * ВАЖНО: функция вызывается ПОСЛЕ ensureDemoData, которая гарантирует наличие
+ * демо-водителей и точек. Если их всё ещё нет — логируем warning и skip.
  */
 export async function ensureDemoTripsForToday(pool: Pool): Promise<void> {
   const today = todayISO();
@@ -299,7 +280,11 @@ export async function ensureDemoTripsForToday(pool: Pool): Promise<void> {
     [demoTgIds],
   );
   if (driverRes.rows.length === 0) {
-    // Демо-водители ещё не засеяны (первый старт до seedIfEmpty) — skip
+    // Демо-водители не найдены после ensureDemoData — аномалия, логируем warning
+    console.warn(
+      '[ensureDemoTripsForToday] WARNING: demo drivers not found after ensureDemoData. ' +
+        'Check DB state (partial seed?). Skipping demo trips for today.',
+    );
     return;
   }
   const demoDriverIds = driverRes.rows.map((r) => r.id);
@@ -328,7 +313,11 @@ export async function ensureDemoTripsForToday(pool: Pool): Promise<void> {
   const braginoId = pointIdByTitle.get('Брагино');
   const centrId = pointIdByTitle.get('Центр');
   if (braginoId === undefined || centrId === undefined) {
-    // Точки ещё не засеяны (не должно случиться после seedIfEmpty) — skip
+    // Точки не найдены после ensureDemoData — аномалия, логируем warning
+    console.warn(
+      '[ensureDemoTripsForToday] WARNING: route points (Брагино/Центр) not found ' +
+        'after ensureDemoData. Check DB state (partial seed?). Skipping demo trips for today.',
+    );
     return;
   }
 
@@ -372,6 +361,7 @@ export async function ensureDemoTripsForToday(pool: Pool): Promise<void> {
     }
 
     await client.query('COMMIT');
+    console.log(`[ensureDemoTripsForToday] Inserted demo trips for ${today}`);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

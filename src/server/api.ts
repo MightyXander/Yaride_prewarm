@@ -45,6 +45,8 @@ import {
   verifyInitData,
   type TelegramUser,
 } from './telegram.ts';
+import { getPool } from './db.ts';
+import { todayISO } from './seed.ts';
 
 export interface ApiRequest {
   query: Record<string, string | undefined>;
@@ -482,4 +484,48 @@ export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse>
     const status = message.includes('не найден') ? 404 : 400;
     return err(status, message);
   }
+}
+
+/**
+ * GET /api/_debug/counts — диагностика наполнения БД (временный эндпоинт).
+ *
+ * Возвращает счётчики таблиц для верификации self-healing демо-данных.
+ * Демо-водители: tg_user_id >= 900000000. Не возвращает ПДн.
+ */
+export async function handleDebugCounts(_req: ApiRequest): Promise<ApiResponse> {
+  const pool = getPool();
+  const today = todayISO();
+
+  const routePointsRes = await pool.query<{ cnt: string }>(
+    'SELECT COUNT(*) AS cnt FROM route_points',
+  );
+  const usersRes = await pool.query<{ cnt: string }>('SELECT COUNT(*) AS cnt FROM users');
+  const tripsRes = await pool.query<{ cnt: string }>('SELECT COUNT(*) AS cnt FROM trips');
+  const tripsTodayRes = await pool.query<{ cnt: string }>(
+    'SELECT COUNT(*) AS cnt FROM trips WHERE trip_date = $1',
+    [today],
+  );
+  const demoDriversRes = await pool.query<{ cnt: string }>(
+    'SELECT COUNT(*) AS cnt FROM users WHERE tg_user_id >= 900000000',
+  );
+
+  // Sample trip (без ПДн: только id, дата, time_slot, статус)
+  const sampleRes = await pool.query<{
+    id: number;
+    trip_date: string;
+    time_slot: string;
+    status: string;
+  }>('SELECT id, trip_date, time_slot, status FROM trips ORDER BY id DESC LIMIT 1');
+
+  return {
+    status: 200,
+    body: {
+      route_points: Number(routePointsRes.rows[0].cnt),
+      users: Number(usersRes.rows[0].cnt),
+      trips: Number(tripsRes.rows[0].cnt),
+      trips_today: Number(tripsTodayRes.rows[0].cnt),
+      demo_drivers: Number(demoDriversRes.rows[0].cnt),
+      sample_trip: sampleRes.rows[0] ?? null,
+    },
+  };
 }
