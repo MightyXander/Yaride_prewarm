@@ -14,6 +14,11 @@
  *   POST /api/bookings        { tripId, seats?, initData }
  *   POST /api/alerts          { fromPointId, toPointId, date, time?, initData }
  *   POST /api/trips           { templateId, date, departureTime, initData }
+ *   GET  /api/me/profile      (initData в заголовке X-Telegram-Init-Data)
+ *   GET  /api/me/trips?status=upcoming|past
+ *   POST /api/ratings         { tripId, rateeId, stars, tags?, comment?, initData }
+ *   GET  /api/trips/:id/bookings
+ *   PATCH /api/bookings/:id   { action: 'cancel_by_driver', initData }
  *
  * Валидация входа — ручная (zod в deps нет). Telegram initData проверяется через
  * verifyInitData (HMAC по BOT_TOKEN; без токена — dev-bypass с пометкой).
@@ -26,8 +31,14 @@ import {
   ensureUser,
   findOpenTrips,
   getTripCard,
+  getUserProfile,
+  getUserTrips,
+  createRating,
+  getTripBookings,
+  cancelBookingByDriver,
   type FindTripsParams,
   type TimeSlot,
+  type TripStatusFilter,
 } from './repo.ts';
 import {
   telegramDisplayName,
@@ -317,6 +328,157 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
     return { status: 201, body: { trip } };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не удалось опубликовать поездку';
+    const status = message.includes('не найден') ? 404 : 400;
+    return err(status, message);
+  }
+}
+
+/** GET /api/me/profile — профиль текущего пользователя по initData. */
+export async function handleGetMyProfile(req: ApiRequest): Promise<ApiResponse> {
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+  const { user } = auth;
+
+  // JIT-профиль при первом обращении
+  await ensureUser({
+    tgUserId: user.id,
+    name: telegramDisplayName(user),
+    username: user.username ?? null,
+  });
+
+  const profile = await getUserProfile(user.id);
+  if (profile === null) {
+    return err(404, 'Профиль не найден');
+  }
+
+  return {
+    status: 200,
+    body: {
+      profile: {
+        name: profile.name,
+        age: profile.age,
+        rating_avg: profile.rating_avg,
+        rating_count: profile.rating_count,
+        trips_driver_count: profile.trips_driver_count,
+        trips_passenger_count: profile.trips_passenger_count,
+        license_status: profile.license_status,
+      },
+    },
+  };
+}
+
+/** GET /api/me/trips?status=upcoming|past — поездки текущего пользователя. */
+export async function handleGetMyTrips(req: ApiRequest): Promise<ApiResponse> {
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+  const { user } = auth;
+
+  const statusParam = req.query.status ?? 'upcoming';
+  if (statusParam !== 'upcoming' && statusParam !== 'past') {
+    return err(400, 'status должен быть "upcoming" или "past"');
+  }
+  const statusFilter = statusParam as TripStatusFilter;
+
+  const trips = await getUserTrips(user.id, statusFilter);
+  return { status: 200, body: { trips } };
+}
+
+/** POST /api/ratings — создать рейтинг после поездки. */
+export async function handleCreateRating(req: ApiRequest): Promise<ApiResponse> {
+  const body = asRecord(req.body);
+
+  const auth = authenticate(req, body.initData);
+  if ('status' in auth) {
+    return auth;
+  }
+  const { user } = auth;
+
+  const tripId = toPositiveInt(body.tripId);
+  if (tripId === undefined) {
+    return err(400, 'tripId обязателен (положительное целое)');
+  }
+
+  const rateeId = toPositiveInt(body.rateeId);
+  if (rateeId === undefined) {
+    return err(400, 'rateeId обязателен (положительное целое)');
+  }
+
+  const stars = toPositiveInt(body.stars);
+  if (stars === undefined || stars < 1 || stars > 5) {
+    return err(400, 'stars обязателен и должен быть от 1 до 5');
+  }
+
+  const tags = typeof body.tags === 'string' ? body.tags.trim() : null;
+  const comment = typeof body.comment === 'string' ? body.comment.trim() : null;
+
+  await ensureUser({
+    tgUserId: user.id,
+    name: telegramDisplayName(user),
+    username: user.username ?? null,
+  });
+
+  try {
+    const result = await createRating({
+      tgRaterId: user.id,
+      tripId,
+      rateeId,
+      stars,
+      tags,
+      comment,
+    });
+    return { status: 201, body: { rating: result } };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Не удалось создать рейтинг';
+    const status = message.includes('не найден') ? 404 : 400;
+    return err(status, message);
+  }
+}
+
+/** GET /api/trips/:id/bookings — список броней для поездки (для водителя). */
+export async function handleGetTripBookings(req: ApiRequest): Promise<ApiResponse> {
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+
+  const tripId = toPositiveInt(req.params.id);
+  if (tripId === undefined) {
+    return err(400, 'Некорректный id поездки');
+  }
+
+  const bookings = await getTripBookings(tripId);
+  return { status: 200, body: { bookings } };
+}
+
+/** PATCH /api/bookings/:id — отменить бронь водителем. */
+export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse> {
+  const body = asRecord(req.body);
+
+  const auth = authenticate(req, body.initData);
+  if ('status' in auth) {
+    return auth;
+  }
+  const { user } = auth;
+
+  const bookingId = toPositiveInt(req.params.id);
+  if (bookingId === undefined) {
+    return err(400, 'Некорректный id брони');
+  }
+
+  const action = body.action;
+  if (action !== 'cancel_by_driver') {
+    return err(400, 'action должен быть "cancel_by_driver"');
+  }
+
+  try {
+    const result = await cancelBookingByDriver(bookingId, user.id);
+    return { status: 200, body: { result } };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Не удалось отменить бронь';
     const status = message.includes('не найден') ? 404 : 400;
     return err(status, message);
   }

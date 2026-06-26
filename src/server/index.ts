@@ -19,6 +19,11 @@ export {
   createTripFromTemplate,
   ensureUser,
   listTripTemplates,
+  getUserProfile,
+  getUserTrips,
+  createRating,
+  getTripBookings,
+  cancelBookingByDriver,
 } from './repo.ts';
 export type {
   TimeSlot,
@@ -26,6 +31,12 @@ export type {
   TripCard,
   BookingResult,
   FindTripsParams,
+  UserProfile,
+  UserTripItem,
+  CreateRatingParams,
+  CreateRatingResult,
+  BookingDetail,
+  CancelBookingResult,
 } from './repo.ts';
 
 // JSON-API обработчики (issue #10): Express-независимые, подключаются в server.js.
@@ -35,6 +46,11 @@ export {
   handleCreateBooking,
   handleCreateAlert,
   handlePublishTrip,
+  handleGetMyProfile,
+  handleGetMyTrips,
+  handleCreateRating,
+  handleGetTripBookings,
+  handleCancelBooking,
 } from './api.ts';
 export type { ApiRequest, ApiResponse } from './api.ts';
 
