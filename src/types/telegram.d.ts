@@ -31,6 +31,8 @@ declare global {
           notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
           selectionChanged: () => void;
         };
+        showAlert?: (message: string) => void;
+        showPopup?: (params: { message: string; buttons?: Array<{ text: string }> }) => void;
       };
     };
   }

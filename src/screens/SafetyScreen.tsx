@@ -62,7 +62,6 @@ const SafetyScreen: React.FC = () => {
   const [sosEnabled, setSosEnabled] = useState(true);
   const [autoShare, setAutoShare] = useState(false);
   const [womenOnly, setWomenOnly] = useState(true);
-  const [phoneVerified, setPhoneVerified] = useState(false);
 
   return (
     <div
@@ -109,47 +108,33 @@ const SafetyScreen: React.FC = () => {
         <Card style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <div
             style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '14px',
-              background: 'var(--gradient-brand)',
+              width: '36px',
+              height: '36px',
+              borderRadius: '12px',
+              background: 'var(--secondary)',
               display: 'grid',
               placeItems: 'center',
-              fontWeight: 800,
-              color: 'var(--brand-foreground)',
-              fontSize: '17px',
+              color: 'var(--muted-foreground)',
               flexShrink: 0,
             }}
           >
-            М
+            <Icon id="i-user" style={{ width: '18px', height: '18px' }} />
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: '15px', fontWeight: 700 }}>Мама</div>
-            <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '2px' }}>
-              +7 920 ··· 88 30
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--muted-foreground)' }}>
+              Не добавлен
             </div>
           </div>
-          <button
-            type="button"
-            className="focus-ring pressable"
-            aria-label="Изменить доверенный контакт"
-            onClick={() => window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light')}
-            style={{
-              minHeight: '44px',
-              padding: '6px 12px',
-              borderRadius: '12px',
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--brand-dark)',
-              fontWeight: 700,
-              fontSize: '13px',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-sans)',
-              flexShrink: 0,
+          <Button
+            variant="secondary"
+            onClick={() => {
+              window.Telegram?.WebApp?.showAlert?.('Функция появится в следующих версиях');
+              window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('warning');
             }}
+            style={{ minHeight: '40px', padding: '6px 14px', flexShrink: 0 }}
           >
-            изменить
-          </button>
+            Добавить
+          </Button>
         </Card>
       </div>
 
@@ -162,50 +147,30 @@ const SafetyScreen: React.FC = () => {
               width: '36px',
               height: '36px',
               borderRadius: '12px',
-              background: phoneVerified ? 'var(--gradient-brand)' : 'var(--secondary)',
+              background: 'var(--secondary)',
               display: 'grid',
               placeItems: 'center',
-              color: phoneVerified ? 'var(--brand-foreground)' : 'var(--muted-foreground)',
+              color: 'var(--muted-foreground)',
               flexShrink: 0,
             }}
           >
             <Icon id="i-phone" style={{ width: '18px', height: '18px' }} />
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: '14px', fontWeight: 700 }}>+7 920 ··· 14 02</div>
-            <div
-              style={{
-                fontSize: '12px',
-                fontWeight: 600,
-                marginTop: '2px',
-                color: phoneVerified ? 'var(--success)' : 'var(--muted-foreground)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
-              {phoneVerified ? (
-                <>
-                  <Icon id="i-check" style={{ width: '13px', height: '13px' }} />
-                  Подтверждён
-                </>
-              ) : (
-                'Не подтверждён'
-              )}
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--muted-foreground)' }}>
+              Не подтверждён
             </div>
           </div>
-          {!phoneVerified && (
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setPhoneVerified(true);
-                window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
-              }}
-              style={{ minHeight: '40px', padding: '6px 14px', flexShrink: 0 }}
-            >
-              Подтвердить
-            </Button>
-          )}
+          <Button
+            variant="secondary"
+            onClick={() => {
+              window.Telegram?.WebApp?.showAlert?.('Функция появится в следующих версиях');
+              window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('warning');
+            }}
+            style={{ minHeight: '40px', padding: '6px 14px', flexShrink: 0 }}
+          >
+            Подтвердить
+          </Button>
         </Card>
       </div>
 
