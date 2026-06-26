@@ -36,6 +36,7 @@ import {
   createRating,
   getTripBookings,
   cancelBookingByDriver,
+  listRoutePoints,
   type FindTripsParams,
   type TimeSlot,
   type TripStatusFilter,
@@ -482,6 +483,12 @@ export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse>
     const status = message.includes('не найден') ? 404 : 400;
     return err(status, message);
   }
+}
+
+/** GET /api/route-points — справочник точек коридора (для домена Заявки). */
+export async function handleListRoutePoints(_req: ApiRequest): Promise<ApiResponse> {
+  const points = await listRoutePoints();
+  return { status: 200, body: { points } };
 }
 
 /**

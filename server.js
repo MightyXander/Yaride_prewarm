@@ -29,6 +29,7 @@ try {
     createRating: mod.handleCreateRating,
     getTripBookings: mod.handleGetTripBookings,
     cancelBooking: mod.handleCancelBooking,
+    listRoutePoints: mod.handleListRoutePoints,
     debugCounts: mod.handleDebugCounts,
   };
   console.log('Data layer + API ready (PostgreSQL).');
@@ -98,6 +99,9 @@ app.get('/api/me/trips', wrap(api?.getMyTrips));
 app.post('/api/ratings', wrap(api?.createRating));
 app.get('/api/trips/:id/bookings', wrap(api?.getTripBookings));
 app.patch('/api/bookings/:id', wrap(api?.cancelBooking));
+
+// Issue #68: справочник точек коридора для домена Заявки.
+app.get('/api/route-points', wrap(api?.listRoutePoints));
 
 // Issue #54: debug endpoint для проверки наполнения БД (dev/прод demo-seed).
 app.get('/api/_debug/counts', wrap(api?.debugCounts));
