@@ -7,7 +7,9 @@ interface ThemeToggleProps {
 }
 
 // Кнопка смены темы — слева сверху, на месте кнопки «назад» (на главных экранах,
-// где «назад» нет). Позиция привязана к центрированной 390px-колонке.
+// где «назад» нет). Позиция привязана к центрированной 430px-колонке (#40).
+// 199px = 430/2 − 16 (внутр. отступ). На вьюпортах ≤430 кнопка встаёт на 16px
+// (край full-width приложения), на ≥430 (десктоп) — у левого края 430-колонки.
 // Рендерится через portal в document.body для гарантированной фиксации к viewport
 // (исключает проблемы с containing-block от transform/motion предков).
 const ThemeToggle: React.FC<ThemeToggleProps> = ({ onToggle, show }) => {
@@ -20,7 +22,7 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ onToggle, show }) => {
       style={{
         position: 'fixed',
         top: 'calc(env(safe-area-inset-top) + 12px)',
-        left: 'max(calc(env(safe-area-inset-left) + 16px), calc(50% - 179px))',
+        left: 'max(calc(env(safe-area-inset-left) + 16px), calc(50% - 199px))',
         width: '32px',
         height: '32px',
         borderRadius: '11px',
