@@ -243,6 +243,7 @@ export async function handleCreateBooking(req: ApiRequest): Promise<ApiResponse>
         if (tripCard !== null) {
           void notifyDriverAboutNewBooking({
             tripId,
+            bookingId: result.bookingId,
             driverTgUserId: tripCard.driver_tg_user_id,
             passengerName,
             startTitle: tripCard.start_title,
