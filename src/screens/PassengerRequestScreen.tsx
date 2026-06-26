@@ -4,6 +4,8 @@ import Button from '../components/ui/Button';
 import Chip from '../components/ui/Chip';
 import Header from '../components/Header';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
+import { createAlert, getRoutePoints } from '../lib/api';
+import { ApiException } from '../lib/api';
 
 // Экран 12 SPEC: Заявка пассажира
 // Форма «нужно к HH:MM туда-то». Маршрут + время прибытия + сколько вас.
@@ -18,6 +20,8 @@ interface PassengerRequestScreenProps {
 const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPublish }) => {
   const [selectedTime, setSelectedTime] = useState('8:30');
   const [passengerCount, setPassengerCount] = useState('1');
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
@@ -29,9 +33,59 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
     hapticSelection();
   };
 
-  const handlePublish = () => {
-    hapticNotify('success');
-    onPublish?.();
+  const handlePublish = async () => {
+    setIsPublishing(true);
+    setError(null);
+
+    try {
+      // Резолвинг точек маршрута: Брагино → Центр
+      const routePointsRes = await getRoutePoints();
+      const points = routePointsRes.points;
+
+      const fromPoint = points.find(
+        (p) =>
+          p.title.includes('Брагино') ||
+          p.district === 'Брагино' ||
+          p.title.includes('Урицкого')
+      );
+      const toPoint = points.find(
+        (p) =>
+          p.title.includes('Центр') ||
+          p.title.includes('Волкова') ||
+          p.district === 'Центр'
+      );
+
+      if (!fromPoint || !toPoint) {
+        throw new Error('Не удалось найти точки маршрута');
+      }
+
+      // Получение текущей даты в формате YYYY-MM-DD
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+
+      // Создание заявки через API
+      await createAlert({
+        fromPointId: fromPoint.id,
+        toPointId: toPoint.id,
+        date: dateStr,
+        time: selectedTime === 'другое' ? null : selectedTime,
+      });
+
+      hapticNotify('success');
+      onPublish?.();
+    } catch (err) {
+      console.error('Ошибка публикации заявки:', err);
+      let errorMessage = 'Не удалось опубликовать заявку';
+      if (err instanceof ApiException) {
+        errorMessage = err.message;
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      setError(errorMessage);
+      hapticNotify('error');
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   return (
@@ -169,6 +223,40 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
         </div>
       </div>
 
+      {error && (
+        <div
+          style={{
+            padding: '12px',
+            background: 'var(--destructive)',
+            color: 'var(--destructive-foreground)',
+            borderRadius: 'var(--radius-lg)',
+            fontSize: '13px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}
+        >
+          <div>{error}</div>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            style={{
+              background: 'transparent',
+              border: '1px solid currentColor',
+              borderRadius: 'var(--radius-md)',
+              padding: '6px 12px',
+              fontSize: '12px',
+              fontWeight: 700,
+              color: 'inherit',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            Закрыть
+          </button>
+        </div>
+      )}
+
       <div
         style={{
           display: 'flex',
@@ -178,8 +266,8 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
           paddingTop: '6px',
         }}
       >
-        <Button variant="primary" onClick={handlePublish}>
-          Опубликовать заявку
+        <Button variant="primary" onClick={handlePublish} disabled={isPublishing}>
+          {isPublishing ? 'Публикуем...' : 'Опубликовать заявку'}
         </Button>
         <div
           style={{
