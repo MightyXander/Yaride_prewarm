@@ -417,6 +417,10 @@ export async function createTripFromTemplate(
     const startPointId = params.reverse ? tpl.end_point_id : tpl.start_point_id;
     const endPointId = params.reverse ? tpl.start_point_id : tpl.end_point_id;
 
+    // Вычислить time_slot из departureTime (час < 12 → morning, иначе evening)
+    const departureHour = Number.parseInt(params.departureTime.split(':')[0], 10);
+    const timeSlot: TimeSlot = departureHour < 12 ? 'morning' : 'evening';
+
     const ins = await client.query<{ id: number }>(
       `INSERT INTO trips(driver_id, start_point_id, end_point_id, trip_date,
                          departure_time, time_slot, price_rub, seats_total,
@@ -429,7 +433,7 @@ export async function createTripFromTemplate(
         endPointId,
         params.tripDate,
         params.departureTime,
-        tpl.time_slot,
+        timeSlot,
         tpl.price_rub,
         tpl.seats_total,
         tpl.comment,
@@ -441,7 +445,7 @@ export async function createTripFromTemplate(
       driverId,
       tripDate: params.tripDate,
       departureTime: params.departureTime,
-      timeSlot: tpl.time_slot,
+      timeSlot,
       seatsTotal: tpl.seats_total,
       priceRub: tpl.price_rub,
     };
