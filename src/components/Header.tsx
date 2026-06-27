@@ -31,7 +31,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, right, rightIcon, onRi
         <div
           style={{
             fontWeight: 800,
-            fontSize: '14px',
+            fontSize: '16px',
             letterSpacing: '-0.01em',
           }}
         >
@@ -40,9 +40,9 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, right, rightIcon, onRi
         {subtitle && (
           <div
             style={{
-              fontSize: '11px',
+              fontSize: '15px',
               color: 'var(--muted-foreground)',
-              marginTop: '1px',
+              marginTop: '2px',
             }}
           >
             {subtitle}

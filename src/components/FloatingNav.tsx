@@ -196,7 +196,7 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
                         transition={{ type: 'spring', stiffness: 420, damping: 32 }}
                         style={{
                           overflow: 'hidden',
-                          fontSize: '13px',
+                          fontSize: '15px',
                           fontWeight: 600,
                           lineHeight: 1,
                           color: 'var(--brand-foreground)',

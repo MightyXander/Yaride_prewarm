@@ -152,7 +152,7 @@ const HabitHomeScreen: React.FC<HabitHomeScreenProps> = ({
           </div>
           <span
             style={{
-              fontSize: '11px',
+              fontSize: '12px',
               fontWeight: 700,
               color: 'var(--brand-foreground)',
               background: 'var(--brand)',

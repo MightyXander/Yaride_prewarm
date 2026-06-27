@@ -15,12 +15,12 @@ const Badge: React.FC<BadgeProps> = ({ rating }) => {
         color: 'var(--foreground)',
         border: '1px solid var(--border)',
         borderRadius: '999px',
-        height: '17px',
-        padding: '0 5px',
+        height: '19px',
+        padding: '0 6px',
         display: 'flex',
         alignItems: 'center',
-        gap: '2px',
-        fontSize: '9.5px',
+        gap: '3px',
+        fontSize: '11px',
         fontWeight: 800,
         lineHeight: 1,
         boxShadow: '0 2px 6px rgba(0, 0, 0, .22)',
@@ -29,7 +29,7 @@ const Badge: React.FC<BadgeProps> = ({ rating }) => {
       <Icon
         id="i-star"
         fill
-        style={{ width: '9px', height: '9px', fill: 'var(--star)' }}
+        style={{ width: '10px', height: '10px', fill: 'var(--star)' }}
       />
       {rating}
     </span>

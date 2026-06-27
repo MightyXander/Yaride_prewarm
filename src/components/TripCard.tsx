@@ -81,31 +81,31 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
             }}
           >
             <Avatar label={driver.avatar} rating={driver.rating} />
-            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
               <div
                 style={{
                   fontWeight: 700,
-                  fontSize: '15px',
+                  fontSize: '17px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '7px',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                 }}
               >
                 {driver.name}{' '}
-                <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '13px' }}>
+                <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '15px' }}>
                   <Icon
                     id="i-car"
-                    style={{ width: '11px', height: '11px', display: 'inline-block', marginRight: '2px' }}
+                    style={{ width: '12px', height: '12px', display: 'inline-block', marginRight: '3px' }}
                   />
                   {driver.tripCount} {driver.tripCount === 1 ? 'поездка' : driver.tripCount < 5 ? 'поездки' : 'поездок'}
                 </span>
               </div>
               <div
                 style={{
-                  fontSize: '13px',
+                  fontSize: '15px',
                   color: 'var(--muted-foreground)',
                   lineHeight: 1.4,
                 }}
@@ -114,10 +114,10 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
               </div>
               <div
                 style={{
-                  fontSize: '13px',
+                  fontSize: '15px',
                   color: 'var(--muted-foreground)',
                   display: 'flex',
-                  gap: '8px',
+                  gap: '10px',
                   flexWrap: 'wrap',
                 }}
               >
@@ -138,7 +138,7 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
               <div
                 style={{
                   fontWeight: 800,
-                  fontSize: '18px',
+                  fontSize: '20px',
                   letterSpacing: '-0.02em',
                   fontVariantNumeric: 'tabular-nums',
                 }}
@@ -169,16 +169,16 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      fontSize: '12.5px',
+                      gap: '12px',
+                      fontSize: '14px',
                       fontWeight: 600,
-                      minHeight: '22px',
+                      minHeight: '24px',
                     }}
                   >
                     <span
                       style={{
-                        width: '10px',
-                        height: '10px',
+                        width: '11px',
+                        height: '11px',
                         borderRadius: '999px',
                         border: '2px solid var(--brand)',
                         background: 'var(--brand)',
@@ -189,25 +189,25 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                   </div>
                   <div
                     style={{
-                      height: '14px',
+                      height: '16px',
                       borderLeft: '2px dotted var(--muted-foreground)',
-                      marginLeft: '4px',
+                      marginLeft: '5px',
                     }}
                   />
                   <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      fontSize: '12.5px',
+                      gap: '12px',
+                      fontSize: '14px',
                       fontWeight: 600,
-                      minHeight: '22px',
+                      minHeight: '24px',
                     }}
                   >
                     <span
                       style={{
-                        width: '10px',
-                        height: '10px',
+                        width: '11px',
+                        height: '11px',
                         borderRadius: '999px',
                         border: '2px solid var(--brand)',
                         flexShrink: 0,
@@ -220,18 +220,18 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                 {/* Сбор и окно времени */}
                 <div
                   style={{
-                    fontSize: '12px',
+                    fontSize: '15px',
                     color: 'var(--muted-foreground)',
                     display: 'flex',
                     flexWrap: 'wrap',
-                    gap: '4px 14px',
+                    gap: '5px 16px',
                   }}
                 >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <span
                       style={{
-                        width: '6px',
-                        height: '6px',
+                        width: '7px',
+                        height: '7px',
                         borderRadius: '999px',
                         background: 'var(--brand)',
                         display: 'inline-block',
@@ -239,8 +239,8 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                     />
                     Сбор: {address}
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                    <Icon id="i-clock" style={{ width: '12px', height: '12px' }} />
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Icon id="i-clock" style={{ width: '13px', height: '13px' }} />
                     {time} · в пути ~{duration}
                   </span>
                 </div>
@@ -248,7 +248,7 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                 {/* Подсказка по бензину */}
                 <div
                   style={{
-                    fontSize: '12px',
+                    fontSize: '15px',
                     color: 'var(--muted-foreground)',
                     lineHeight: 1.5,
                   }}

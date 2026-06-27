@@ -70,7 +70,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
         >
           Заявка опубликована
         </div>
-        <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>
+        <div style={{ fontSize: '15px', color: 'var(--muted-foreground)' }}>
           ищем тебе попутку
         </div>
       </div>
@@ -79,7 +79,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
       <Card>
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             color: 'var(--muted-foreground)',
@@ -95,7 +95,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
               display: 'flex',
               alignItems: 'center',
               gap: '11px',
-              fontSize: '13px',
+              fontSize: '15px',
               fontWeight: 600,
               minHeight: '24px',
             }}
@@ -124,7 +124,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
               display: 'flex',
               alignItems: 'center',
               gap: '11px',
-              fontSize: '13px',
+              fontSize: '15px',
               fontWeight: 600,
               minHeight: '24px',
             }}

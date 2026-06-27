@@ -213,7 +213,7 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
             borderRadius: '12px',
             display: 'grid',
             placeItems: 'center',
-            fontSize: '13px',
+            fontSize: '15px',
             fontWeight: 700,
             color: activeTab === 'upcoming' ? 'var(--foreground)' : 'var(--muted-foreground)',
             background: activeTab === 'upcoming' ? 'var(--card)' : 'transparent',
@@ -235,7 +235,7 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
             borderRadius: '12px',
             display: 'grid',
             placeItems: 'center',
-            fontSize: '13px',
+            fontSize: '15px',
             fontWeight: 700,
             color: activeTab === 'past' ? 'var(--foreground)' : 'var(--muted-foreground)',
             background: activeTab === 'past' ? 'var(--card)' : 'transparent',
@@ -361,7 +361,7 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
                     </div>
                     <span
                       style={{
-                        fontSize: '11px',
+                        fontSize: '12px',
                         fontWeight: 700,
                         color:
                           status === 'бронь' ? 'var(--success-foreground)' : status === 'завершено' ? 'var(--muted-foreground)' : 'var(--foreground)',
@@ -405,7 +405,7 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
                         display: 'flex',
                         alignItems: 'center',
                         gap: '11px',
-                        fontSize: '13px',
+                        fontSize: '15px',
                         fontWeight: 600,
                         minHeight: '24px',
                       }}
@@ -434,7 +434,7 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
                         display: 'flex',
                         alignItems: 'center',
                         gap: '11px',
-                        fontSize: '13px',
+                        fontSize: '15px',
                         fontWeight: 600,
                         minHeight: '24px',
                       }}

@@ -8,7 +8,7 @@ interface BecomeDriverScreenProps {
 }
 
 const sectionLabelStyle: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   color: 'var(--muted-foreground)',
@@ -145,7 +145,7 @@ const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => 
     >
       <Header title="Стать водителем" />
 
-      <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
+      <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
         Чтобы создавать поездки, подтвердите водительское удостоверение. Это разовая проверка.
       </div>
 
@@ -206,7 +206,7 @@ const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => 
             gap: '7px',
             cursor: 'pointer',
             fontFamily: 'var(--font-sans)',
-            fontSize: '13px',
+            fontSize: '15px',
             fontWeight: 700,
           }}
         >
@@ -276,7 +276,7 @@ const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => 
         </Button>
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             color: 'var(--muted-foreground)',
             textAlign: 'center',
             lineHeight: 1.5,

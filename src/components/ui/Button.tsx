@@ -22,16 +22,16 @@ const Button: React.FC<ButtonProps> = ({
 }) => {
   const hapticStyle = haptic ?? (variant === 'primary' ? 'light' : 'none');
   const baseStyle: React.CSSProperties = {
-    minHeight: '44px',
-    padding: '8px 16px',
-    borderRadius: '15px',
+    minHeight: '48px',
+    padding: '10px 18px',
+    borderRadius: '16px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '8px',
+    gap: '10px',
     fontWeight: 600,
-    fontSize: '13px',
-    lineHeight: 1.15,
+    fontSize: '15px',
+    lineHeight: 1.2,
     textAlign: 'center',
     border: 'none',
     cursor: disabled ? 'not-allowed' : 'pointer',

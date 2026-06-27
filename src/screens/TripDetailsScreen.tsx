@@ -91,7 +91,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
       <Card>
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             color: 'var(--muted-foreground)',
@@ -114,7 +114,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
               display: 'flex',
               alignItems: 'center',
               gap: '11px',
-              fontSize: '13px',
+              fontSize: '15px',
               fontWeight: 600,
               minHeight: '24px',
             }}
@@ -143,7 +143,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
               display: 'flex',
               alignItems: 'center',
               gap: '11px',
-              fontSize: '13px',
+              fontSize: '15px',
               fontWeight: 600,
               minHeight: '24px',
             }}

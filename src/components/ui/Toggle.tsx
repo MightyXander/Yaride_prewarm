@@ -28,12 +28,12 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, disabled = false, ..
       className="focus-ring pressable"
       style={{
         position: 'relative',
-        width: '46px',
-        minWidth: '46px',
-        height: '28px',
+        width: '50px',
+        minWidth: '50px',
+        height: '30px',
         // расширяем тач-зону до ≥44pt без визуального изменения трека
-        padding: '8px 0',
-        margin: '-8px 0',
+        padding: '7px 0',
+        margin: '-7px 0',
         boxSizing: 'content-box',
         border: 'none',
         background: 'transparent',
@@ -49,8 +49,8 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, disabled = false, ..
         aria-hidden
         style={{
           display: 'block',
-          width: '46px',
-          height: '28px',
+          width: '50px',
+          height: '30px',
           borderRadius: '999px',
           background: checked ? 'var(--gradient-brand)' : 'var(--secondary)',
           border: '1px solid var(--border)',
@@ -63,7 +63,7 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, disabled = false, ..
         style={{
           position: 'absolute',
           top: '50%',
-          left: checked ? '21px' : '3px',
+          left: checked ? '24px' : '4px',
           width: '22px',
           height: '22px',
           marginTop: '-11px',

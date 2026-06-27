@@ -162,14 +162,14 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
     >
       <Header title="Оставить заявку" />
 
-      <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>
+      <div style={{ fontSize: '15px', color: 'var(--muted-foreground)' }}>
         Поездок сейчас нет — оставь заявку, и водители этого маршрута увидят, что ты ищешь.
       </div>
 
       <div>
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             color: 'var(--muted-foreground)',
@@ -212,7 +212,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
           </Card>
         ) : pointsError ? (
           <Card>
-            <div style={{ fontSize: '13px', color: 'var(--destructive)', padding: '8px 0' }}>
+            <div style={{ fontSize: '15px', color: 'var(--destructive)', padding: '8px 0' }}>
               {pointsError}
             </div>
           </Card>
@@ -262,7 +262,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
       <div>
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             color: 'var(--muted-foreground)',
@@ -285,7 +285,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
 
         {selectedTime === 'другое' && (
           <div style={{ marginTop: '12px' }}>
-            <label htmlFor={customTimeLabelId} style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted-foreground)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+            <label htmlFor={customTimeLabelId} style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted-foreground)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
               Укажите время (HH:MM)
             </label>
             <input
@@ -313,7 +313,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
       <div>
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             color: 'var(--muted-foreground)',
@@ -342,7 +342,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
             background: 'var(--destructive)',
             color: 'var(--destructive-foreground)',
             borderRadius: 'var(--radius-lg)',
-            fontSize: '13px',
+            fontSize: '15px',
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
@@ -383,7 +383,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
         </Button>
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             color: 'var(--muted-foreground)',
             textAlign: 'center',
             lineHeight: 1.5,

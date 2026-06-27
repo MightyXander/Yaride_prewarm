@@ -62,7 +62,7 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
           {subtitle && (
             <div
               style={{
-                fontSize: '9px',
+                fontSize: '11px',
                 fontWeight: 800,
                 letterSpacing: '.16em',
                 textTransform: 'uppercase',
@@ -75,7 +75,7 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
           )}
           <h2
             style={{
-              fontSize: '15px',
+              fontSize: '17px',
               lineHeight: 1.2,
               fontWeight: 700,
               letterSpacing: '-0.01em',
@@ -87,10 +87,10 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
           </h2>
           <div
             style={{
-              fontSize: '10px',
+              fontSize: '12px',
               fontWeight: 600,
               opacity: 0.7,
-              marginTop: '4px',
+              marginTop: '5px',
               position: 'relative',
               letterSpacing: '0.01em',
             }}
@@ -106,12 +106,12 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              height: '44px',
-              padding: '0 14px',
+              height: '48px',
+              padding: '0 16px',
               borderRadius: '999px',
               background: 'var(--brand-foreground)',
               color: '#f5f5f7',
-              fontSize: '13px',
+              fontSize: '15px',
               fontWeight: 600,
               position: 'relative',
               width: 'fit-content',
