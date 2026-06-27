@@ -79,6 +79,9 @@ function App() {
   // Направление поездки на главном экране (morning/evening)
   const [mainDirection, setMainDirection] = useState<'morning' | 'evening'>('morning');
 
+  // Направление для заявки пассажира (передаётся при открытии формы)
+  const [requestDirection, setRequestDirection] = useState<'morning' | 'evening'>('morning');
+
   // Обработка выбора роли на intro-экране
   const handleRoleSelect = (role: UserRole) => {
     setUserRole(role);
@@ -248,8 +251,11 @@ function App() {
                 }
                 onRetry={mainDirection === 'morning' ? morningTripsState.retry : eveningTripsState.retry}
                 onTripClick={(trip) => navigate('trip-details', trip)}
-                onPublish={() => navigate('driver-publish')}
-                onLeaveRequest={() => navigate('passenger-request')}
+                onPublish={() => navigate(mainDirection === 'evening' ? 'evening-publish' : 'driver-publish')}
+                onLeaveRequest={() => {
+                  setRequestDirection(mainDirection);
+                  navigate('passenger-request');
+                }}
                 onToggleDirection={() => {
                   window.Telegram?.WebApp.HapticFeedback?.impactOccurred('light');
                   setMainDirection((prev) => (prev === 'morning' ? 'evening' : 'morning'));
@@ -323,7 +329,10 @@ function App() {
             {currentScreen === 'in-trip' && <InTripScreen trip={selectedTrip} />}
             {currentScreen === 'safety' && <SafetyScreen />}
             {currentScreen === 'passenger-request' && (
-              <PassengerRequestScreen onPublish={() => navigate('request-published')} />
+              <PassengerRequestScreen
+                direction={requestDirection}
+                onPublish={() => navigate('request-published')}
+              />
             )}
             {currentScreen === 'request-published' && (
               <RequestPublishedScreen
@@ -364,6 +373,7 @@ function App() {
                 routeTo="Брагино, ул. Урицкого, 12"
                 routeLabel="Маршрут · обратный, из шаблона"
                 defaultPickup="volkova"
+                reverse={true}
                 onPublish={(tripId) => navigate('booking-confirmed', null, 'publish', tripId)}
               />
             )}

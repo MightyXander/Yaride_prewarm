@@ -20,6 +20,7 @@ interface DriverPublishScreenProps {
   routeTo?: string;
   routeLabel?: string;
   defaultPickup?: string;
+  reverse?: boolean;
 }
 
 const sectionLabelStyle: React.CSSProperties = {
@@ -90,6 +91,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   routeTo = 'Центр, пл. Волкова',
   routeLabel = 'Маршрут · из шаблона',
   defaultPickup = 'uritskogo',
+  reverse = false,
 }) => {
   const [time, setTime] = useState<string>(defaultTime);
   const [customTime, setCustomTime] = useState<string>('');
@@ -151,6 +153,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         templateId: template.id,
         date: today,
         departureTime: formatTimeToHHMM(actualTime),
+        reverse,
       });
       onPublish(response.trip.tripId);
     } catch (err) {

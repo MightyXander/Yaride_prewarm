@@ -374,6 +374,7 @@ export interface PublishTripParams {
   templateId: number;
   tripDate: string;
   departureTime: string;
+  reverse?: boolean;
 }
 
 export interface PublishTripResult {
@@ -412,6 +413,10 @@ export async function createTripFromTemplate(
       throw new Error('Шаблон поездки не найден.');
     }
 
+    // Если reverse=true, меняем местами точки старта/финиша
+    const startPointId = params.reverse ? tpl.end_point_id : tpl.start_point_id;
+    const endPointId = params.reverse ? tpl.start_point_id : tpl.end_point_id;
+
     const ins = await client.query<{ id: number }>(
       `INSERT INTO trips(driver_id, start_point_id, end_point_id, trip_date,
                          departure_time, time_slot, price_rub, seats_total,
@@ -420,8 +425,8 @@ export async function createTripFromTemplate(
        RETURNING id`,
       [
         driverId,
-        tpl.start_point_id,
-        tpl.end_point_id,
+        startPointId,
+        endPointId,
         params.tripDate,
         params.departureTime,
         tpl.time_slot,

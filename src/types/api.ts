@@ -101,6 +101,7 @@ export interface PublishTripRequest {
   templateId: number;
   date: string;
   departureTime: string;
+  reverse?: boolean;
 }
 
 export interface PublishTripResult {

@@ -17,10 +17,14 @@ const TIME_OPTIONS = ['8:00', '8:30', '9:00', 'другое'];
 const PASSENGER_COUNT_OPTIONS = ['1', '2'];
 
 interface PassengerRequestScreenProps {
+  direction?: 'morning' | 'evening';
   onPublish?: () => void;
 }
 
-const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPublish }) => {
+const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
+  direction = 'morning',
+  onPublish,
+}) => {
   const [selectedTime, setSelectedTime] = useState('8:30');
   const [customTime, setCustomTime] = useState('');
   const [passengerCount, setPassengerCount] = useState('1');
@@ -54,22 +58,31 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
         const response = await getRoutePoints();
         setRoutePoints(response.points);
 
-        // Устанавливаем дефолтные значения: Брагино → Центр
-        const defaultFrom = response.points.find(
+        // Устанавливаем дефолтные значения по направлению
+        // morning: Брагино (откуда) → Центр (куда)
+        // evening: Центр (откуда) → Брагино (куда)
+        const bragino = response.points.find(
           (p) =>
             p.title.includes('Брагино') ||
             p.district === 'Брагино' ||
             p.title.includes('Урицкого')
         );
-        const defaultTo = response.points.find(
+        const centr = response.points.find(
           (p) =>
             p.title.includes('Центр') ||
             p.title.includes('Волкова') ||
             p.district === 'Центр'
         );
 
-        if (defaultFrom) setFromPointId(String(defaultFrom.id));
-        if (defaultTo) setToPointId(String(defaultTo.id));
+        if (direction === 'morning') {
+          // Брагино → Центр
+          if (bragino) setFromPointId(String(bragino.id));
+          if (centr) setToPointId(String(centr.id));
+        } else {
+          // Центр → Брагино
+          if (centr) setFromPointId(String(centr.id));
+          if (bragino) setToPointId(String(bragino.id));
+        }
       } catch (err) {
         console.error('Ошибка загрузки точек маршрута:', err);
         setPointsError('Не удалось загрузить точки маршрута');
@@ -79,7 +92,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({ onPubli
     };
 
     loadRoutePoints();
-  }, []);
+  }, [direction]);
 
   const formatTimeToHHMM = (timeStr: string): string => {
     const parts = timeStr.split(':');
