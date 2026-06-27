@@ -27,6 +27,7 @@ import { useStartParam } from './hooks/useStartParam';
 import { getTrips } from './lib/api';
 import { mapTripListItemToTrip } from './lib/mappers';
 import { loadRole, saveRole, type UserRole } from './lib/role';
+import { formatSubtitle } from './lib/date';
 import { ProfileProvider } from './contexts/ProfileContext';
 import type { Screen } from './types/navigation';
 import type { BookingResult } from './types/api';
@@ -233,7 +234,9 @@ function App() {
                 trips={mainDirection === 'morning' ? morningTrips : eveningTrips}
                 title={mainDirection === 'morning' ? 'Брагино → Центр' : 'Центр → Брагино'}
                 subtitle={
-                  mainDirection === 'morning' ? 'среда, утро 7:30–8:40' : 'среда, вечер 17:00–18:30'
+                  mainDirection === 'morning'
+                    ? formatSubtitle('утро 7:30–8:40')
+                    : formatSubtitle('вечер 17:00–18:30')
                 }
                 loading={
                   mainDirection === 'morning'
@@ -266,7 +269,7 @@ function App() {
             {currentScreen === 'main-more' && (
               <MainScreen
                 trips={morningTrips}
-                subtitle="среда, утро 7:30–8:40 · обновлено"
+                subtitle={formatSubtitle('утро 7:30–8:40', true)}
                 loading={morningTripsState.status === 'loading'}
                 error={morningTripsState.status === 'error' ? morningTripsState.error : undefined}
                 onRetry={morningTripsState.retry}
@@ -353,7 +356,7 @@ function App() {
               <MainScreen
                 trips={eveningTrips}
                 title="Центр → Брагино"
-                subtitle="среда, вечер 17:30–19:00"
+                subtitle={formatSubtitle('вечер 17:30–19:00')}
                 heroKicker="Сегодня домой"
                 loading={eveningTripsState.status === 'loading'}
                 error={eveningTripsState.status === 'error' ? eveningTripsState.error : undefined}

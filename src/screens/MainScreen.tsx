@@ -9,6 +9,7 @@ import ErrorTripsState from '../components/ErrorTripsState';
 import { Appear, AppearList } from '../components/Appear';
 import type { Trip } from '../types/navigation';
 import type { UserRole } from '../lib/role';
+import { formatSubtitle } from '../lib/date';
 
 interface MainScreenProps {
   trips: Trip[];
@@ -31,7 +32,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
   onTripClick,
   onPublish,
   onLeaveRequest,
-  subtitle = 'среда, утро 7:30–8:40',
+  subtitle = formatSubtitle('утро 7:30–8:40'),
   title = 'Брагино → Центр',
   heroKicker = 'Сегодня по маршруту',
   loading = false,
