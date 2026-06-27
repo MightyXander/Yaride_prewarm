@@ -23,7 +23,6 @@ interface MainScreenProps {
   error?: Error;
   onRetry?: () => void;
   onToggleDirection?: () => void;
-  showPublishInTopbar?: boolean;
   userRole?: UserRole;
 }
 
@@ -39,7 +38,6 @@ const MainScreen: React.FC<MainScreenProps> = ({
   error,
   onRetry,
   onToggleDirection,
-  showPublishInTopbar = true,
   userRole = 'passenger',
 }) => {
   const firstTripRef = useRef<HTMLDivElement>(null);
@@ -67,8 +65,6 @@ const MainScreen: React.FC<MainScreenProps> = ({
       <Topbar
         title={title}
         subtitle={subtitle}
-        onToggleDirection={onToggleDirection}
-        onPublish={showPublishInTopbar && userRole === 'driver' ? onPublish : undefined}
       />
       <AnimatePresence mode="wait">
         {loading ? (
@@ -91,6 +87,9 @@ const MainScreen: React.FC<MainScreenProps> = ({
                 title={`${trips.length} ${trips.length === 1 ? 'поездка' : trips.length < 5 ? 'поездки' : 'поездок'} в твою сторону`}
                 ctaText={`Ближайшая в ${trips[0].time}`}
                 onCtaClick={openFirstTripDetails}
+                onToggleDirection={onToggleDirection}
+                onPublish={onPublish}
+                showPublish={userRole === 'driver'}
               />
               <AppearList stagger={40} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {trips.map((trip, index) => (
