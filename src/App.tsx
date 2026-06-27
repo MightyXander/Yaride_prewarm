@@ -372,8 +372,6 @@ function App() {
                 title="Я за рулём · домой"
                 timeOptions={['17:30', '17:40', '18:00', '18:30', 'другое']}
                 defaultTime="17:40"
-                routeFrom="Центр, пл. Волкова"
-                routeTo="Брагино, ул. Урицкого, 12"
                 routeLabel="Маршрут · обратный, из шаблона"
                 defaultPickup="volkova"
                 reverse={true}
