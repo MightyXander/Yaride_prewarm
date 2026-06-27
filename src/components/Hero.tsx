@@ -148,18 +148,19 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick, onTog
               className="focus-ring pressable"
               style={{
                 minWidth: '44px',
-                minHeight: '44px',
-                borderRadius: '11px',
-                background: 'var(--secondary)',
+                height: '48px',
+                borderRadius: '999px',
+                background: 'var(--brand-foreground)',
                 display: 'grid',
                 placeItems: 'center',
-                color: 'var(--foreground)',
+                color: '#f5f5f7',
                 fontSize: '18px',
                 flex: 1,
                 border: 'none',
                 cursor: 'pointer',
                 fontFamily: 'var(--font-sans)',
                 transition: 'transform 0.08s ease, filter 0.12s ease',
+                padding: '0 12px',
               }}
               onMouseDown={(e) => {
                 e.currentTarget.style.transform = 'scale(0.97)';
@@ -184,14 +185,14 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick, onTog
               className="focus-ring pressable"
               style={{
                 minWidth: '44px',
-                minHeight: '44px',
-                borderRadius: '11px',
-                background: 'var(--secondary)',
+                height: '48px',
+                borderRadius: '999px',
+                background: 'var(--brand-foreground)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
-                color: 'var(--foreground)',
+                color: '#f5f5f7',
                 fontSize: '15px',
                 fontWeight: 600,
                 flex: 1,
@@ -199,7 +200,7 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick, onTog
                 cursor: 'pointer',
                 fontFamily: 'var(--font-sans)',
                 transition: 'transform 0.08s ease, filter 0.12s ease',
-                padding: '0 12px',
+                padding: '0 16px',
               }}
               onMouseDown={(e) => {
                 e.currentTarget.style.transform = 'scale(0.97)';
