@@ -110,13 +110,13 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
             overflow: 'visible',
             borderRadius: '999px',
             border: '1px solid var(--border)',
-            // Плотная подложка в цвет карточки поездки — полупрозрачная плохо
-            // читалась в тёмной теме (неактивный таб сливался с фоном).
-            background: 'var(--card)',
+            // Frosted glass: полупрозрачная подложка (75%) + усиленный blur.
+            // Контент виден сквозь nav; контраст неактивного таба поднят до 78%.
+            background: 'color-mix(in srgb, var(--card) 75%, transparent)',
             padding: '6px',
             boxShadow: '0 14px 40px -16px rgba(0, 0, 0, .45), 0 2px 8px -4px rgba(0, 0, 0, .25)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
           }}
         >
           {/* Скользящий индикатор brand-gradient */}
@@ -182,7 +182,7 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
                       strokeWidth: 2,
                       color: active
                         ? 'var(--brand-foreground)'
-                        : 'color-mix(in srgb, var(--foreground) 72%, transparent)',
+                        : 'color-mix(in srgb, var(--foreground) 78%, transparent)',
                       transition: 'color 200ms ease',
                     }}
                   />
