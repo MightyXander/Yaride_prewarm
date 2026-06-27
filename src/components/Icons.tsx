@@ -99,6 +99,13 @@ export const Icons = () => (
       <path d="M4 3h16v18l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3L4 21z" />
       <path d="M8 8h8M8 12h8M8 16h4" />
     </symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24">
+      <path d="M20 13.2A8 8 0 1 1 10.8 4a6.3 6.3 0 0 0 9.2 9.2z" />
+    </symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+    </symbol>
   </svg>
 );
 
