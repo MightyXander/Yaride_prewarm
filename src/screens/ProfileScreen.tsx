@@ -41,7 +41,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
   const age = profile?.age ?? null;
   const rating = profile?.rating_avg ?? 0;
   const tripCount = (profile?.trips_driver_count ?? 0) + (profile?.trips_passenger_count ?? 0);
-  const licenseVerified = profile?.license_status === 'verified';
+  const licenseStatus = profile?.license_status;
+  const licenseVerified = licenseStatus === 'verified';
+
+  // Логика кнопки «Стать водителем» / «Заполнить заново»
+  const shouldShowDriverButton = licenseStatus !== 'verified' && licenseStatus !== 'pending';
+  const isLicenseRejected = licenseStatus === 'rejected' || licenseStatus === 'declined';
+  const driverButtonLabel = isLicenseRejected ? 'Заполнить заново' : 'Стать водителем';
 
   return (
     <div
@@ -365,9 +371,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
       </Card>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: 'auto', paddingTop: '6px' }}>
-        <Button variant="primary" icon="i-car" onClick={onBecomeDriver}>
-          Стать водителем
-        </Button>
+        {shouldShowDriverButton && (
+          <Button variant="primary" icon="i-car" onClick={onBecomeDriver}>
+            {driverButtonLabel}
+          </Button>
+        )}
         <Button variant="ghost" icon="i-sliders" onClick={() => showToast('Настройки — скоро')}>
           Настройки
         </Button>
