@@ -5,6 +5,7 @@ import Avatar from './ui/Avatar';
 import Chip from './ui/Chip';
 import Button from './ui/Button';
 import { showToast } from '../lib/toast';
+import { pluralize } from '../lib/plural';
 
 interface TripCardProps {
   driver: {
@@ -100,7 +101,7 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                     id="i-car"
                     style={{ width: '12px', height: '12px', display: 'inline-block', marginRight: '3px' }}
                   />
-                  {driver.tripCount} {driver.tripCount === 1 ? 'поездка' : driver.tripCount < 5 ? 'поездки' : 'поездок'}
+                  {driver.tripCount} {pluralize(driver.tripCount, 'поездка', 'поездки', 'поездок')}
                 </span>
               </div>
               <div
