@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Select from '../components/ui/Select';
+import Calendar from '../components/ui/Calendar';
 import Header from '../components/Header';
 import { hapticSelection } from '../lib/haptics';
 import { getMyTemplate, publishTrip, ApiException } from '../lib/api';
@@ -97,6 +98,8 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const [customTime, setCustomTime] = useState<string>('');
   const [seats, setSeats] = useState<number>(3);
   const [pickup, setPickup] = useState<string>(defaultPickup);
+  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [template, setTemplate] = useState<GetMyTemplateResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +107,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const timeLabelId = useId();
   const seatsLabelId = useId();
   const customTimeLabelId = useId();
+  const dateLabelId = useId();
 
   // Загрузить шаблон при монтировании
   useEffect(() => {
@@ -148,10 +152,9 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
 
     try {
       setPublishing(true);
-      const today = new Date().toISOString().split('T')[0];
       const response = await publishTrip({
         templateId: template.id,
-        date: today,
+        date,
         departureTime: formatTimeToHHMM(actualTime),
         reverse,
       });
@@ -275,6 +278,67 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
           </div>
         </div>
       </Card>
+
+      {/* Дата выезда */}
+      <div role="group" aria-labelledby={dateLabelId}>
+        <div id={dateLabelId} style={sectionLabelStyle}>Дата выезда</div>
+        <button
+          type="button"
+          onClick={() => {
+            hapticSelection();
+            setShowCalendar(!showCalendar);
+          }}
+          className="focus-ring pressable"
+          aria-expanded={showCalendar}
+          style={{
+            width: '100%',
+            minHeight: '48px',
+            padding: '12px 16px',
+            borderRadius: '16px',
+            border: '1px solid var(--border)',
+            background: 'var(--secondary)',
+            color: 'var(--foreground)',
+            fontSize: '15px',
+            fontWeight: 600,
+            fontFamily: 'var(--font-sans)',
+            textAlign: 'left',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>
+            {new Date(date + 'T00:00:00').toLocaleDateString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })}
+          </span>
+          <span
+            style={{
+              transform: showCalendar ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+            }}
+          >
+            ▼
+          </span>
+        </button>
+
+        {showCalendar && (
+          <div style={{ marginTop: '12px' }}>
+            <Card>
+              <Calendar
+                value={date}
+                onChange={(newDate) => {
+                  setDate(newDate);
+                  setShowCalendar(false);
+                }}
+              />
+            </Card>
+          </div>
+        )}
+      </div>
 
       {/* Время — чипами */}
       <div role="group" aria-labelledby={timeLabelId}>
