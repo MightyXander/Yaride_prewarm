@@ -14,7 +14,7 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
       style={{
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: 'var(--radius-3xl)',
+        borderRadius: 'var(--radius-xl)',
         color: 'var(--brand-foreground)',
         padding: '12px 16px',
         minHeight: '68px',
@@ -85,18 +85,6 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
           >
             {title}
           </h2>
-          <div
-            style={{
-              fontSize: '12px',
-              fontWeight: 600,
-              opacity: 0.7,
-              marginTop: '5px',
-              position: 'relative',
-              letterSpacing: '0.01em',
-            }}
-          >
-            Безопасно · Удобно · Комфортно
-          </div>
         </div>
         {ctaText && (
           <button
