@@ -69,8 +69,9 @@ export const FLOATING_NAV_HEIGHT = '3.75rem';
 /** Нижний внутренний отступ обёртки nav. */
 export const FLOATING_NAV_BOTTOM = 'max(14px, env(safe-area-inset-bottom, 0px))';
 
-/** Сколько padding-bottom добавить контенту, чтобы pill его не перекрывал. */
-export const FLOATING_NAV_CONTENT_PADDING = `calc(${FLOATING_NAV_BOTTOM} + ${FLOATING_NAV_HEIGHT} + 22px)`;
+/** Сколько padding-bottom добавить контенту, чтобы pill его не перекрывал.
+ * Уменьшено для iOS-стиля: контент скроллится ПОД полупрозрачный навбар. */
+export const FLOATING_NAV_CONTENT_PADDING = `calc(env(safe-area-inset-bottom, 0px) + 12px)`;
 
 interface FloatingNavProps {
   currentScreen: Screen;
@@ -96,6 +97,20 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
         paddingBottom: FLOATING_NAV_BOTTOM,
       }}
     >
+      {/* Мягкий fade-скрим у нижней кромки для плавного перехода контента под навбар */}
+      <div
+        aria-hidden
+        style={{
+          pointerEvents: 'none',
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: '24px',
+          background: 'linear-gradient(to top, var(--background), transparent)',
+          zIndex: 39,
+        }}
+      />
       <div style={{ width: '20rem', maxWidth: 'calc(100% - 2rem)' }}>
         <nav
           aria-label="Основная навигация"
