@@ -147,20 +147,20 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick, onTog
               onClick={onToggleDirection}
               className="focus-ring pressable"
               style={{
-                minWidth: '44px',
-                height: '48px',
-                borderRadius: '999px',
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
                 background: 'var(--brand-foreground)',
                 display: 'grid',
                 placeItems: 'center',
                 color: '#f5f5f7',
                 fontSize: '18px',
-                flex: 1,
                 border: 'none',
                 cursor: 'pointer',
                 fontFamily: 'var(--font-sans)',
                 transition: 'transform 0.08s ease, filter 0.12s ease',
-                padding: '0 12px',
+                padding: 0,
+                flexShrink: 0,
               }}
               onMouseDown={(e) => {
                 e.currentTarget.style.transform = 'scale(0.97)';
@@ -184,23 +184,20 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick, onTog
               onClick={onPublish}
               className="focus-ring pressable"
               style={{
-                minWidth: '44px',
-                height: '48px',
-                borderRadius: '999px',
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
                 background: 'var(--brand-foreground)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
+                display: 'grid',
+                placeItems: 'center',
                 color: '#f5f5f7',
-                fontSize: '15px',
-                fontWeight: 600,
-                flex: 1,
+                fontSize: '20px',
                 border: 'none',
                 cursor: 'pointer',
                 fontFamily: 'var(--font-sans)',
                 transition: 'transform 0.08s ease, filter 0.12s ease',
-                padding: '0 16px',
+                padding: 0,
+                flexShrink: 0,
               }}
               onMouseDown={(e) => {
                 e.currentTarget.style.transform = 'scale(0.97)';
@@ -216,7 +213,6 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick, onTog
               }}
             >
               <Icon id="i-plus" />
-              Создать поездку
             </button>
           )}
         </div>

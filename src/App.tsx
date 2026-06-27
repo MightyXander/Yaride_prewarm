@@ -24,7 +24,7 @@ import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useAsync } from './hooks/useAsync';
 import { useStartParam } from './hooks/useStartParam';
-import { getTrips } from './lib/api';
+import { getTrips, getRoutePoints } from './lib/api';
 import { mapTripListItemToTrip } from './lib/mappers';
 import { loadRole, saveRole, type UserRole } from './lib/role';
 import { formatSubtitle } from './lib/date';
@@ -141,16 +141,33 @@ function App() {
     }
   }, []);
 
-  // Загрузка утренних поездок
+  // Загрузка точек маршрута для определения ID Брагино и Центра
+  const routePointsState = useAsync(() => getRoutePoints(), []);
+
+  // Находим ID точек Брагино и Центр
+  const braginoId = routePointsState.status === 'success'
+    ? routePointsState.data.points.find((p) => p.district === 'Брагино' && p.title.includes('Брагино'))?.id
+    : undefined;
+  const centrId = routePointsState.status === 'success'
+    ? routePointsState.data.points.find((p) => p.district === 'Центр' || p.title.includes('Волкова'))?.id
+    : undefined;
+
+  // Загрузка поездок Брагино → Центр (morning/«в центр»)
   const morningTripsState = useAsync(
-    () => getTrips({ window: 'morning' }).then((res) => res.trips.map(mapTripListItemToTrip)),
-    []
+    () => {
+      if (!braginoId || !centrId) return Promise.resolve([]);
+      return getTrips({ corridor: `${braginoId}-${centrId}` }).then((res) => res.trips.map(mapTripListItemToTrip));
+    },
+    [braginoId, centrId]
   );
 
-  // Загрузка вечерних поездок
+  // Загрузка поездок Центр → Брагино (evening/«из центра»)
   const eveningTripsState = useAsync(
-    () => getTrips({ window: 'evening' }).then((res) => res.trips.map(mapTripListItemToTrip)),
-    []
+    () => {
+      if (!braginoId || !centrId) return Promise.resolve([]);
+      return getTrips({ corridor: `${centrId}-${braginoId}` }).then((res) => res.trips.map(mapTripListItemToTrip));
+    },
+    [braginoId, centrId]
   );
 
   const morningTrips =
