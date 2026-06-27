@@ -6,6 +6,7 @@ import { Icon } from '../components/Icons';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
 import { showToast } from '../lib/toast';
 import { createBooking } from '../lib/api';
+import { Appear } from '../components/Appear';
 import type { Trip } from '../types/navigation';
 import type { BookingResult } from '../types/api';
 
@@ -153,7 +154,8 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
       <Header title="Почти готово" />
 
       {/* Что бронируем */}
-      <Card style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+      <Appear delay={0}>
+        <Card style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
         <div
           style={{
             width: '46px',
@@ -183,10 +185,12 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
             с {trip.driver.name} · {trip.car} · {trip.address}
           </div>
         </div>
-      </Card>
+        </Card>
+      </Appear>
 
       {/* Имя */}
-      <div>
+      <Appear delay={50}>
+        <div>
         <label htmlFor={nameInputId} style={{ ...sectionLabelStyle, display: 'block' }}>
           Имя
         </label>
@@ -218,10 +222,12 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
             }}
           />
         )}
-      </div>
+        </div>
+      </Appear>
 
       {/* Телефон · подтверждение OTP-заглушкой */}
-      <div>
+      <Appear delay={100}>
+        <div>
         <div style={sectionLabelStyle}>Телефон · подтверждение</div>
         {phoneStep === 'confirmed' ? (
           <div style={fieldStyle}>
@@ -296,10 +302,12 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
             Подтвердить телефон
           </Button>
         )}
-      </div>
+        </div>
+      </Appear>
 
       {/* Инфо про SOS */}
-      <Card variant="accent" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+      <Appear delay={150}>
+        <Card variant="accent" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
         <div
           style={{
             width: '36px',
@@ -318,9 +326,11 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
         <div style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--foreground)' }}>
           В поездке будут кнопка <b style={{ fontWeight: 700 }}>SOS</b> и «поделиться с близким».
         </div>
-      </Card>
+        </Card>
+      </Appear>
 
-      <div
+      <Appear delay={200}>
+        <div
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -358,7 +368,8 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
         >
           Оплаты в приложении нет — за бензин рассчитаетесь сами
         </div>
-      </div>
+        </div>
+      </Appear>
     </div>
   );
 };
