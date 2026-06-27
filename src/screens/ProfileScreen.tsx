@@ -355,7 +355,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
             <Icon id={theme === 'dark' ? 'i-moon' : 'i-sun'} style={{ width: '17px', height: '17px' }} />
           </div>
           <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>
-            {theme === 'dark' ? 'Тёмная тема' : 'Светлая тема'}
+            Сменить тему
           </span>
           <Icon
             id="i-chev-r"
