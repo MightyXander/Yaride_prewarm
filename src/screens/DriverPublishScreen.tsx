@@ -21,7 +21,7 @@ interface DriverPublishScreenProps {
 }
 
 const sectionLabelStyle: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   color: 'var(--muted-foreground)',
@@ -65,7 +65,7 @@ const SelectableChip: React.FC<SelectableChipProps> = ({ label, active, onClick 
       minHeight: '44px',
       padding: '6px 14px',
       borderRadius: '999px',
-      fontSize: '13px',
+      fontSize: '15px',
       fontWeight: 700,
       fontFamily: 'var(--font-sans)',
       cursor: 'pointer',
@@ -198,7 +198,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '11px',
-              fontSize: '13px',
+              fontSize: '15px',
               fontWeight: 600,
               minHeight: '24px',
             }}
@@ -227,7 +227,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '11px',
-              fontSize: '13px',
+              fontSize: '15px',
               fontWeight: 600,
               minHeight: '24px',
             }}
@@ -341,7 +341,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
       {loading && (
         <div
           style={{
-            fontSize: '13px',
+            fontSize: '15px',
             color: 'var(--muted-foreground)',
             textAlign: 'center',
             padding: '20px',
@@ -353,7 +353,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
 
       {error && (
         <Card variant="accent" style={{ marginTop: 'auto', borderColor: 'var(--destructive)', background: 'var(--destructive-background, var(--secondary))' }}>
-          <div style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--destructive)' }}>
+          <div style={{ fontSize: '15px', lineHeight: 1.5, color: 'var(--destructive)' }}>
             {error}
           </div>
         </Card>
@@ -379,7 +379,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
           </Button>
           <div
             style={{
-              fontSize: '11px',
+              fontSize: '12px',
               color: 'var(--muted-foreground)',
               textAlign: 'center',
               lineHeight: 1.5,

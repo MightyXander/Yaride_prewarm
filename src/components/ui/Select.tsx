@@ -150,8 +150,8 @@ const Select: React.FC<SelectProps> = ({
           htmlFor={`${labelId}-trigger`}
           style={{
             display: 'block',
-            marginBottom: '6px',
-            fontSize: '13px',
+            marginBottom: '7px',
+            fontSize: '14px',
             fontWeight: 600,
             color: 'var(--foreground)',
           }}
@@ -173,20 +173,20 @@ const Select: React.FC<SelectProps> = ({
         aria-label={!label ? ariaLabel : undefined}
         style={{
           width: '100%',
-          minHeight: '44px',
-          padding: '10px 14px',
-          borderRadius: '15px',
+          minHeight: '48px',
+          padding: '12px 16px',
+          borderRadius: '16px',
           background: 'var(--secondary)',
           color: selectedOption ? 'var(--secondary-foreground)' : 'var(--muted-foreground)',
           border: '1px solid var(--border)',
-          fontSize: '13px',
+          fontSize: '15px',
           fontWeight: 600,
           fontFamily: 'var(--font-sans)',
           cursor: disabled ? 'not-allowed' : 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '8px',
+          gap: '10px',
           opacity: disabled ? 0.5 : 1,
           transition: 'filter 0.12s ease',
         }}
@@ -252,15 +252,15 @@ const Select: React.FC<SelectProps> = ({
                 aria-selected={isSelected}
                 onClick={() => handleOptionClick(option.value)}
                 style={{
-                  padding: '10px 12px',
-                  borderRadius: '11px',
-                  fontSize: '13px',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  fontSize: '15px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  gap: '8px',
+                  gap: '10px',
                   background: isActive ? 'var(--secondary)' : 'transparent',
                   color: 'var(--foreground)',
                   transition: 'background 0.08s ease',

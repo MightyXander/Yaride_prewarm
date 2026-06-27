@@ -7,7 +7,7 @@ interface AvatarProps {
   hideRating?: boolean;
 }
 
-const Avatar: React.FC<AvatarProps> = ({ label, rating, size = 42, hideRating = false }) => {
+const Avatar: React.FC<AvatarProps> = ({ label, rating, size = 46, hideRating = false }) => {
   return (
     <div
       style={{

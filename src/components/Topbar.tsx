@@ -25,7 +25,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle, onToggleDirection, onP
         <div
           style={{
             fontWeight: 800,
-            fontSize: '17px',
+            fontSize: '19px',
             letterSpacing: '-0.01em',
           }}
         >
@@ -34,9 +34,9 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle, onToggleDirection, onP
         {subtitle && (
           <div
             style={{
-              fontSize: '12px',
+              fontSize: '15px',
               color: 'var(--muted-foreground)',
-              marginTop: '1px',
+              marginTop: '2px',
             }}
           >
             {subtitle}

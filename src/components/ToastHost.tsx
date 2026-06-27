@@ -49,7 +49,7 @@ export function ToastHost() {
             borderRadius: '999px',
             background: 'var(--foreground)',
             color: 'var(--background)',
-            fontSize: '13px',
+            fontSize: '15px',
             fontWeight: 600,
             fontFamily: 'var(--font-sans)',
             boxShadow: 'var(--shadow-elevated)',

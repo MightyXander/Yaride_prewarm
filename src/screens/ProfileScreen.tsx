@@ -14,10 +14,10 @@ const statValueStyle: React.CSSProperties = {
 };
 
 const statLabelStyle: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '15px',
   color: 'var(--muted-foreground)',
   fontWeight: 600,
-  marginTop: '3px',
+  marginTop: '4px',
 };
 
 interface ProfileScreenProps {
@@ -132,13 +132,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
                     fontWeight: 700,
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '12px',
-                    marginTop: '5px',
-                    minHeight: '19px',
+                    gap: '5px',
+                    fontSize: '14px',
+                    marginTop: '6px',
+                    minHeight: '20px',
                   }}
                 >
-                  <Icon id="i-check" style={{ width: '14px', height: '14px' }} />
+                  <Icon id="i-check" style={{ width: '15px', height: '15px' }} />
                   ВУ подтверждено
                 </div>
               ) : (
@@ -148,13 +148,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
                     fontWeight: 700,
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '12px',
-                    marginTop: '5px',
-                    minHeight: '19px',
+                    gap: '5px',
+                    fontSize: '14px',
+                    marginTop: '6px',
+                    minHeight: '20px',
                   }}
                 >
-                  <Icon id="i-shield" style={{ width: '14px', height: '14px' }} />
+                  <Icon id="i-shield" style={{ width: '15px', height: '15px' }} />
                   ВУ на проверке
                 </div>
               )}
@@ -192,22 +192,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
           >
             <div
               style={{
-                fontSize: '11px',
+                fontSize: '12px',
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
                 color: 'var(--muted-foreground)',
                 fontWeight: 700,
-                marginBottom: '8px',
+                marginBottom: '10px',
               }}
             >
               Документы
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div
                 style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '12px',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '13px',
                   background: 'var(--gradient-brand)',
                   display: 'grid',
                   placeItems: 'center',
@@ -216,11 +216,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
                   boxShadow: '0 8px 20px -10px rgba(255, 221, 45, .6)',
                 }}
               >
-                <Icon id="i-shield" style={{ width: '18px', height: '18px', strokeWidth: 2 }} />
+                <Icon id="i-shield" style={{ width: '20px', height: '20px', strokeWidth: 2 }} />
               </div>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700 }}>Водительское удостоверение</div>
-                <div style={{ fontSize: '12px', color: 'var(--success)', fontWeight: 600, marginTop: '2px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 700 }}>Водительское удостоверение</div>
+                <div style={{ fontSize: '14px', color: 'var(--success)', fontWeight: 600, marginTop: '3px' }}>
                   {licenseVerified ? 'Подтверждено' : 'На проверке'}
                 </div>
               </div>

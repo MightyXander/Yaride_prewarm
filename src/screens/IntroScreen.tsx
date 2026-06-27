@@ -54,7 +54,7 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onRoleSelect }) => {
       </div>
       <div
         style={{
-          fontSize: '26px',
+          fontSize: '28px',
           lineHeight: 1.12,
           marginTop: '4px',
           fontWeight: 800,
@@ -65,7 +65,7 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onRoleSelect }) => {
       </div>
       <div
         style={{
-          fontSize: '13px',
+          fontSize: '15px',
           marginTop: '-2px',
           color: 'var(--muted-foreground)',
         }}
@@ -75,8 +75,8 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onRoleSelect }) => {
       <div
         id="role-group-label"
         style={{
-          marginTop: '10px',
-          fontSize: '11px',
+          marginTop: '12px',
+          fontSize: '12px',
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
           color: 'var(--muted-foreground)',
@@ -201,13 +201,13 @@ const RoleOption: React.FC<RoleOptionProps> = ({
         <Icon id={icon} />
       </div>
       <div>
-        <div style={{ fontWeight: 700, fontSize: '16px' }}>{title}</div>
+        <div style={{ fontWeight: 700, fontSize: '17px' }}>{title}</div>
         <div
           style={{
             color: 'var(--muted-foreground)',
             fontWeight: 500,
-            fontSize: '12px',
-            marginTop: '2px',
+            fontSize: '14px',
+            marginTop: '3px',
           }}
         >
           {subtitle}

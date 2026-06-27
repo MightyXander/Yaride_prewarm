@@ -146,7 +146,7 @@ const DriverBookingsScreen: React.FC<DriverBookingsScreenProps> = ({ tripId, onD
           padding: '20px',
         }}
       >
-        <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>
+        <div style={{ fontSize: '15px', color: 'var(--muted-foreground)' }}>
           Загрузка броней...
         </div>
       </div>
@@ -167,7 +167,7 @@ const DriverBookingsScreen: React.FC<DriverBookingsScreenProps> = ({ tripId, onD
       >
         <Header title="Мои брони" />
         <Card variant="accent" style={{ borderColor: 'var(--destructive)', background: 'var(--destructive-background, var(--secondary))' }}>
-          <div style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--destructive)' }}>
+          <div style={{ fontSize: '15px', lineHeight: 1.5, color: 'var(--destructive)' }}>
             {error}
           </div>
         </Card>
@@ -218,7 +218,7 @@ const DriverBookingsScreen: React.FC<DriverBookingsScreenProps> = ({ tripId, onD
 
       {bookings.length === 0 && (
         <Card>
-          <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', padding: '20px' }}>
+          <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', textAlign: 'center', padding: '20px' }}>
             Пока нет броней
           </div>
         </Card>

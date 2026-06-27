@@ -24,7 +24,7 @@ const getTelegramName = (): string => {
 };
 
 const sectionLabelStyle: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   color: 'var(--muted-foreground)',
@@ -196,7 +196,7 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
             <span
               style={{
                 marginLeft: 'auto',
-                fontSize: '11px',
+                fontSize: '12px',
                 fontWeight: 600,
                 color: 'var(--muted-foreground)',
               }}
@@ -282,7 +282,7 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
               <div
                 aria-live="polite"
                 style={{
-                  fontSize: '11px',
+                  fontSize: '12px',
                   color: phoneStep === 'checking' ? 'var(--foreground)' : 'var(--muted-foreground)',
                   fontWeight: phoneStep === 'checking' ? 700 : 400,
                 }}
@@ -350,7 +350,7 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
         )}
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             color: 'var(--muted-foreground)',
             textAlign: 'center',
             lineHeight: 1.5,

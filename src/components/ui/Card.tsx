@@ -21,7 +21,7 @@ const Card: React.FC<CardProps> = ({
   const baseStyle: React.CSSProperties = {
     background: variant === 'accent' ? 'var(--accent)' : 'var(--elevated)',
     borderRadius: 'var(--radius-xl)',
-    padding: '13px 14px',
+    padding: '16px 16px',
     border: '1px solid var(--border)',
     boxShadow: 'var(--shadow-card)',
   };

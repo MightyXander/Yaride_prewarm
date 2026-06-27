@@ -6,7 +6,7 @@ import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 
 const sectionLabelStyle: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   color: 'var(--muted-foreground)',

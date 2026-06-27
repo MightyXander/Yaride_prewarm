@@ -21,7 +21,7 @@ interface BookingConfirmedScreenProps {
 }
 
 const sectionLabelStyle: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   color: 'var(--muted-foreground)',
@@ -95,7 +95,7 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
         <div style={{ fontWeight: 800, fontSize: '19px', letterSpacing: '-0.01em', marginTop: '12px' }}>
           {headline}
         </div>
-        <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '3px' }}>{sub}</div>
+        <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', marginTop: '3px' }}>{sub}</div>
       </div>
 
       {/* Карточка водителя/поездки */}
@@ -130,7 +130,7 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '11px',
-              fontSize: '13px',
+              fontSize: '15px',
               fontWeight: 600,
               minHeight: '24px',
               marginTop: '11px',
@@ -158,7 +158,7 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '11px',
-                fontSize: '13px',
+                fontSize: '15px',
                 fontWeight: 600,
                 minHeight: '24px',
               }}
@@ -187,7 +187,7 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '11px',
-                fontSize: '13px',
+                fontSize: '15px',
                 fontWeight: 600,
                 minHeight: '24px',
               }}
@@ -256,7 +256,7 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
             <>
               Напомним вечером накануне. <b style={{ fontWeight: 700 }}>SOS</b> доступен в поездке.
               {booking && (
-                <div style={{ marginTop: '4px', fontSize: '10px', opacity: 0.7 }}>
+                <div style={{ marginTop: '4px', fontSize: '11px', opacity: 0.7 }}>
                   Бронь #{booking.bookingId}
                 </div>
               )}

@@ -19,14 +19,14 @@ const Chip: React.FC<ChipProps> = ({
   const isInteractive = !!onClick;
 
   const baseStyle: React.CSSProperties = {
-    height: '38px',
-    minWidth: '52px',
-    padding: '0 14px',
-    borderRadius: '13px',
+    height: '44px',
+    minWidth: '60px',
+    padding: '0 16px',
+    borderRadius: '14px',
     display: 'grid',
     placeItems: 'center',
     fontWeight: selected ? 700 : 600,
-    fontSize: '13px',
+    fontSize: '15px',
     whiteSpace: 'nowrap',
     cursor: isInteractive ? 'pointer' : 'default',
     border: 'none',

@@ -19,7 +19,7 @@ interface TimelineStep {
 }
 
 const sectionLabelStyle: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   color: 'var(--muted-foreground)',
@@ -127,7 +127,7 @@ const LicenseReviewScreen: React.FC<LicenseReviewScreenProps> = ({ onFindRide, o
         <div style={{ fontWeight: 800, fontSize: '19px', letterSpacing: '-0.01em', marginTop: '12px' }}>
           {meta.title}
         </div>
-        <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '3px' }}>
+        <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', marginTop: '3px' }}>
           {meta.sub}
         </div>
       </div>
@@ -173,7 +173,7 @@ const LicenseReviewScreen: React.FC<LicenseReviewScreenProps> = ({ onFindRide, o
                 </div>
                 <div
                   style={{
-                    fontSize: '13px',
+                    fontSize: '15px',
                     fontWeight: step.active || (isLast && step.done) ? 700 : 600,
                     color: step.done || step.active ? 'var(--foreground)' : 'var(--muted-foreground)',
                     paddingBottom: isLast ? 0 : '8px',
@@ -190,7 +190,7 @@ const LicenseReviewScreen: React.FC<LicenseReviewScreenProps> = ({ onFindRide, o
       {/* Что отправлено */}
       <Card>
         <div style={sectionLabelStyle}>Отправлено</div>
-        <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.6 }}>
+        <div style={{ fontSize: '15px', color: 'var(--foreground)', lineHeight: 1.6 }}>
           ВУ 9916 АВ ···456 · до 03/2030
           <br />
           Фото загружено

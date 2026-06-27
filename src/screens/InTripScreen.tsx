@@ -241,7 +241,7 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip }) => {
             justifyContent: 'center',
             gap: '8px',
             fontWeight: 600,
-            fontSize: '13px',
+            fontSize: '15px',
             border: '1px solid var(--border)',
             background: shared ? 'var(--accent)' : 'transparent',
             color: 'var(--foreground)',
