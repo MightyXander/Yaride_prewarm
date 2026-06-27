@@ -146,10 +146,10 @@ function App() {
 
   // Находим ID точек Брагино и Центр
   const braginoId = routePointsState.status === 'success'
-    ? routePointsState.data.points.find((p) => p.district === 'Брагино' && p.title.includes('Брагино'))?.id
+    ? routePointsState.data.points.find((p) => p.title.includes('Брагино'))?.id
     : undefined;
   const centrId = routePointsState.status === 'success'
-    ? routePointsState.data.points.find((p) => p.district === 'Центр' || p.title.includes('Волкова'))?.id
+    ? routePointsState.data.points.find((p) => p.title.includes('Центр'))?.id
     : undefined;
 
   // Загрузка поездок Брагино → Центр (morning/«в центр»)
