@@ -352,7 +352,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
               flexShrink: 0,
             }}
           >
-            <Icon id={theme === 'dark' ? 'i-moon' : 'i-sun'} style={{ width: '17px', height: '17px' }} />
+            <Icon id={theme === 'dark' ? 'i-sun' : 'i-moon'} style={{ width: '17px', height: '17px' }} />
           </div>
           <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>
             Сменить тему
