@@ -368,6 +368,8 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
     return err(400, 'departureTime обязателен в формате HH:MM');
   }
 
+  const reverse = typeof body.reverse === 'boolean' ? body.reverse : false;
+
   // Водитель должен иметь профиль; JIT создаёт, шаблон проверит принадлежность.
   await ensureUser({
     tgUserId: user.id,
@@ -381,6 +383,7 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
       templateId,
       tripDate: rawDate,
       departureTime: rawTime,
+      reverse,
     });
 
     // Fire-and-forget уведомления пассажирам по route_alerts (не блокируем ответ)
