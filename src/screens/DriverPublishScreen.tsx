@@ -1,4 +1,5 @@
 import { useId, useState, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Select from '../components/ui/Select';
@@ -6,6 +7,7 @@ import Header from '../components/Header';
 import { hapticSelection } from '../lib/haptics';
 import { getMyTemplate, publishTrip, ApiException } from '../lib/api';
 import { showToast } from '../lib/toast';
+import { Appear } from '../components/Appear';
 import type { SelectOption } from '../components/ui/Select';
 import type { GetMyTemplateResponse } from '../types/api';
 
@@ -189,8 +191,33 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     >
       <Header title={title} />
 
-      {/* Маршрут из шаблона */}
-      <Card>
+      <AnimatePresence mode="wait">
+        {loading ? (
+          <Appear key="loading" instant>
+            <div
+              style={{
+                fontSize: '15px',
+                color: 'var(--muted-foreground)',
+                textAlign: 'center',
+                padding: '20px',
+              }}
+            >
+              Загрузка шаблона...
+            </div>
+          </Appear>
+        ) : error ? (
+          <Appear key="error" animateKey="error">
+            <Card variant="accent" style={{ borderColor: 'var(--destructive)', background: 'var(--destructive-background, var(--secondary))' }}>
+              <div style={{ fontSize: '15px', lineHeight: 1.5, color: 'var(--destructive)' }}>
+                {error}
+              </div>
+            </Card>
+          </Appear>
+        ) : (
+          <Appear key="content" animateKey="content">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Маршрут из шаблона */}
+              <Card>
         <div style={sectionLabelStyle}>{routeLabel}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', margin: '4px 0' }}>
           <div
@@ -329,66 +356,47 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
       </div>
 
       {/* Точка сбора — Select */}
-      <div>
-        <Select
-          options={pickupOptions}
-          value={pickup}
-          onChange={setPickup}
-          label="Точка сбора"
-        />
-      </div>
+              <div>
+                <Select
+                  options={pickupOptions}
+                  value={pickup}
+                  onChange={setPickup}
+                  label="Точка сбора"
+                />
+              </div>
 
-      {loading && (
-        <div
-          style={{
-            fontSize: '15px',
-            color: 'var(--muted-foreground)',
-            textAlign: 'center',
-            padding: '20px',
-          }}
-        >
-          Загрузка шаблона...
-        </div>
-      )}
-
-      {error && (
-        <Card variant="accent" style={{ marginTop: 'auto', borderColor: 'var(--destructive)', background: 'var(--destructive-background, var(--secondary))' }}>
-          <div style={{ fontSize: '15px', lineHeight: 1.5, color: 'var(--destructive)' }}>
-            {error}
-          </div>
-        </Card>
-      )}
-
-      {!loading && !error && (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '9px',
-            marginTop: 'auto',
-            paddingTop: '6px',
-          }}
-        >
-          <Button
-            variant="primary"
-            icon="i-car"
-            onClick={handlePublish}
-            disabled={publishing}
-          >
-            {publishing ? 'Публикация...' : 'Опубликовать поездку'}
-          </Button>
-          <div
-            style={{
-              fontSize: '12px',
-              color: 'var(--muted-foreground)',
-              textAlign: 'center',
-              lineHeight: 1.5,
-            }}
-          >
-            Пассажиры увидят поездку и смогут забронировать место
-          </div>
-        </div>
-      )}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '9px',
+                  marginTop: 'auto',
+                  paddingTop: '6px',
+                }}
+              >
+                <Button
+                  variant="primary"
+                  icon="i-car"
+                  onClick={handlePublish}
+                  disabled={publishing}
+                >
+                  {publishing ? 'Публикация...' : 'Опубликовать поездку'}
+                </Button>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--muted-foreground)',
+                    textAlign: 'center',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Пассажиры увидят поездку и смогут забронировать место
+                </div>
+              </div>
+            </div>
+          </Appear>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

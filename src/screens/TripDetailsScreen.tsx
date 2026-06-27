@@ -4,6 +4,7 @@ import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { showToast } from '../lib/toast';
+import { Appear } from '../components/Appear';
 import type { Trip } from '../types/navigation';
 
 interface TripDetailsScreenProps {
@@ -37,7 +38,8 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
     >
       <Header title={`Поездка ${trip.time}`} />
 
-      <Card
+      <Appear delay={0}>
+        <Card
         style={{
           display: 'flex',
           gap: '12px',
@@ -86,9 +88,11 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
             </div>
           )}
         </div>
-      </Card>
+        </Card>
+      </Appear>
 
-      <Card>
+      <Appear delay={50}>
+        <Card>
         <div
           style={{
             fontSize: '12px',
@@ -176,9 +180,11 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
           Бензин&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>≈ {trip.price} ₽</b>{' '}
           <span style={{ color: 'var(--muted-foreground)' }}>(пополам · не оплата)</span>
         </div>
-      </Card>
+        </Card>
+      </Appear>
 
-      <Card
+      <Appear delay={100}>
+        <Card
         variant="accent"
         style={{
           display: 'flex',
@@ -205,9 +211,11 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
           Бензин ≈{trip.price} ₽ пополам — как подсказка для расчётов. Это информационный сервис, без платежей в
           приложении.
         </div>
-      </Card>
+        </Card>
+      </Appear>
 
-      <div
+      <Appear delay={150}>
+        <div
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -233,7 +241,8 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
         <Button variant="ghost" icon="i-share" style={{ minHeight: '44px' }}>
           Поделиться поездкой
         </Button>
-      </div>
+        </div>
+      </Appear>
     </div>
   );
 };
