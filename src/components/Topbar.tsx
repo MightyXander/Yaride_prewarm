@@ -13,9 +13,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        // Левый отступ — под плавающую кнопку смены темы (слева сверху на главных),
-        // чтобы она не перекрывала заголовок. 52px = зазор ≥12px между кнопкой темы (~48px) и заголовком.
-        padding: '6px 2px 6px 52px',
+        padding: '6px 2px 6px 16px',
         gap: '8px',
       }}
     >
