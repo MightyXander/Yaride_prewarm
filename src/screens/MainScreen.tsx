@@ -79,7 +79,11 @@ const MainScreen: React.FC<MainScreenProps> = ({
             <ErrorTripsState error={error} onRetry={onRetry ?? (() => {})} />
           </Appear>
         ) : hasTrips ? (
-          <Appear key="trips-content" animateKey={`trips-${trips.length}`}>
+          <Appear
+            key="trips-content"
+            animateKey={`trips-${trips.length}`}
+            style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+          >
             <>
               <Hero
                 subtitle={heroKicker}
