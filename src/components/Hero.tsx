@@ -90,133 +90,141 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick, onTog
           </h2>
         </div>
         {ctaText && (
-          <button
-            onClick={onCtaClick}
-            className="focus-ring pressable"
+          <div
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              height: '48px',
-              padding: '0 16px',
-              borderRadius: '999px',
-              background: 'var(--brand-foreground)',
-              color: '#f5f5f7',
-              fontSize: '15px',
-              fontWeight: 600,
-              position: 'relative',
-              width: 'fit-content',
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-sans)',
-              transition: 'transform 0.08s ease, filter 0.12s ease',
-              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: '8px',
             }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.transform = 'scale(0.97)';
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.filter = 'brightness(1.05)';
-            }}
-            aria-label={`Перейти к поездке: ${ctaText}`}
           >
-            <Icon id="i-clock" />
-            {ctaText}
-          </button>
+            <button
+              onClick={onCtaClick}
+              className="focus-ring pressable"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                height: '48px',
+                padding: '0 16px',
+                borderRadius: '999px',
+                background: 'var(--brand-foreground)',
+                color: '#f5f5f7',
+                fontSize: '15px',
+                fontWeight: 600,
+                position: 'relative',
+                width: 'fit-content',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                transition: 'transform 0.08s ease, filter 0.12s ease',
+                flexShrink: 0,
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'scale(0.97)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.filter = 'brightness(1.05)';
+              }}
+              aria-label={`Перейти к поездке: ${ctaText}`}
+            >
+              <Icon id="i-clock" />
+              {ctaText}
+            </button>
+            {(onToggleDirection || (onPublish && showPublish)) && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  position: 'relative',
+                }}
+              >
+                {onToggleDirection && (
+                  <button
+                    aria-label="Сменить направление"
+                    onClick={onToggleDirection}
+                    className="focus-ring pressable"
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      background: 'var(--brand-foreground)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: '#f5f5f7',
+                      fontSize: '18px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-sans)',
+                      transition: 'transform 0.08s ease, filter 0.12s ease',
+                      padding: 0,
+                      flexShrink: 0,
+                    }}
+                    onMouseDown={(e) => {
+                      e.currentTarget.style.transform = 'scale(0.97)';
+                    }}
+                    onMouseUp={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.filter = 'brightness(1.05)';
+                    }}
+                  >
+                    ⇄
+                  </button>
+                )}
+                {onPublish && showPublish && (
+                  <button
+                    aria-label="Создать поездку"
+                    onClick={onPublish}
+                    className="focus-ring pressable"
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      background: 'var(--brand-foreground)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: '#f5f5f7',
+                      fontSize: '20px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-sans)',
+                      transition: 'transform 0.08s ease, filter 0.12s ease',
+                      padding: 0,
+                      flexShrink: 0,
+                    }}
+                    onMouseDown={(e) => {
+                      e.currentTarget.style.transform = 'scale(0.97)';
+                    }}
+                    onMouseUp={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.filter = 'brightness(1.05)';
+                    }}
+                  >
+                    <Icon id="i-plus" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
-      {(onToggleDirection || (onPublish && showPublish)) && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginTop: '10px',
-            position: 'relative',
-          }}
-        >
-          {onToggleDirection && (
-            <button
-              aria-label="Сменить направление"
-              onClick={onToggleDirection}
-              className="focus-ring pressable"
-              style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '50%',
-                background: 'var(--brand-foreground)',
-                display: 'grid',
-                placeItems: 'center',
-                color: '#f5f5f7',
-                fontSize: '18px',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-                transition: 'transform 0.08s ease, filter 0.12s ease',
-                padding: 0,
-                flexShrink: 0,
-              }}
-              onMouseDown={(e) => {
-                e.currentTarget.style.transform = 'scale(0.97)';
-              }}
-              onMouseUp={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.filter = 'brightness(1.05)';
-              }}
-            >
-              ⇄
-            </button>
-          )}
-          {onPublish && showPublish && (
-            <button
-              aria-label="Создать поездку"
-              onClick={onPublish}
-              className="focus-ring pressable"
-              style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '50%',
-                background: 'var(--brand-foreground)',
-                display: 'grid',
-                placeItems: 'center',
-                color: '#f5f5f7',
-                fontSize: '20px',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-                transition: 'transform 0.08s ease, filter 0.12s ease',
-                padding: 0,
-                flexShrink: 0,
-              }}
-              onMouseDown={(e) => {
-                e.currentTarget.style.transform = 'scale(0.97)';
-              }}
-              onMouseUp={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.filter = 'brightness(1.05)';
-              }}
-            >
-              <Icon id="i-plus" />
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 };

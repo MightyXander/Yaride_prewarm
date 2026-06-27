@@ -110,9 +110,9 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
             overflow: 'visible',
             borderRadius: '999px',
             border: '1px solid var(--border)',
-            // Frosted glass: полупрозрачная подложка (75%) + усиленный blur.
+            // Frosted glass: полупрозрачная подложка (58%) + усиленный blur.
             // Контент виден сквозь nav; контраст неактивного таба поднят до 78%.
-            background: 'color-mix(in srgb, var(--card) 75%, transparent)',
+            background: 'color-mix(in srgb, var(--card) 58%, transparent)',
             padding: '6px',
             boxShadow: '0 14px 40px -16px rgba(0, 0, 0, .45), 0 2px 8px -4px rgba(0, 0, 0, .25)',
             backdropFilter: 'blur(24px)',
