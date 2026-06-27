@@ -5,9 +5,12 @@ interface HeroProps {
   subtitle?: string;
   ctaText?: string;
   onCtaClick?: () => void;
+  onToggleDirection?: () => void;
+  onPublish?: () => void;
+  showPublish?: boolean;
 }
 
-const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => {
+const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick, onToggleDirection, onPublish, showPublish = false }) => {
   return (
     <div
       className="hero-animated-border"
@@ -128,6 +131,95 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick }) => 
           </button>
         )}
       </div>
+      {(onToggleDirection || (onPublish && showPublish)) && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginTop: '10px',
+            position: 'relative',
+          }}
+        >
+          {onToggleDirection && (
+            <button
+              aria-label="Сменить направление"
+              onClick={onToggleDirection}
+              className="focus-ring pressable"
+              style={{
+                minWidth: '44px',
+                minHeight: '44px',
+                borderRadius: '11px',
+                background: 'var(--secondary)',
+                display: 'grid',
+                placeItems: 'center',
+                color: 'var(--foreground)',
+                fontSize: '18px',
+                flex: 1,
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                transition: 'transform 0.08s ease, filter 0.12s ease',
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'scale(0.97)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.filter = 'brightness(1.05)';
+              }}
+            >
+              ⇄
+            </button>
+          )}
+          {onPublish && showPublish && (
+            <button
+              aria-label="Создать поездку"
+              onClick={onPublish}
+              className="focus-ring pressable"
+              style={{
+                minWidth: '44px',
+                minHeight: '44px',
+                borderRadius: '11px',
+                background: 'var(--secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                color: 'var(--foreground)',
+                fontSize: '15px',
+                fontWeight: 600,
+                flex: 1,
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                transition: 'transform 0.08s ease, filter 0.12s ease',
+                padding: '0 12px',
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'scale(0.97)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.filter = 'brightness(1.05)';
+              }}
+            >
+              <Icon id="i-plus" />
+              Создать поездку
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

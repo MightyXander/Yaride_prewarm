@@ -4,11 +4,9 @@ import { showToast } from '../lib/toast';
 interface TopbarProps {
   title: string;
   subtitle?: string;
-  onToggleDirection?: () => void;
-  onPublish?: () => void;
 }
 
-const Topbar: React.FC<TopbarProps> = ({ title, subtitle, onToggleDirection, onPublish }) => {
+const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
   return (
     <div
       style={{
@@ -43,80 +41,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle, onToggleDirection, onP
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        {onToggleDirection && (
-          <button
-            aria-label="Сменить направление"
-            onClick={onToggleDirection}
-            className="focus-ring pressable"
-            style={{
-              minWidth: '44px',
-              minHeight: '44px',
-              borderRadius: '11px',
-              background: 'var(--secondary)',
-              display: 'grid',
-              placeItems: 'center',
-              color: 'var(--foreground)',
-              fontSize: '18px',
-              flexShrink: 0,
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-sans)',
-              transition: 'transform 0.08s ease, filter 0.12s ease',
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.transform = 'scale(0.97)';
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.filter = 'brightness(1.05)';
-            }}
-          >
-            ⇄
-          </button>
-        )}
-        {onPublish && (
-          <button
-            aria-label="Возьму попутчиков"
-            onClick={onPublish}
-            className="focus-ring pressable"
-            style={{
-              minWidth: '44px',
-              minHeight: '44px',
-              borderRadius: '11px',
-              background: 'var(--secondary)',
-              display: 'grid',
-              placeItems: 'center',
-              color: 'var(--foreground)',
-              fontSize: '16px',
-              flexShrink: 0,
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-sans)',
-              transition: 'transform 0.08s ease, filter 0.12s ease',
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.transform = 'scale(0.97)';
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.filter = 'brightness(1.05)';
-            }}
-          >
-            <Icon id="i-car" />
-          </button>
-        )}
-        <button
+      <button
         aria-label="Уведомления"
         onClick={() => showToast('Уведомления — скоро')}
         className="focus-ring pressable"
@@ -150,7 +75,6 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle, onToggleDirection, onP
       >
         <Icon id="i-bell" />
       </button>
-      </div>
     </div>
   );
 };
