@@ -6,19 +6,17 @@ import Select from '../components/ui/Select';
 import Calendar from '../components/ui/Calendar';
 import Header from '../components/Header';
 import { hapticSelection } from '../lib/haptics';
-import { getMyTemplate, publishTrip, ApiException } from '../lib/api';
+import { getMyTemplate, publishTrip, ApiException, getRoutePoints } from '../lib/api';
 import { showToast } from '../lib/toast';
 import { Appear } from '../components/Appear';
 import type { SelectOption } from '../components/ui/Select';
-import type { GetMyTemplateResponse } from '../types/api';
+import type { GetMyTemplateResponse, RoutePoint } from '../types/api';
 
 interface DriverPublishScreenProps {
   onPublish: (tripId: number) => void;
   title?: string;
   timeOptions?: string[];
   defaultTime?: string;
-  routeFrom?: string;
-  routeTo?: string;
   routeLabel?: string;
   defaultPickup?: string;
   reverse?: boolean;
@@ -88,8 +86,6 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   title = 'Я за рулём',
   timeOptions = DEFAULT_TIME_OPTIONS,
   defaultTime = '7:40',
-  routeFrom = 'Брагино, ул. Урицкого, 12',
-  routeTo = 'Центр, пл. Волкова',
   routeLabel = 'Маршрут · из шаблона',
   defaultPickup = 'uritskogo',
   reverse = false,
@@ -101,6 +97,8 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [template, setTemplate] = useState<GetMyTemplateResponse | null>(null);
+  const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
+  const [selectedStartPointId, setSelectedStartPointId] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState<boolean>(false);
@@ -109,25 +107,33 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const customTimeLabelId = useId();
   const dateLabelId = useId();
 
-  // Загрузить шаблон при монтировании
+  // Загрузить шаблон и route points при монтировании
   useEffect(() => {
-    const loadTemplate = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
-        const tmpl = await getMyTemplate();
+        const [tmpl, pointsResp] = await Promise.all([
+          getMyTemplate(),
+          getRoutePoints(),
+        ]);
         setTemplate(tmpl);
+        setRoutePoints(pointsResp.points);
         setSeats(tmpl.seats_total);
+
+        // Установить дефолтную точку старта: если reverse=true → end_point_id, иначе start_point_id
+        const defaultStartId = reverse ? tmpl.end_point_id : tmpl.start_point_id;
+        setSelectedStartPointId(defaultStartId);
       } catch (err) {
-        const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки шаблона';
+        const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки данных';
         setError(msg);
         showToast(msg);
       } finally {
         setLoading(false);
       }
     };
-    void loadTemplate();
-  }, []);
+    void loadData();
+  }, [reverse]);
 
   // Форматирование времени в HH:MM (паддинг часа до 2 цифр)
   const formatTimeToHHMM = (timeStr: string): string => {
@@ -150,13 +156,18 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
       return;
     }
 
+    // Вычислить reverse на основе выбранной точки старта:
+    // если selectedStartPointId === template.start_point_id → reverse=false
+    // если selectedStartPointId === template.end_point_id → reverse=true
+    const actualReverse = selectedStartPointId === template.end_point_id;
+
     try {
       setPublishing(true);
       const response = await publishTrip({
         templateId: template.id,
         date,
         departureTime: formatTimeToHHMM(actualTime),
-        reverse,
+        reverse: actualReverse,
       });
       onPublish(response.trip.tripId);
     } catch (err) {
@@ -169,6 +180,23 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
 
   // Определяем опции точки сбора в зависимости от дефолта
   const pickupOptions = defaultPickup === 'volkova' ? EVENING_PICKUP_OPTIONS : DEFAULT_PICKUP_OPTIONS;
+
+  // Вычисляем коридор (2 точки из template) и отображаемые названия
+  const corridorPointIds = template ? [template.start_point_id, template.end_point_id] : [];
+  const corridorPoints = routePoints.filter((p) => corridorPointIds.includes(p.id));
+
+  const endPoint =
+    template && selectedStartPointId
+      ? routePoints.find((p) =>
+          corridorPointIds.includes(p.id) && p.id !== selectedStartPointId
+        )
+      : null;
+
+  // Опции для inline-select (2 точки коридора)
+  const routeSelectOptions: SelectOption[] = corridorPoints.map((p) => ({
+    value: String(p.id),
+    label: `${p.district}, ${p.title}`,
+  }));
 
   const stepBtnStyle = (enabled: boolean): React.CSSProperties => ({
     width: '44px',
@@ -222,62 +250,75 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         ) : (
           <Appear key="content" animateKey="content">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Маршрут из шаблона */}
+              {/* Маршрут из шаблона — интерактивный */}
               <Card>
-        <div style={sectionLabelStyle}>{routeLabel}</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', margin: '4px 0' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '11px',
-              fontSize: '15px',
-              fontWeight: 600,
-              minHeight: '24px',
-            }}
-          >
-            <span
-              style={{
-                width: '11px',
-                height: '11px',
-                borderRadius: '999px',
-                border: '2px solid var(--brand)',
-                background: 'var(--brand)',
-                flexShrink: 0,
-              }}
-            />
-            {routeFrom}
-          </div>
-          <div
-            style={{
-              height: '16px',
-              borderLeft: '2px dotted var(--muted-foreground)',
-              marginLeft: '4.5px',
-            }}
-          />
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '11px',
-              fontSize: '15px',
-              fontWeight: 600,
-              minHeight: '24px',
-            }}
-          >
-            <span
-              style={{
-                width: '11px',
-                height: '11px',
-                borderRadius: '999px',
-                border: '2px solid var(--brand)',
-                flexShrink: 0,
-              }}
-            />
-            {routeTo}
-          </div>
-        </div>
-      </Card>
+                <div style={sectionLabelStyle}>{routeLabel}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', margin: '4px 0' }}>
+                  {/* Первая точка — inline Select */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '11px',
+                      minHeight: '24px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '11px',
+                        height: '11px',
+                        borderRadius: '999px',
+                        border: '2px solid var(--brand)',
+                        background: 'var(--brand)',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Select
+                        options={routeSelectOptions}
+                        value={selectedStartPointId ? String(selectedStartPointId) : undefined}
+                        onChange={(val) => {
+                          hapticSelection();
+                          setSelectedStartPointId(Number(val));
+                        }}
+                        aria-label="Точка старта"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Линия между точками */}
+                  <div
+                    style={{
+                      height: '16px',
+                      borderLeft: '2px dotted var(--muted-foreground)',
+                      marginLeft: '4.5px',
+                    }}
+                  />
+
+                  {/* Вторая точка — автоматическая */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '11px',
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      minHeight: '24px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '11px',
+                        height: '11px',
+                        borderRadius: '999px',
+                        border: '2px solid var(--brand)',
+                        flexShrink: 0,
+                      }}
+                    />
+                    {endPoint ? `${endPoint.district}, ${endPoint.title}` : '...'}
+                  </div>
+                </div>
+              </Card>
 
       {/* Дата выезда */}
       <div role="group" aria-labelledby={dateLabelId}>
