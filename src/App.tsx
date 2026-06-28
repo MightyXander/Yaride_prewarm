@@ -449,7 +449,7 @@ function App() {
             {currentScreen === 'my-trips' && (
               <MyTripsScreen
                 onCreateTrip={() => navigate('driver-publish')}
-                onRateTrip={(tripId, rateeId) => navigateToRateTrip({ tripId, rateeId })}
+                onRateTrip={(tripId, rateeId, raterRole) => navigateToRateTrip({ tripId, rateeId, raterRole })}
               />
             )}
             {currentScreen === 'rate-trip' && (

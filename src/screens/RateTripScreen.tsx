@@ -12,7 +12,8 @@ import type { RatingContext } from '../types/navigation';
 // Экран 11 SPEC: Оценка после поездки
 // Звёзды 1–5, теги настроения, текстовый отзыв (опционально)
 
-const RATING_TAGS = ['Пунктуальный', 'Вежливый', 'Чисто в авто', 'Приятная музыка'];
+const RATING_TAGS_DRIVER = ['Пунктуальный', 'Вежливый', 'Чисто в авто', 'Приятная музыка'];
+const RATING_TAGS_PASSENGER = ['Пунктуальный', 'Вежливый', 'Приятная компания'];
 
 interface RateTripScreenProps {
   ratingContext?: RatingContext;
@@ -32,6 +33,13 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, trip, on
   const [selectedTags, setSelectedTags] = useState<string[]>(['Пунктуальный']);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Определяем, оцениваем водителя (passenger) или пассажира (driver)
+  const raterRole = ratingContext?.raterRole || 'passenger';
+  const isRatingPassenger = raterRole === 'driver';
+
+  const tags = isRatingPassenger ? RATING_TAGS_PASSENGER : RATING_TAGS_DRIVER;
+  const headerTitle = isRatingPassenger ? 'Как прошла поездка с' : 'Как доехали с';
 
   const driverName = trip?.driver.name || 'Андрей К.';
   const driverAvatar = trip?.driver.avatar || 'А';
@@ -108,7 +116,7 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, trip, on
             marginTop: '10px',
           }}
         >
-          Как доехали с {driverName.split(' ')[0]}?
+          {headerTitle} {driverName.split(' ')[0]}?
         </div>
         <div
           style={{
@@ -174,7 +182,7 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, trip, on
           marginTop: '2px',
         }}
       >
-        {RATING_TAGS.map((tag) => (
+        {tags.map((tag) => (
           <Chip
             key={tag}
             label={tag}
