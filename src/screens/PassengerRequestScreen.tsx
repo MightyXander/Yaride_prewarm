@@ -4,6 +4,7 @@ import Button from '../components/ui/Button';
 import Chip from '../components/ui/Chip';
 import Header from '../components/Header';
 import Select from '../components/ui/Select';
+import RouteConnector from '../components/ui/RouteConnector';
 import type { SelectOption } from '../components/ui/Select';
 import { Skeleton } from '../components/ui/Skeleton';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
@@ -218,42 +219,57 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
           </Card>
         ) : (
           <Card>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <Select
-                options={routePoints.map((point): SelectOption => ({
-                  value: String(point.id),
-                  label: point.title,
-                }))}
-                value={fromPointId}
-                onChange={(value) => {
-                  setFromPointId(value);
-                  hapticSelection();
-                }}
-                placeholder="Откуда"
-                aria-label="Точка отправления"
-              />
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <RouteConnector />
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div
+                  style={{
+                    borderRadius: '14px',
+                    background: 'var(--field)',
+                    border: '1px solid var(--field-border)',
+                    boxShadow: 'var(--field-shadow)',
+                    padding: '10px 14px',
+                  }}
+                >
+                  <Select
+                    options={routePoints.map((point): SelectOption => ({
+                      value: String(point.id),
+                      label: point.title,
+                    }))}
+                    value={fromPointId}
+                    onChange={(value) => {
+                      setFromPointId(value);
+                      hapticSelection();
+                    }}
+                    placeholder="Откуда"
+                    aria-label="Точка отправления"
+                  />
+                </div>
 
-              <div
-                style={{
-                  height: '16px',
-                  borderLeft: '2px dotted var(--muted-foreground)',
-                  marginLeft: '22px',
-                }}
-              />
-
-              <Select
-                options={routePoints.map((point): SelectOption => ({
-                  value: String(point.id),
-                  label: point.title,
-                }))}
-                value={toPointId}
-                onChange={(value) => {
-                  setToPointId(value);
-                  hapticSelection();
-                }}
-                placeholder="Куда"
-                aria-label="Точка назначения"
-              />
+                <div
+                  style={{
+                    borderRadius: '14px',
+                    background: 'var(--field)',
+                    border: '1px solid var(--field-border)',
+                    boxShadow: 'var(--field-shadow)',
+                    padding: '10px 14px',
+                  }}
+                >
+                  <Select
+                    options={routePoints.map((point): SelectOption => ({
+                      value: String(point.id),
+                      label: point.title,
+                    }))}
+                    value={toPointId}
+                    onChange={(value) => {
+                      setToPointId(value);
+                      hapticSelection();
+                    }}
+                    placeholder="Куда"
+                    aria-label="Точка назначения"
+                  />
+                </div>
+              </div>
             </div>
           </Card>
         )}

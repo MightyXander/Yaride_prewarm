@@ -4,6 +4,8 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Select from '../components/ui/Select';
 import Calendar from '../components/ui/Calendar';
+import RouteConnector from '../components/ui/RouteConnector';
+import { Icon } from '../components/Icons';
 import Header from '../components/Header';
 import { hapticSelection } from '../lib/haptics';
 import { getMyTemplate, publishTrip, ApiException, getRoutePoints } from '../lib/api';
@@ -253,27 +255,19 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
               {/* Маршрут из шаблона — интерактивный */}
               <Card>
                 <div style={sectionLabelStyle}>{routeLabel}</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', margin: '4px 0' }}>
-                  {/* Первая точка — inline Select */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '11px',
-                      minHeight: '24px',
-                    }}
-                  >
-                    <span
+                <div style={{ display: 'flex', gap: '12px', margin: '4px 0' }}>
+                  <RouteConnector />
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {/* Первая точка — inline Select с белым фоном */}
+                    <div
                       style={{
-                        width: '11px',
-                        height: '11px',
-                        borderRadius: '999px',
-                        border: '2px solid var(--brand)',
-                        background: 'var(--brand)',
-                        flexShrink: 0,
+                        borderRadius: '14px',
+                        background: 'var(--field)',
+                        border: '1px solid var(--field-border)',
+                        boxShadow: 'var(--field-shadow)',
+                        padding: '10px 14px',
                       }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    >
                       <Select
                         options={routeSelectOptions}
                         value={selectedStartPointId ? String(selectedStartPointId) : undefined}
@@ -284,38 +278,34 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                         aria-label="Точка старта"
                       />
                     </div>
-                  </div>
 
-                  {/* Линия между точками */}
-                  <div
-                    style={{
-                      height: '16px',
-                      borderLeft: '2px dotted var(--muted-foreground)',
-                      marginLeft: '4.5px',
-                    }}
-                  />
-
-                  {/* Вторая точка — автоматическая */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '11px',
-                      fontSize: '15px',
-                      fontWeight: 600,
-                      minHeight: '24px',
-                    }}
-                  >
-                    <span
+                    {/* Вторая точка — read-only с пунктирной рамкой и замком */}
+                    <div
                       style={{
-                        width: '11px',
-                        height: '11px',
-                        borderRadius: '999px',
-                        border: '2px solid var(--brand)',
-                        flexShrink: 0,
+                        borderRadius: '14px',
+                        background: 'var(--field)',
+                        border: '1.5px dashed var(--field-border)',
+                        boxShadow: 'var(--field-shadow)',
+                        padding: '14px',
+                        fontSize: '15px',
+                        fontWeight: 600,
+                        color: 'var(--muted-foreground)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
                       }}
-                    />
-                    {endPoint ? `${endPoint.district}, ${endPoint.title}` : '...'}
+                    >
+                      <Icon
+                        id="i-lock"
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          flexShrink: 0,
+                          opacity: 0.6,
+                        }}
+                      />
+                      {endPoint ? `${endPoint.district}, ${endPoint.title}` : '...'}
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -366,8 +356,16 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
           </span>
         </button>
 
-        {showCalendar && (
-          <div style={{ marginTop: '12px' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateRows: showCalendar ? '1fr' : '0fr',
+            opacity: showCalendar ? 1 : 0,
+            transition: 'grid-template-rows 0.24s ease-out, opacity 0.24s ease-out',
+            marginTop: showCalendar ? '12px' : 0,
+          }}
+        >
+          <div style={{ overflow: 'hidden', minHeight: 0 }}>
             <Card>
               <Calendar
                 value={date}
@@ -378,7 +376,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
               />
             </Card>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Время — чипами */}
@@ -463,8 +461,16 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         </div>
       </div>
 
-      {/* Точка сбора — Select */}
-              <div>
+      {/* Точка сбора — Select с белым фоном */}
+              <div
+                style={{
+                  borderRadius: '16px',
+                  background: 'var(--field)',
+                  border: '1px solid var(--field-border)',
+                  boxShadow: 'var(--field-shadow)',
+                  padding: '14px',
+                }}
+              >
                 <Select
                   options={pickupOptions}
                   value={pickup}
