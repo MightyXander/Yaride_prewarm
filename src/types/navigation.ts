@@ -48,6 +48,8 @@ export interface Trip {
     duration?: string;
   };
   isOwn: boolean;
+  carColor: string | null;
+  plate: string | null;
 }
 
 export interface RatingContext {

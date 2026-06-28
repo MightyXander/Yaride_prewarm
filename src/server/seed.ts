@@ -95,6 +95,8 @@ interface SeedTrip {
   priceRub: number;
   seatsTotal: number;
   comment: string | null;
+  carColor: string | null;
+  plate: string | null;
 }
 
 // Рыба-поездки: утро Брагино→Центр (7:30–8:40), вечер Центр→Брагино (17:30–19:00).
@@ -108,6 +110,8 @@ const SEED_TRIPS: readonly SeedTrip[] = [
     priceRub: 120,
     seatsTotal: 3,
     comment: 'Еду через Ленинградский, могу подобрать по пути',
+    carColor: 'белый',
+    plate: 'А123ВС',
   },
   {
     driverIndex: 1,
@@ -118,6 +122,8 @@ const SEED_TRIPS: readonly SeedTrip[] = [
     priceRub: 100,
     seatsTotal: 2,
     comment: null,
+    carColor: 'серый',
+    plate: 'М456КР',
   },
   {
     driverIndex: 2,
@@ -128,6 +134,8 @@ const SEED_TRIPS: readonly SeedTrip[] = [
     priceRub: 120,
     seatsTotal: 4,
     comment: 'Просторная машина, два места у окна',
+    carColor: 'белый',
+    plate: 'Т789ОН',
   },
   {
     driverIndex: 0,
@@ -138,6 +146,8 @@ const SEED_TRIPS: readonly SeedTrip[] = [
     priceRub: 120,
     seatsTotal: 3,
     comment: 'Домой как обычно',
+    carColor: 'белый',
+    plate: 'А123ВС',
   },
   {
     driverIndex: 1,
@@ -148,6 +158,8 @@ const SEED_TRIPS: readonly SeedTrip[] = [
     priceRub: 100,
     seatsTotal: 3,
     comment: null,
+    carColor: 'серый',
+    plate: 'М456КР',
   },
   {
     driverIndex: 2,
@@ -158,6 +170,8 @@ const SEED_TRIPS: readonly SeedTrip[] = [
     priceRub: 120,
     seatsTotal: 2,
     comment: null,
+    carColor: 'белый',
+    plate: 'Т789ОН',
   },
 ];
 
@@ -241,8 +255,9 @@ export async function seedIfEmpty(pool: Pool): Promise<void> {
       }
       await client.query(
         `INSERT INTO trips(driver_id, start_point_id, end_point_id, trip_date,
-                           departure_time, time_slot, price_rub, seats_total, comment, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')`,
+                           departure_time, time_slot, price_rub, seats_total, comment,
+                           car_color, plate, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'open')`,
         [
           driverIds[t.driverIndex],
           startId,
@@ -253,6 +268,8 @@ export async function seedIfEmpty(pool: Pool): Promise<void> {
           t.priceRub,
           t.seatsTotal,
           t.comment,
+          t.carColor,
+          t.plate,
         ],
       );
     }
@@ -260,8 +277,8 @@ export async function seedIfEmpty(pool: Pool): Promise<void> {
     // Шаблон для постоянного водителя (SPEC экран 24 «домой как вчера»).
     await client.query(
       `INSERT INTO trip_templates(driver_id, start_point_id, end_point_id, time_slot,
-                                  price_rub, seats_total, comment)
-       VALUES ($1, $2, $3, 'evening', $4, $5, $6)`,
+                                  price_rub, seats_total, comment, car_color, plate)
+       VALUES ($1, $2, $3, 'evening', $4, $5, $6, $7, $8)`,
       [
         driverIds[0],
         pointIdByTitle.get('Центр'),
@@ -269,6 +286,8 @@ export async function seedIfEmpty(pool: Pool): Promise<void> {
         120,
         3,
         'Домой как обычно',
+        'белый',
+        'А123ВС',
       ],
     );
 
@@ -355,8 +374,9 @@ export async function ensureDemoTripsForToday(pool: Pool): Promise<void> {
       }
       await client.query(
         `INSERT INTO trips(driver_id, start_point_id, end_point_id, trip_date,
-                           departure_time, time_slot, price_rub, seats_total, comment, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')`,
+                           departure_time, time_slot, price_rub, seats_total, comment,
+                           car_color, plate, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'open')`,
         [
           driverId,
           startId,
@@ -367,6 +387,8 @@ export async function ensureDemoTripsForToday(pool: Pool): Promise<void> {
           t.priceRub,
           t.seatsTotal,
           t.comment,
+          t.carColor,
+          t.plate,
         ],
       );
     }

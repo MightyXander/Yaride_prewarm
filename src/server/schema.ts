@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -59,6 +59,8 @@ const BOOTSTRAP_SQL = `
     seats_total INTEGER NOT NULL,
     seats_booked INTEGER NOT NULL DEFAULT 0,
     comment TEXT,
+    car_color TEXT,
+    plate TEXT,
     status TEXT NOT NULL DEFAULT 'open'
       CHECK (status IN ('open', 'cancelled', 'completed')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -92,6 +94,8 @@ const BOOTSTRAP_SQL = `
     price_rub INTEGER NOT NULL,
     seats_total INTEGER NOT NULL,
     comment TEXT,
+    car_color TEXT,
+    plate TEXT,
     schedule_days TEXT,
     schedule_time TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -135,6 +139,7 @@ const BOOTSTRAP_SQL = `
 /**
  * Применить одну линейную миграцию from_v → to_v.
  * v1→v2: добавление таблицы ratings + пересчёт агрегатов users.rating_avg/rating_count.
+ * v2→v3: добавление car_color TEXT NULL, plate TEXT NULL в trips и trip_templates.
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -153,6 +158,15 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
 
       CREATE INDEX IF NOT EXISTS idx_ratings_trip ON ratings(trip_id);
       CREATE INDEX IF NOT EXISTS idx_ratings_ratee ON ratings(ratee_id);
+    `);
+    return;
+  }
+  if (fromV === 2 && toV === 3) {
+    await pool.query(`
+      ALTER TABLE trips ADD COLUMN IF NOT EXISTS car_color TEXT;
+      ALTER TABLE trips ADD COLUMN IF NOT EXISTS plate TEXT;
+      ALTER TABLE trip_templates ADD COLUMN IF NOT EXISTS car_color TEXT;
+      ALTER TABLE trip_templates ADD COLUMN IF NOT EXISTS plate TEXT;
     `);
     return;
   }
