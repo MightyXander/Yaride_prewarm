@@ -39,6 +39,7 @@ import {
   cancelBookingByDriver,
   listRoutePoints,
   getOrCreateDriverTemplate,
+  submitLicenseRequest,
   type FindTripsParams,
   type TimeSlot,
   type TripStatusFilter,
@@ -626,4 +627,94 @@ export async function handleDebugCounts(_req: ApiRequest): Promise<ApiResponse> 
   const { getDebugCounts } = await import('./repo.ts');
   const counts = await getDebugCounts();
   return { status: 200, body: counts };
+}
+
+/**
+ * Валидация серии/номера ВУ: формат 'NNNN ЛЛ NNNNNN' (4 цифры, 2 буквы рус, 6 цифр).
+ * Возвращает нормализованную строку или null при ошибке.
+ */
+function validateSeriesNumber(raw: string): string | null {
+  const cleaned = raw.replace(/\s+/g, ' ').trim();
+  // Формат: 4 цифры, пробел, 2 РУССКИЕ буквы, пробел, 6 цифр
+  const re = /^(\d{4})\s([А-ЯЁ]{2})\s(\d{6})$/;
+  const match = re.exec(cleaned);
+  if (!match) {
+    return null;
+  }
+  return `${match[1]} ${match[2]} ${match[3]}`;
+}
+
+/**
+ * Валидация срока действия ВУ: формат 'MM/YYYY' или 'MM / YYYY', не истёк.
+ * Возвращает нормализованную строку 'MM/YYYY' или null при ошибке.
+ */
+function validateValidUntil(raw: string): string | null {
+  const cleaned = raw.replace(/\s+/g, '').trim();
+  // Формат: MM/YYYY
+  const re = /^(\d{2})\/(\d{4})$/;
+  const match = re.exec(cleaned);
+  if (!match) {
+    return null;
+  }
+  const month = Number.parseInt(match[1], 10);
+  const year = Number.parseInt(match[2], 10);
+  if (month < 1 || month > 12) {
+    return null;
+  }
+  // Проверка "не истёк": последний день месяца >= сегодня
+  const lastDay = new Date(year, month, 0); // 0-й день следующего месяца = последний день текущего
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (lastDay < today) {
+    return null;
+  }
+  return `${match[1]}/${match[2]}`;
+}
+
+/**
+ * POST /api/me/license — отправить заявку на проверку ВУ (W1).
+ * Аутентификация через initData (заголовок). Валидация серии/номера и срока.
+ * Идемпотентно: повторная заявка обновляет существующую pending.
+ */
+export async function handleSubmitLicense(req: ApiRequest): Promise<ApiResponse> {
+  const body = asRecord(req.body);
+
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+  const { user } = auth;
+
+  const rawSeries = typeof body.seriesNumber === 'string' ? body.seriesNumber : '';
+  const rawValid = typeof body.validUntil === 'string' ? body.validUntil : '';
+
+  const seriesNumber = validateSeriesNumber(rawSeries);
+  if (seriesNumber === null) {
+    return err(400, 'Неверный формат серии/номера ВУ. Ожидается: NNNN ЛЛ NNNNNN (4 цифры, 2 русские буквы, 6 цифр)');
+  }
+
+  const validUntil = validateValidUntil(rawValid);
+  if (validUntil === null) {
+    return err(400, 'Неверный формат или истёкший срок действия ВУ. Ожидается: MM/YYYY (не истёк)');
+  }
+
+  // JIT-профиль
+  await ensureUser({
+    tgUserId: user.id,
+    name: telegramDisplayName(user),
+    username: user.username ?? null,
+  });
+
+  try {
+    const result = await submitLicenseRequest({
+      tgDriverId: user.id,
+      seriesNumber,
+      validUntil,
+    });
+    return { status: 201, body: { request: result } };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Не удалось отправить заявку';
+    const status = message.includes('не найден') ? 404 : 400;
+    return err(status, message);
+  }
 }

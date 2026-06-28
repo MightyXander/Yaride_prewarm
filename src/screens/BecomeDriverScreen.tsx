@@ -2,6 +2,8 @@ import { useId, useState } from 'react';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import { submitLicense } from '../lib/api';
+import { showToast } from '../lib/toast';
 
 interface BecomeDriverScreenProps {
   onSubmit: () => void;
@@ -117,6 +119,7 @@ const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => 
   const [validUntil, setValidUntil] = useState('');
   const [uploaded, setUploaded] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const licenseId = useId();
   const validId = useId();
 
@@ -130,7 +133,33 @@ const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => 
     setValidUntil(formatted);
   };
 
-  const canSubmit = license.trim().length > 0 && validUntil.trim().length > 0 && uploaded && agreed;
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      // Собрать seriesNumber из license (уже отформатирован в UI)
+      // validUntil нужно преобразовать из "MM / YYYY" в "MM/YYYY"
+      const seriesNumber = license.trim();
+      const normalizedValidUntil = validUntil.replace(/\s+/g, '');
+
+      await submitLicense({
+        seriesNumber,
+        validUntil: normalizedValidUntil,
+      });
+
+      // Успех — navigate в license-review
+      onSubmit();
+    } catch (err) {
+      // Показать тост с ошибкой
+      const message = err instanceof Error ? err.message : 'Не удалось отправить заявку';
+      showToast(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const canSubmit = license.trim().length > 0 && validUntil.trim().length > 0 && uploaded && agreed && !isSubmitting;
 
   return (
     <div
@@ -271,8 +300,8 @@ const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => 
           paddingTop: '6px',
         }}
       >
-        <Button variant="primary" icon="i-shield" disabled={!canSubmit} onClick={onSubmit}>
-          Отправить на проверку
+        <Button variant="primary" icon="i-shield" disabled={!canSubmit} onClick={handleSubmit}>
+          {isSubmitting ? 'Отправка...' : 'Отправить на проверку'}
         </Button>
         <div
           style={{

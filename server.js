@@ -33,6 +33,7 @@ try {
     cancelBooking: mod.handleCancelBooking,
     listRoutePoints: mod.handleListRoutePoints,
     debugCounts: mod.handleDebugCounts,
+    submitLicense: mod.handleSubmitLicense,
   };
   telegram = {
     sendMessage: mod.sendMessage,
@@ -139,6 +140,7 @@ app.post('/api/alerts', wrap(api?.createAlert));
 app.get('/api/me/profile', wrap(api?.getMyProfile));
 app.get('/api/me/trips', wrap(api?.getMyTrips));
 app.get('/api/me/template', wrap(api?.getMyTemplate));
+app.post('/api/me/license', wrap(api?.submitLicense));
 app.post('/api/ratings', wrap(api?.createRating));
 app.get('/api/trips/:id/bookings', wrap(api?.getTripBookings));
 app.patch('/api/bookings/:id', wrap(api?.cancelBooking));

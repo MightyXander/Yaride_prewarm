@@ -1096,3 +1096,70 @@ export async function getOrCreateDriverTemplate(
     return insertRes.rows[0];
   });
 }
+
+export interface SubmitLicenseParams {
+  tgDriverId: number;
+  seriesNumber: string;
+  validUntil: string;
+}
+
+export interface SubmitLicenseResult {
+  requestId: number;
+  status: string;
+}
+
+/**
+ * Отправить заявку на проверку ВУ (W1: модерация).
+ * Идемпотентно: повторная заявка обновляет существующую pending, не плодит дубли.
+ * Создает license_request(pending) + обновляет users.license_status='pending'.
+ * Бросает Error если профиль водителя не найден.
+ */
+export async function submitLicenseRequest(
+  params: SubmitLicenseParams,
+): Promise<SubmitLicenseResult> {
+  await ensureReady();
+
+  return withTransaction(async (client): Promise<SubmitLicenseResult> => {
+    const driverId = await getInternalUserId(client, params.tgDriverId);
+    if (driverId === null) {
+      throw new Error('Профиль водителя не найден.');
+    }
+
+    // Проверить существующую pending-заявку
+    const existingRes = await client.query<{ id: number; status: string }>(
+      'SELECT id, status FROM license_requests WHERE driver_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
+      [driverId, 'pending'],
+    );
+
+    let requestId: number;
+
+    if (existingRes.rows.length > 0) {
+      // Обновить существующую pending-заявку
+      const upd = await client.query<{ id: number }>(
+        `UPDATE license_requests
+         SET series_number = $1, valid_until = $2, created_at = CURRENT_TIMESTAMP
+         WHERE id = $3
+         RETURNING id`,
+        [params.seriesNumber, params.validUntil, existingRes.rows[0].id],
+      );
+      requestId = upd.rows[0].id;
+    } else {
+      // Создать новую заявку
+      const ins = await client.query<{ id: number }>(
+        `INSERT INTO license_requests(driver_id, series_number, valid_until, status)
+         VALUES ($1, $2, $3, 'pending')
+         RETURNING id`,
+        [driverId, params.seriesNumber, params.validUntil],
+      );
+      requestId = ins.rows[0].id;
+    }
+
+    // Обновить users.license_status='pending'
+    await client.query(
+      "UPDATE users SET license_status = 'pending' WHERE id = $1",
+      [driverId],
+    );
+
+    return { requestId, status: 'pending' };
+  });
+}

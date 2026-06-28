@@ -54,6 +54,7 @@ export {
   handleCancelBooking,
   handleListRoutePoints,
   handleDebugCounts,
+  handleSubmitLicense,
 } from './api.ts';
 export type { ApiRequest, ApiResponse } from './api.ts';
 
