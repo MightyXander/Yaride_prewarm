@@ -724,9 +724,14 @@ export async function handleSubmitLicense(req: ApiRequest): Promise<ApiResponse>
 
 /**
  * GET /api/users/:id/profile — публичный профиль пользователя по внутреннему id.
- * Не требует аутентификации (публичные данные).
+ * Требует initData-auth (как остальные эндпоинты Mini App).
  */
 export async function handleGetUserProfile(req: ApiRequest): Promise<ApiResponse> {
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+
   const userId = toPositiveInt(req.params.id);
   if (userId === undefined) {
     return err(400, 'Некорректный id пользователя');
@@ -742,9 +747,14 @@ export async function handleGetUserProfile(req: ApiRequest): Promise<ApiResponse
 
 /**
  * GET /api/users/:id/reviews — отзывы о пользователе по внутреннему id.
- * Не требует аутентификации (публичные данные).
+ * Требует initData-auth (как остальные эндпоинты Mini App).
  */
 export async function handleGetUserReviews(req: ApiRequest): Promise<ApiResponse> {
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+
   const userId = toPositiveInt(req.params.id);
   if (userId === undefined) {
     return err(400, 'Некорректный id пользователя');

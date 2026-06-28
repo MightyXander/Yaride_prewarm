@@ -91,6 +91,15 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
     return `${month} ${year}`;
   };
 
+  // Склонение «год/года/лет» (возраст и стаж)
+  const pluralYears = (n: number): string => {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return 'год';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'года';
+    return 'лет';
+  };
+
   // Форматирование стажа: «на сервисе 1 год 4 мес» из joined_at
   const formatTenure = (isoDate: string): string => {
     const joined = new Date(isoDate);
@@ -109,9 +118,9 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
       return `${months} мес`;
     }
     if (months === 0) {
-      return `${years} год`;
+      return `${years} ${pluralYears(years)}`;
     }
-    return `${years} год ${months} мес`;
+    return `${years} ${pluralYears(years)} ${months} мес`;
   };
 
   const avatar = profile ? profile.name.charAt(0).toUpperCase() : 'П';
@@ -171,7 +180,7 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
               {age && (
                 <span style={{ color: 'var(--muted-foreground)', fontWeight: 600 }}>
                   {' '}
-                  · {age}&nbsp;лет
+                  · {age}&nbsp;{pluralYears(age)}
                 </span>
               )}
             </div>
