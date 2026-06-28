@@ -1,7 +1,0 @@
-- generic [active] [ref=e1]:
-  - generic [ref=e1031]:
-    - generic [ref=e1034]: Мои брони
-    - generic [ref=e1036]: ID поездки не передан
-    - button "Назад" [ref=e1037] [cursor=pointer]
-  - button "Назад" [ref=e993] [cursor=pointer]:
-    - img [ref=e994]
