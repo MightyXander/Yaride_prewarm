@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from './Icons';
 import { hapticImpact, hapticSelection } from '../lib/haptics';
+import { showToast } from '../lib/toast';
 import type { Screen } from '../types/navigation';
 
 // Какой таб нижней навигации владеет экраном (2 таба: Поездки / Профиль).
@@ -118,7 +119,7 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
             pointerEvents: 'auto',
             position: 'relative',
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
+            gridTemplateColumns: '1fr 1fr 1fr',
             gap: '4px',
             height: FLOATING_NAV_HEIGHT,
             width: '100%',
@@ -134,7 +135,7 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
             WebkitBackdropFilter: 'blur(24px)',
           }}
         >
-          {/* Скользящий индикатор brand-gradient */}
+          {/* Скользящий индикатор brand-gradient — только для двух табов (Поездки/Профиль) */}
           <div
             aria-hidden
             style={{
@@ -143,14 +144,55 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
               top: '6px',
               bottom: '6px',
               left: '6px',
-              width: 'calc((100% - 0.75rem - 0.25rem) / 2)',
+              width: 'calc((100% - 0.75rem - 8px) / 3)',
               borderRadius: '999px',
               background: 'var(--gradient-brand)',
               boxShadow: '0 4px 14px -4px rgba(255, 210, 40, 0.55)',
-              transform: `translateX(calc(${current} * (100% + 0.25rem)))`,
+              transform: `translateX(calc(${current + 1} * (100% + 0.25rem)))`,
               transition: 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           />
+          {/* Колокол уведомлений — слева, действие (не таб) */}
+          <button
+            type="button"
+            aria-label="Уведомления"
+            title="Уведомления"
+            className="focus-ring pressable"
+            onClick={() => {
+              hapticImpact('light');
+              showToast('Уведомления — скоро');
+            }}
+            style={{
+              position: 'relative',
+              zIndex: 10,
+              display: 'flex',
+              minWidth: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '999px',
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              touchAction: 'manipulation',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              padding: 0,
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            <Icon
+              id="i-bell"
+              style={{
+                width: '19px',
+                height: '19px',
+                flexShrink: 0,
+                strokeWidth: 2,
+                color: 'color-mix(in srgb, var(--foreground) 76%, transparent)',
+                transition: 'color 200ms ease',
+              }}
+            />
+          </button>
+          {/* Два таба навигации: Поездки, Профиль */}
           {ITEMS.map(({ root, label, icon }, index) => {
             const active = index === current;
             return (

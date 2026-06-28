@@ -1,6 +1,3 @@
-import { Icon } from './Icons';
-import { showToast } from '../lib/toast';
-
 interface TopbarProps {
   title: string;
   subtitle?: string;
@@ -13,7 +10,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '6px 2px 6px 16px',
+        padding: '6px 16px',
         gap: '8px',
       }}
     >
@@ -39,40 +36,6 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
           </div>
         )}
       </div>
-      <button
-        aria-label="Уведомления"
-        onClick={() => showToast('Уведомления — скоро')}
-        className="focus-ring pressable"
-        style={{
-          minWidth: '44px',
-          minHeight: '44px',
-          borderRadius: '11px',
-          background: 'var(--secondary)',
-          display: 'grid',
-          placeItems: 'center',
-          color: 'var(--foreground)',
-          fontSize: '16px',
-          flexShrink: 0,
-          border: 'none',
-          cursor: 'pointer',
-          fontFamily: 'var(--font-sans)',
-          transition: 'transform 0.08s ease, filter 0.12s ease',
-        }}
-        onMouseDown={(e) => {
-          e.currentTarget.style.transform = 'scale(0.97)';
-        }}
-        onMouseUp={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.filter = 'brightness(1.05)';
-        }}
-      >
-        <Icon id="i-bell" />
-      </button>
     </div>
   );
 };
