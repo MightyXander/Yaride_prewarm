@@ -89,7 +89,7 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick, onTog
             {title}
           </h2>
         </div>
-        {ctaText && (
+        {(ctaText || onToggleDirection || (onPublish && showPublish)) && (
           <div
             style={{
               display: 'flex',
@@ -98,45 +98,47 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick, onTog
               gap: '8px',
             }}
           >
-            <button
-              onClick={onCtaClick}
-              className="focus-ring pressable"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                height: '48px',
-                padding: '0 16px',
-                borderRadius: '999px',
-                background: 'var(--brand-foreground)',
-                color: '#f5f5f7',
-                fontSize: '15px',
-                fontWeight: 600,
-                position: 'relative',
-                width: 'fit-content',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-                transition: 'transform 0.08s ease, filter 0.12s ease',
-                flexShrink: 0,
-              }}
-              onMouseDown={(e) => {
-                e.currentTarget.style.transform = 'scale(0.97)';
-              }}
-              onMouseUp={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.filter = 'brightness(1.05)';
-              }}
-              aria-label={`Перейти к поездке: ${ctaText}`}
-            >
-              <Icon id="i-clock" />
-              {ctaText}
-            </button>
+            {ctaText && (
+              <button
+                onClick={onCtaClick}
+                className="focus-ring pressable"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  height: '48px',
+                  padding: '0 16px',
+                  borderRadius: '999px',
+                  background: 'var(--brand-foreground)',
+                  color: '#f5f5f7',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  position: 'relative',
+                  width: 'fit-content',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)',
+                  transition: 'transform 0.08s ease, filter 0.12s ease',
+                  flexShrink: 0,
+                }}
+                onMouseDown={(e) => {
+                  e.currentTarget.style.transform = 'scale(0.97)';
+                }}
+                onMouseUp={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.filter = 'brightness(1.05)';
+                }}
+                aria-label={`Перейти к поездке: ${ctaText}`}
+              >
+                <Icon id="i-clock" />
+                {ctaText}
+              </button>
+            )}
             {(onToggleDirection || (onPublish && showPublish)) && (
               <div
                 style={{

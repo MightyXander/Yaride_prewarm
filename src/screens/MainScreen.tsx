@@ -75,42 +75,41 @@ const MainScreen: React.FC<MainScreenProps> = ({
           <Appear key="error-state" animateKey="error-state">
             <ErrorTripsState error={error} onRetry={onRetry ?? (() => {})} />
           </Appear>
-        ) : hasTrips ? (
+        ) : (
           <Appear
-            key="trips-content"
-            animateKey={`trips-${trips.length}`}
+            key={hasTrips ? 'trips-content' : 'empty-content'}
+            animateKey={hasTrips ? `trips-${trips.length}` : 'empty-state'}
             style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
           >
             <>
               <Hero
                 subtitle={heroKicker}
-                title={`${trips.length} ${trips.length === 1 ? 'поездка' : trips.length < 5 ? 'поездки' : 'поездок'} в твою сторону`}
-                ctaText={`Ближайшая в ${trips[0].time}`}
-                onCtaClick={openFirstTripDetails}
+                title={hasTrips ? `${trips.length} ${trips.length === 1 ? 'поездка' : trips.length < 5 ? 'поездки' : 'поездок'} в твою сторону` : 'поездок нет'}
+                ctaText={hasTrips ? `Ближайшая в ${trips[0].time}` : undefined}
+                onCtaClick={hasTrips ? openFirstTripDetails : undefined}
                 onToggleDirection={onToggleDirection}
                 onPublish={onPublish}
                 showPublish={userRole === 'driver'}
               />
-              <AppearList stagger={40} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {trips.map((trip, index) => (
-                  <TripCard
-                    key={trip.id}
-                    {...trip}
-                    ref={index === 0 ? firstTripRef : null}
-                    expanded={expandedId === trip.id}
-                    onToggle={() => setExpandedId((prev) => (prev === trip.id ? null : trip.id))}
-                    onBook={() => onTripClick(trip)}
-                  />
-                ))}
-              </AppearList>
+              {hasTrips ? (
+                <AppearList stagger={40} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {trips.map((trip, index) => (
+                    <TripCard
+                      key={trip.id}
+                      {...trip}
+                      ref={index === 0 ? firstTripRef : null}
+                      expanded={expandedId === trip.id}
+                      onToggle={() => setExpandedId((prev) => (prev === trip.id ? null : trip.id))}
+                      onBook={() => onTripClick(trip)}
+                    />
+                  ))}
+                </AppearList>
+              ) : (
+                <EmptyTripsState
+                  onLeaveRequest={onLeaveRequest}
+                />
+              )}
             </>
-          </Appear>
-        ) : (
-          <Appear key="empty-state" animateKey="empty-state">
-            <EmptyTripsState
-              timeWindow={subtitle.includes('утро') ? 'утро' : 'вечер'}
-              onLeaveRequest={onLeaveRequest}
-            />
           </Appear>
         )}
       </AnimatePresence>
