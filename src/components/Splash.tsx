@@ -9,7 +9,7 @@ interface SplashProps {
 }
 
 /**
- * Splash-экран при запуске: лого + слоган.
+ * Splash-экран при запуске: бренд-знак на тёмном фоне (единая палитра).
  * - При onHide=true начинается fade out с небольшим scale up
  * - После завершения анимации вызывается onHidden
  * - reduced-motion: мгновенное исчезновение
@@ -47,7 +47,9 @@ const Splash: React.FC<SplashProps> = ({ onHide, onHidden }) => {
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: 'var(--background)',
+        // Фон зафиксирован тёмным (не var(--background)): сплеш в одной палитре
+        // с бренд-знаком независимо от темы приложения.
+        background: '#0f0f12',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -55,17 +57,33 @@ const Splash: React.FC<SplashProps> = ({ onHide, onHidden }) => {
         pointerEvents: onHide ? 'none' : 'auto',
       }}
     >
-      <img
-        className="splash-logo"
-        src="/brand/logo.png"
-        alt="поехали вместе — карпуллинг в Ярославле"
-        style={{
-          width: '300px',
-          maxWidth: '80%',
-          height: 'auto',
-          display: 'block',
-        }}
-      />
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {/* Мягкое бренд-свечение под знаком — глубина на тёмном фоне */}
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            width: '280px',
+            height: '280px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255, 221, 45, 0.18), transparent 68%)',
+            pointerEvents: 'none',
+          }}
+        />
+        <img
+          className="splash-logo"
+          src="/brand/icon-512.png"
+          alt="поехали вместе"
+          style={{
+            position: 'relative',
+            width: '132px',
+            height: 'auto',
+            display: 'block',
+            // drop-shadow следует альфа-каналу (скруглённая иконка), а не прямоугольнику
+            filter: 'drop-shadow(0 18px 40px rgba(0, 0, 0, 0.55))',
+          }}
+        />
+      </div>
     </div>
   );
 };
