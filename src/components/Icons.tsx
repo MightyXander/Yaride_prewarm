@@ -106,6 +106,13 @@ export const Icons = () => (
       <circle cx="12" cy="12" r="4" />
       <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
     </symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24">
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </symbol>
+    <symbol id="i-chev-d" viewBox="0 0 24 24">
+      <path d="M6 9.5l6 6 6-6" />
+    </symbol>
   </svg>
 );
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import RouteConnector from '../components/ui/RouteConnector';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -368,57 +369,25 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
                   >
                     {formatTime(trip.trip_date, trip.departure_time)}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '11px',
-                        fontSize: '15px',
-                        fontWeight: 600,
-                        minHeight: '24px',
-                      }}
-                    >
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <RouteConnector />
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <div
                         style={{
-                          width: '11px',
-                          height: '11px',
-                          borderRadius: '999px',
-                          border: '2px solid var(--brand)',
-                          background: 'var(--brand)',
-                          flexShrink: 0,
+                          fontSize: '15px',
+                          fontWeight: 600,
                         }}
-                      />
-                      {trip.start_title}
-                    </div>
-                    <div
-                      style={{
-                        height: '16px',
-                        borderLeft: '2px dotted var(--muted-foreground)',
-                        marginLeft: '4.5px',
-                      }}
-                    />
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '11px',
-                        fontSize: '15px',
-                        fontWeight: 600,
-                        minHeight: '24px',
-                      }}
-                    >
+                      >
+                        {trip.start_title}
+                      </div>
                       <div
                         style={{
-                          width: '11px',
-                          height: '11px',
-                          borderRadius: '999px',
-                          border: '2px solid var(--brand)',
-                          background: activeTab === 'upcoming' ? 'transparent' : 'var(--brand)',
-                          flexShrink: 0,
+                          fontSize: '15px',
+                          fontWeight: 600,
                         }}
-                      />
-                      {trip.end_title}
+                      >
+                        {trip.end_title}
+                      </div>
                     </div>
                   </div>
                 </Card>

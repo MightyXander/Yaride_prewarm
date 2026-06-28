@@ -174,11 +174,11 @@ const Select: React.FC<SelectProps> = ({
         style={{
           width: '100%',
           minHeight: '48px',
-          padding: '12px 16px',
-          borderRadius: '16px',
-          background: 'var(--secondary)',
-          color: selectedOption ? 'var(--secondary-foreground)' : 'var(--muted-foreground)',
-          border: '1px solid var(--border)',
+          padding: '4px 0',
+          borderRadius: '0',
+          background: 'transparent',
+          color: selectedOption ? 'var(--foreground)' : 'var(--muted-foreground)',
+          border: 'none',
           fontSize: '15px',
           fontWeight: 600,
           fontFamily: 'var(--font-sans)',
@@ -237,6 +237,9 @@ const Select: React.FC<SelectProps> = ({
             padding: '6px',
             margin: 0,
             listStyle: 'none',
+            opacity: 0,
+            transform: 'translateY(-8px)',
+            animation: 'selectDropdownFadeSlide 0.18s ease-out forwards',
           }}
         >
           {options.map((option, index) => {
