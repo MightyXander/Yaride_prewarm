@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icons } from './components/Icons';
 import BackButton from './components/BackButton';
 import { ToastHost } from './components/ToastHost';
+import Splash from './components/Splash';
 import IntroScreen from './screens/IntroScreen';
 import MainScreen from './screens/MainScreen';
 import TripDetailsScreen from './screens/TripDetailsScreen';
@@ -71,6 +72,10 @@ function App() {
 
   // Определяем начальный экран: если роль уже выбрана — сразу main, иначе intro.
   const initialScreen: Screen = userRole ? 'main' : 'intro';
+
+  // Splash-состояние: показываем при старте, скрываем когда данные готовы или прошло время
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashHiding, setSplashHiding] = useState(false);
 
   const { currentScreen, selectedTrip, confirmKind, ratingContext, publishedTripId, direction, navigate, navigateToRateTrip, goBack } =
     useNavigation(initialScreen);
@@ -175,6 +180,38 @@ function App() {
   const eveningTrips =
     eveningTripsState.status === 'success' ? eveningTripsState.data : [];
 
+  // Splash уходит как только данные готовы (дав лого ~0.6с проявиться),
+  // но не позже ~2.5с — жёсткий cap на медленных/зависших данных.
+  useEffect(() => {
+    if (!splashVisible) return;
+
+    // Готовность данных: ни один источник не в loading/idle.
+    const dataReady =
+      routePointsState.status !== 'loading' &&
+      routePointsState.status !== 'idle' &&
+      morningTripsState.status !== 'loading' &&
+      morningTripsState.status !== 'idle' &&
+      eveningTripsState.status !== 'loading' &&
+      eveningTripsState.status !== 'idle';
+
+    // Потолок: уйти не позже ~2.5с в любом случае.
+    const capTimer = setTimeout(() => setSplashHiding(true), 2500);
+    // Данные готовы — уходим раньше (минимальный показ ~0.6с под анимацию лого).
+    const readyTimer = dataReady
+      ? setTimeout(() => setSplashHiding(true), 600)
+      : undefined;
+
+    return () => {
+      clearTimeout(capTimer);
+      if (readyTimer) clearTimeout(readyTimer);
+    };
+  }, [
+    routePointsState.status,
+    morningTripsState.status,
+    eveningTripsState.status,
+    splashVisible,
+  ]);
+
   // Текущая бронь (для передачи из booking-profile в booking-confirmed)
   const [currentBooking, setCurrentBooking] = useState<BookingResult | null>(null);
 
@@ -206,6 +243,12 @@ function App() {
         <Icons />
         <ToastHost />
         <BackButton onClick={goBack} show={showBackButton} />
+        {splashVisible && (
+          <Splash
+            onHide={splashHiding}
+            onHidden={() => setSplashVisible(false)}
+          />
+        )}
         <div
           style={{
             maxWidth: isDesktop ? '430px' : 'none',
