@@ -240,8 +240,8 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                   minHeight: '36px',
                   padding: '5px 13px',
                   borderRadius: '13px',
-                  background: 'var(--secondary)',
-                  color: 'var(--foreground)',
+                  background: 'var(--brand)',
+                  color: 'var(--brand-foreground)',
                   lineHeight: 1,
                   whiteSpace: 'nowrap',
                 }}
@@ -260,7 +260,7 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                   style={{
                     fontWeight: 600,
                     fontSize: '10.5px',
-                    color: 'var(--muted-foreground)',
+                    color: 'color-mix(in srgb, var(--brand-foreground) 72%, transparent)',
                   }}
                 >
                   {seats} {seatsLabel}
