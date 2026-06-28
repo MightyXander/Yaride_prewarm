@@ -1,0 +1,42 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e116]:
+    - generic [ref=e119]: Я за рулём
+    - generic [ref=e121]:
+      - generic [ref=e122]:
+        - generic [ref=e123]: Маршрут · из шаблона
+        - generic [ref=e124]:
+          - generic [ref=e125]: Брагино, ул. Урицкого, 12
+          - generic [ref=e128]: Центр, пл. Волкова
+      - group "Дата выезда" [ref=e130]:
+        - generic [ref=e131]: Дата выезда
+        - button "28 июня 2026 г. ▼" [ref=e221] [cursor=pointer]:
+          - generic [ref=e133]: 28 июня 2026 г.
+          - generic [ref=e134]: ▼
+      - group "Когда выезжаешь?" [ref=e135]:
+        - generic [ref=e136]: Когда выезжаешь?
+        - generic [ref=e137]:
+          - button "7:30" [ref=e138] [cursor=pointer]
+          - button "7:40" [pressed] [ref=e139] [cursor=pointer]
+          - button "7:55" [ref=e140] [cursor=pointer]
+          - button "8:10" [ref=e141] [cursor=pointer]
+          - button "другое" [ref=e142] [cursor=pointer]
+      - group "Сколько возьмёшь?" [ref=e143]:
+        - generic [ref=e144]: Сколько возьмёшь?
+        - generic [ref=e145]:
+          - button "Меньше мест" [ref=e146] [cursor=pointer]:
+            - generic [ref=e147]: −
+          - generic [ref=e148]: 3 места
+          - button "Больше мест" [ref=e149] [cursor=pointer]:
+            - generic [ref=e150]: +
+      - generic [ref=e152]:
+        - generic [ref=e153]: Точка сбора
+        - button "Точка сбора" [ref=e154] [cursor=pointer]:
+          - generic [ref=e155]: ул. Урицкого, 12
+          - img [ref=e156]
+      - generic [ref=e158]:
+        - button "Опубликовать поездку" [ref=e159] [cursor=pointer]:
+          - img [ref=e160]
+          - text: Опубликовать поездку
+        - generic [ref=e162]: Пассажиры увидят поездку и смогут забронировать место
+  - button "Назад" [ref=e163] [cursor=pointer]:
+    - img [ref=e164]

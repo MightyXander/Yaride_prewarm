@@ -1239,3 +1239,77 @@ export async function submitLicenseRequest(
     return { requestId, status: 'pending' };
   });
 }
+
+/**
+ * Типы уведомлений.
+ */
+export type NotificationType = 'booking' | 'booking_confirmed' | 'cancel' | 'rate_reminder';
+
+export interface NotificationItem {
+  id: number;
+  type: NotificationType;
+  title: string;
+  body: string;
+  read: boolean;
+  ref_trip_id: number | null;
+  ref_user_id: number | null;
+  created_at: string;
+}
+
+export interface CreateNotificationParams {
+  userId: number;
+  type: NotificationType;
+  title: string;
+  body: string;
+  refTripId?: number | null;
+  refUserId?: number | null;
+}
+
+/**
+ * Создать уведомление для пользователя.
+ */
+export async function createNotification(params: CreateNotificationParams): Promise<number> {
+  await ensureReady();
+  const res = await getPool().query<{ id: number }>(
+    `INSERT INTO notifications(user_id, type, title, body, ref_trip_id, ref_user_id)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id`,
+    [
+      params.userId,
+      params.type,
+      params.title,
+      params.body,
+      params.refTripId ?? null,
+      params.refUserId ?? null,
+    ],
+  );
+  return res.rows[0].id;
+}
+
+/**
+ * Получить список уведомлений пользователя (упорядочены по created_at DESC).
+ */
+export async function listNotifications(userId: number, limit = 50): Promise<NotificationItem[]> {
+  await ensureReady();
+  const res = await getPool().query<NotificationItem>(
+    `SELECT id, type, title, body, read, ref_trip_id, ref_user_id, created_at
+     FROM notifications
+     WHERE user_id = $1
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [userId, limit],
+  );
+  return res.rows;
+}
+
+/**
+ * Пометить уведомление как прочитанное.
+ */
+export async function markNotificationRead(notificationId: number, userId: number): Promise<boolean> {
+  await ensureReady();
+  const res = await getPool().query(
+    `UPDATE notifications SET read = TRUE WHERE id = $1 AND user_id = $2`,
+    [notificationId, userId],
+  );
+  return res.rowCount !== null && res.rowCount > 0;
+}

@@ -1,0 +1,21 @@
+- generic [ref=e1]:
+  - generic [ref=e441]:
+    - generic [ref=e444]: Мои поездки
+    - generic [ref=e445]:
+      - button "Предстоящие" [ref=e446] [cursor=pointer]
+      - button "Прошлые" [active] [ref=e447] [cursor=pointer]
+    - button "Поездка · пассажир завершено Вчера, 07:40 Брагино, ул. Урицкого, 12 Центр, пл. Волкова" [ref=e466] [cursor=pointer]:
+      - generic [ref=e467]:
+        - generic [ref=e468]:
+          - text: Поездка
+          - generic [ref=e469]: · пассажир
+        - generic [ref=e470]: завершено
+      - generic [ref=e471]: Вчера, 07:40
+      - generic [ref=e472]:
+        - generic [ref=e473]: Брагино, ул. Урицкого, 12
+        - generic [ref=e476]: Центр, пл. Волкова
+    - button "Создать поездку" [ref=e463] [cursor=pointer]:
+      - img [ref=e464]
+      - text: Создать поездку
+  - button "Назад" [ref=e437] [cursor=pointer]:
+    - img [ref=e438]

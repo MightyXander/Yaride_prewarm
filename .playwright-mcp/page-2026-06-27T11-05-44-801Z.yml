@@ -1,0 +1,93 @@
+- generic [ref=e1]:
+  - generic [ref=e504]:
+    - generic [ref=e507]: Я за рулём
+    - generic [ref=e509]:
+      - generic [ref=e510]:
+        - generic [ref=e511]: Маршрут · из шаблона
+        - generic [ref=e512]:
+          - generic [ref=e513]: Брагино, ул. Урицкого, 12
+          - generic [ref=e516]: Центр, пл. Волкова
+      - group "Дата выезда" [ref=e518]:
+        - generic [ref=e519]: Дата выезда
+        - button "27 июня 2026 г. ▼" [expanded] [active] [ref=e520] [cursor=pointer]:
+          - generic [ref=e521]: 27 июня 2026 г.
+          - generic [ref=e522]: ▼
+        - generic [ref=e556]:
+          - generic [ref=e557]:
+            - button "Предыдущий месяц" [ref=e558] [cursor=pointer]:
+              - img [ref=e559]
+            - generic [ref=e561]: Июнь 2026
+            - button "Следующий месяц" [ref=e562] [cursor=pointer]:
+              - img [ref=e563]
+          - generic [ref=e565]:
+            - generic [ref=e566]: Пн
+            - generic [ref=e567]: Вт
+            - generic [ref=e568]: Ср
+            - generic [ref=e569]: Чт
+            - generic [ref=e570]: Пт
+            - generic [ref=e571]: Сб
+            - generic [ref=e572]: Вс
+          - generic [ref=e573]:
+            - button "2026-06-01" [disabled] [ref=e574]: "1"
+            - button "2026-06-02" [disabled] [ref=e575]: "2"
+            - button "2026-06-03" [disabled] [ref=e576]: "3"
+            - button "2026-06-04" [disabled] [ref=e577]: "4"
+            - button "2026-06-05" [disabled] [ref=e578]: "5"
+            - button "2026-06-06" [disabled] [ref=e579]: "6"
+            - button "2026-06-07" [disabled] [ref=e580]: "7"
+            - button "2026-06-08" [disabled] [ref=e581]: "8"
+            - button "2026-06-09" [disabled] [ref=e582]: "9"
+            - button "2026-06-10" [disabled] [ref=e583]: "10"
+            - button "2026-06-11" [disabled] [ref=e584]: "11"
+            - button "2026-06-12" [disabled] [ref=e585]: "12"
+            - button "2026-06-13" [disabled] [ref=e586]: "13"
+            - button "2026-06-14" [disabled] [ref=e587]: "14"
+            - button "2026-06-15" [disabled] [ref=e588]: "15"
+            - button "2026-06-16" [disabled] [ref=e589]: "16"
+            - button "2026-06-17" [disabled] [ref=e590]: "17"
+            - button "2026-06-18" [disabled] [ref=e591]: "18"
+            - button "2026-06-19" [disabled] [ref=e592]: "19"
+            - button "2026-06-20" [disabled] [ref=e593]: "20"
+            - button "2026-06-21" [disabled] [ref=e594]: "21"
+            - button "2026-06-22" [disabled] [ref=e595]: "22"
+            - button "2026-06-23" [disabled] [ref=e596]: "23"
+            - button "2026-06-24" [disabled] [ref=e597]: "24"
+            - button "2026-06-25" [disabled] [ref=e598]: "25"
+            - button "2026-06-26" [disabled] [ref=e599]: "26"
+            - button "2026-06-27" [disabled] [pressed] [ref=e600]: "27"
+            - button "2026-06-28" [ref=e601] [cursor=pointer]: "28"
+            - button "2026-06-29" [ref=e602] [cursor=pointer]: "29"
+            - button "2026-06-30" [ref=e603] [cursor=pointer]: "30"
+            - button "2026-07-01" [ref=e604] [cursor=pointer]: "1"
+            - button "2026-07-02" [ref=e605] [cursor=pointer]: "2"
+            - button "2026-07-03" [ref=e606] [cursor=pointer]: "3"
+            - button "2026-07-04" [ref=e607] [cursor=pointer]: "4"
+            - button "2026-07-05" [ref=e608] [cursor=pointer]: "5"
+      - group "Когда выезжаешь?" [ref=e523]:
+        - generic [ref=e524]: Когда выезжаешь?
+        - generic [ref=e525]:
+          - button "7:30" [ref=e526] [cursor=pointer]
+          - button "7:40" [pressed] [ref=e527] [cursor=pointer]
+          - button "7:55" [ref=e528] [cursor=pointer]
+          - button "8:10" [ref=e529] [cursor=pointer]
+          - button "другое" [ref=e530] [cursor=pointer]
+      - group "Сколько возьмёшь?" [ref=e531]:
+        - generic [ref=e532]: Сколько возьмёшь?
+        - generic [ref=e533]:
+          - button "Меньше мест" [ref=e534] [cursor=pointer]:
+            - generic [ref=e535]: −
+          - generic [ref=e536]: 3 места
+          - button "Больше мест" [ref=e537] [cursor=pointer]:
+            - generic [ref=e538]: +
+      - generic [ref=e540]:
+        - generic [ref=e541]: Точка сбора
+        - button "Точка сбора" [ref=e542] [cursor=pointer]:
+          - generic [ref=e543]: ул. Урицкого, 12
+          - img [ref=e544]
+      - generic [ref=e546]:
+        - button "Опубликовать поездку" [ref=e547] [cursor=pointer]:
+          - img [ref=e548]
+          - text: Опубликовать поездку
+        - generic [ref=e550]: Пассажиры увидят поездку и смогут забронировать место
+  - button "Назад" [ref=e551] [cursor=pointer]:
+    - img [ref=e552]

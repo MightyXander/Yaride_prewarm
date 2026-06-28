@@ -1,0 +1,62 @@
+- generic [ref=e1]:
+  - generic [ref=e137]:
+    - generic [ref=e140]: Профиль
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - generic [ref=e143]: Т
+        - generic [ref=e144]:
+          - img [ref=e145]
+          - text: "4.9"
+      - generic [ref=e147]:
+        - generic [ref=e148]:
+          - text: Тестовый Пользователь
+          - generic [ref=e149]: · 30 лет
+        - generic [ref=e150]:
+          - img [ref=e151]
+          - text: ВУ подтверждено
+    - generic [ref=e153]:
+      - generic [ref=e154]:
+        - generic [ref=e155]:
+          - img [ref=e156]
+          - text: "4.9"
+        - generic [ref=e158]: рейтинг
+      - generic [ref=e160]:
+        - generic [ref=e161]: "55"
+        - generic [ref=e162]: поездок
+    - button "Открыть статус водительского удостоверения" [ref=e163] [cursor=pointer]:
+      - generic [ref=e164]: Документы
+      - generic [ref=e165]:
+        - img [ref=e167]
+        - generic [ref=e169]:
+          - generic [ref=e170]: Водительское удостоверение
+          - generic [ref=e171]: Подтверждено
+        - img [ref=e172]
+    - generic [ref=e174]:
+      - button "Мои поездки" [ref=e175] [cursor=pointer]:
+        - img [ref=e177]
+        - generic [ref=e179]: Мои поездки
+        - img [ref=e180]
+      - button "Безопасность и SOS" [ref=e183] [cursor=pointer]:
+        - img [ref=e185]
+        - generic [ref=e187]: Безопасность и SOS
+        - img [ref=e188]
+      - button "Тёмная тема" [ref=e191] [cursor=pointer]:
+        - img [ref=e193]
+        - generic [ref=e194]: Тёмная тема
+        - img [ref=e195]
+    - generic [ref=e197]:
+      - button "Стать водителем" [ref=e198] [cursor=pointer]:
+        - img [ref=e199]
+        - text: Стать водителем
+      - button "Настройки" [ref=e201] [cursor=pointer]:
+        - img [ref=e202]
+        - text: Настройки
+  - navigation "Основная навигация" [ref=e126]:
+    - button "Поездки" [ref=e127] [cursor=pointer]:
+      - img [ref=e129]
+    - button "Профиль" [active] [ref=e132] [cursor=pointer]:
+      - generic [ref=e133]:
+        - img [ref=e134]
+        - generic [ref=e204]: Профиль
+  - button "Назад" [ref=e205] [cursor=pointer]:
+    - img [ref=e206]

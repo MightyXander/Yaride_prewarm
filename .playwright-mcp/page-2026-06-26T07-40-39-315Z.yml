@@ -1,0 +1,23 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e29]:
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - generic [ref=e32]: Брагино → Центр
+        - generic [ref=e33]: среда, утро 7:30–8:40
+      - button "Фильтры" [ref=e34] [cursor=pointer]:
+        - img [ref=e35]
+    - generic [ref=e37]:
+      - img [ref=e38]
+      - generic [ref=e40]:
+        - generic [ref=e41]: Не удалось загрузить поездки
+        - generic [ref=e42]: "Неожиданный Content-Type: text/html"
+      - button "Повторить" [ref=e43] [cursor=pointer]
+  - button "Сменить тему" [ref=e44] [cursor=pointer]:
+    - img [ref=e45]
+  - navigation "Основная навигация" [ref=e47]:
+    - button "Поездки" [ref=e48] [cursor=pointer]:
+      - generic [ref=e49]:
+        - img [ref=e50]
+        - generic [ref=e52]: Поездки
+    - button "Профиль" [ref=e53] [cursor=pointer]:
+      - img [ref=e55]

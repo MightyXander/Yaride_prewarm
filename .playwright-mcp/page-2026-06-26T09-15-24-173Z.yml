@@ -1,0 +1,30 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e479]:
+    - generic [ref=e480]:
+      - generic [ref=e482]: Поездка завершена
+      - button [ref=e483] [cursor=pointer]:
+        - img [ref=e484]
+    - generic [ref=e485]:
+      - generic [ref=e488]: А
+      - generic [ref=e489]: Как доехали с Андрей?
+      - generic [ref=e490]: Оценка видна другим попутчикам
+    - generic [ref=e491]:
+      - button "1 звёзд" [ref=e492] [cursor=pointer]:
+        - img [ref=e493]
+      - button "2 звёзд" [ref=e495] [cursor=pointer]:
+        - img [ref=e496]
+      - button "3 звёзд" [ref=e498] [cursor=pointer]:
+        - img [ref=e499]
+      - button "4 звёзд" [ref=e501] [cursor=pointer]:
+        - img [ref=e502]
+      - button "5 звёзд" [ref=e504] [cursor=pointer]:
+        - img [ref=e505]
+    - generic [ref=e507]:
+      - button "Пунктуальный" [ref=e508] [cursor=pointer]
+      - button "Вежливый" [ref=e509] [cursor=pointer]
+      - button "Чисто в авто" [ref=e510] [cursor=pointer]
+      - button "Приятная музыка" [ref=e511] [cursor=pointer]
+    - textbox "Добавить отзыв (по желанию)…" [ref=e512]
+    - button "Отправить оценку" [ref=e514] [cursor=pointer]
+  - button "Назад" [ref=e437] [cursor=pointer]:
+    - img [ref=e438]

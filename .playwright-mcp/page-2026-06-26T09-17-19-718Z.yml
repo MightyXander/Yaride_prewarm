@@ -1,0 +1,25 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e997]:
+    - generic [ref=e1000]: Поездка
+    - generic [ref=e1001]:
+      - img [ref=e1003]
+      - generic [ref=e1005]: Поездка опубликована!
+      - generic [ref=e1006]: Завтра, среда · выезд 7:40
+    - generic [ref=e1007]:
+      - generic [ref=e1008]: Опубликовано
+      - generic [ref=e1009]:
+        - generic [ref=e1010]: Брагино, ул. Урицкого, 12
+        - generic [ref=e1013]: Центр, пл. Волкова
+      - generic [ref=e1016]: Выезд 7:40 · 2 места
+    - button "Брони на рейс" [ref=e1017] [cursor=pointer]:
+      - img [ref=e1018]
+      - text: Брони на рейс
+    - button "Позвать попутчиков в чат района" [ref=e1020] [cursor=pointer]:
+      - img [ref=e1021]
+      - text: Позвать попутчиков в чат района
+    - generic [ref=e1023]:
+      - img [ref=e1025]
+      - generic [ref=e1027]: Пришлём пуш, как только кто-то забронирует место.
+    - button "На главную" [ref=e1029] [cursor=pointer]
+  - button "Назад" [ref=e993] [cursor=pointer]:
+    - img [ref=e994]

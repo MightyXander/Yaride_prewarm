@@ -1,0 +1,62 @@
+- generic [ref=e1]:
+  - generic [ref=e368]:
+    - generic [ref=e371]: Профиль
+    - generic [ref=e372]:
+      - generic [ref=e373]:
+        - generic [ref=e374]: Т
+        - generic [ref=e375]:
+          - img [ref=e376]
+          - text: "4.9"
+      - generic [ref=e378]:
+        - generic [ref=e379]:
+          - text: Тестовый Пользователь
+          - generic [ref=e380]: · 30 лет
+        - generic [ref=e381]:
+          - img [ref=e382]
+          - text: ВУ подтверждено
+    - generic [ref=e384]:
+      - generic [ref=e385]:
+        - generic [ref=e386]:
+          - img [ref=e387]
+          - text: "4.9"
+        - generic [ref=e389]: рейтинг
+      - generic [ref=e391]:
+        - generic [ref=e392]: "55"
+        - generic [ref=e393]: поездок
+    - button "Открыть статус водительского удостоверения" [ref=e394] [cursor=pointer]:
+      - generic [ref=e395]: Документы
+      - generic [ref=e396]:
+        - img [ref=e398]
+        - generic [ref=e400]:
+          - generic [ref=e401]: Водительское удостоверение
+          - generic [ref=e402]: Подтверждено
+        - img [ref=e403]
+    - generic [ref=e405]:
+      - button "Мои поездки" [ref=e406] [cursor=pointer]:
+        - img [ref=e408]
+        - generic [ref=e410]: Мои поездки
+        - img [ref=e411]
+      - button "Безопасность и SOS" [ref=e414] [cursor=pointer]:
+        - img [ref=e416]
+        - generic [ref=e418]: Безопасность и SOS
+        - img [ref=e419]
+      - 'button "Вечер: домой как вчера" [ref=e422] [cursor=pointer]':
+        - img [ref=e424]
+        - generic [ref=e426]: "Вечер: домой как вчера"
+        - img [ref=e427]
+    - generic [ref=e429]:
+      - button "Стать водителем" [ref=e430] [cursor=pointer]:
+        - img [ref=e431]
+        - text: Стать водителем
+      - button "Настройки" [ref=e433] [cursor=pointer]:
+        - img [ref=e434]
+        - text: Настройки
+  - navigation "Основная навигация" [ref=e257]:
+    - button "Поездки" [ref=e258] [cursor=pointer]:
+      - img [ref=e260]
+    - button "Профиль" [active] [ref=e263] [cursor=pointer]:
+      - generic [ref=e264]:
+        - img [ref=e265]
+        - generic [ref=e436]: Профиль
+  - button "Назад" [ref=e437] [cursor=pointer]:
+    - img [ref=e438]

@@ -1,0 +1,37 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e529]:
+    - generic [ref=e532]: Безопасность
+    - generic [ref=e533]:
+      - generic [ref=e534]:
+        - img [ref=e536]
+        - generic [ref=e539]: Кнопка SOS в поездке
+        - switch "Кнопка SOS в поездке" [checked] [ref=e540] [cursor=pointer]
+      - generic [ref=e544]:
+        - img [ref=e546]
+        - generic [ref=e548]:
+          - generic [ref=e549]: Авто-делиться поездкой
+          - generic [ref=e550]: Близкий видит маршрут автоматически
+        - switch "Авто-делиться поездкой" [ref=e551] [cursor=pointer]
+      - generic [ref=e555]:
+        - img [ref=e557]
+        - generic [ref=e559]:
+          - generic [ref=e560]: Только женский состав
+          - generic [ref=e561]: Показывать поездки с женщинами-водителями
+        - switch "Только женский состав" [checked] [ref=e562] [cursor=pointer]
+    - generic [ref=e565]:
+      - generic [ref=e566]: Доверенный контакт
+      - generic [ref=e567]:
+        - img [ref=e569]
+        - generic [ref=e572]: Не добавлен
+        - button "Добавить" [ref=e573] [cursor=pointer]
+    - generic [ref=e574]:
+      - generic [ref=e575]: Телефон
+      - generic [ref=e576]:
+        - img [ref=e578]
+        - generic [ref=e581]: Не подтверждён
+        - button "Подтвердить" [ref=e582] [cursor=pointer]
+    - generic [ref=e583]:
+      - img [ref=e585]
+      - generic [ref=e587]: "Как работает SOS: при нажатии звоним 112 и шлём геопозицию доверенному контакту. Доступен на всех экранах поездки."
+  - button "Назад" [ref=e525] [cursor=pointer]:
+    - img [ref=e526]

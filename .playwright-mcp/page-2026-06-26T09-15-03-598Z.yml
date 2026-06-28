@@ -1,0 +1,23 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e441]:
+    - generic [ref=e444]: Мои поездки
+    - generic [ref=e445]:
+      - button "Предстоящие" [ref=e446] [cursor=pointer]
+      - button "Прошлые" [ref=e447] [cursor=pointer]
+    - generic [ref=e448]:
+      - generic [ref=e449]:
+        - generic [ref=e450]:
+          - text: Поездка
+          - generic [ref=e451]: · пассажир
+        - generic [ref=e452]:
+          - img [ref=e453]
+          - text: бронь
+      - generic [ref=e455]: Завтра, 07:40
+      - generic [ref=e456]:
+        - generic [ref=e457]: Брагино, ул. Урицкого, 12
+        - generic [ref=e460]: Центр, пл. Волкова
+    - button "Создать поездку" [ref=e463] [cursor=pointer]:
+      - img [ref=e464]
+      - text: Создать поездку
+  - button "Назад" [ref=e437] [cursor=pointer]:
+    - img [ref=e438]

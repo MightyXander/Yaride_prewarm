@@ -1,0 +1,42 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - button "Сменить тему" [ref=e500] [cursor=pointer]:
+      - img [ref=e501]
+    - generic [ref=e504]:
+      - generic [ref=e505]:
+        - generic [ref=e506]:
+          - generic [ref=e507]: Добрый вечер, Дмитрий
+          - generic [ref=e508]: пора домой?
+        - button "Фильтры" [ref=e509] [cursor=pointer]:
+          - img [ref=e510]
+      - generic [ref=e512]:
+        - img
+        - generic [ref=e513]: Твой вечерний маршрут
+        - heading "Центр → Брагино" [level=2] [ref=e514]:
+          - text: Центр →
+          - text: Брагино
+        - 'button "Перейти к поездке: обычно 18:00 · Пн–Пт" [ref=e515] [cursor=pointer]':
+          - img [ref=e516]
+          - text: обычно 18:00 · Пн–Пт
+      - generic [ref=e518]:
+        - generic [ref=e519]:
+          - text: М
+          - generic [ref=e520]:
+            - img [ref=e521]
+            - text: "5.0"
+        - generic [ref=e523]:
+          - generic [ref=e524]: Марина С.
+          - generic [ref=e525]: по пути · VW Polo · ≈70 ₽
+        - generic [ref=e526]:
+          - generic [ref=e527]: 17:40
+          - generic [ref=e528]: 2 места
+      - generic [ref=e529]:
+        - button "Поехать домой как вчера" [ref=e530] [cursor=pointer]
+        - button "Другие поездки на сегодня" [ref=e531] [cursor=pointer]
+  - navigation "Основная навигация" [ref=e490]:
+    - button "Поездки" [ref=e491] [cursor=pointer]:
+      - generic [ref=e492]:
+        - img [ref=e493]
+        - generic [ref=e532]: Поездки
+    - button "Профиль" [ref=e495] [cursor=pointer]:
+      - img [ref=e497]

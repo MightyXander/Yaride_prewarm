@@ -1,0 +1,101 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e29]:
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - generic [ref=e32]: Брагино → Центр
+        - generic [ref=e33]: среда, утро 7:30–8:40
+      - button "Фильтры" [ref=e34] [cursor=pointer]:
+        - img [ref=e35]
+    - generic [ref=e37]:
+      - img
+      - generic [ref=e38]: Сегодня по маршруту
+      - heading "2 поездки в твою сторону" [level=2] [ref=e39]:
+        - text: 2 поездки
+        - text: в твою сторону
+      - 'button "Перейти к поездке: Ближайшая в 7:40" [ref=e40] [cursor=pointer]':
+        - img [ref=e41]
+        - text: Ближайшая в 7:40
+    - button "Поездка от Андрей К. в 7:40, 2 места, нажмите чтобы раскрыть" [ref=e44] [cursor=pointer]:
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]: А
+          - generic [ref=e48]:
+            - img [ref=e49]
+            - text: "4.9"
+        - generic [ref=e51]:
+          - generic [ref=e52]:
+            - text: Андрей К.
+            - generic [ref=e53]:
+              - img [ref=e54]
+              - text: 37 поездок
+          - generic [ref=e57]: ул. Урицкого, 12
+          - generic [ref=e58]:
+            - generic [ref=e59]: Kia Rio
+            - generic [ref=e60]: ≈80 ₽
+        - generic [ref=e61]:
+          - generic [ref=e62]: 7:40
+          - generic [ref=e63]: 2 места
+      - generic [ref=e64]:
+        - generic [ref=e65]:
+          - generic [ref=e66]: Брагино, ул. Урицкого, 12
+          - generic [ref=e69]: Центр, пл. Волкова
+        - generic [ref=e71]:
+          - generic [ref=e72]: "Сбор: ул. Урицкого, 12"
+          - generic [ref=e74]:
+            - img [ref=e75]
+            - text: 7:40 · в пути ~22 мин
+        - generic [ref=e77]:
+          - text: Бензин
+          - generic [ref=e78]: ≈80 ₽ пополам
+          - text: — как подсказка для расчётов, без оплаты в приложении.
+        - button [ref=e79]: Забронировать
+    - button "Поездка от Марина С. в 7:55, 3 места, нажмите чтобы раскрыть" [ref=e81] [cursor=pointer]:
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - generic [ref=e84]: М
+          - generic [ref=e85]:
+            - img [ref=e86]
+            - text: "5"
+        - generic [ref=e88]:
+          - generic [ref=e89]:
+            - text: Марина С.
+            - generic [ref=e90]:
+              - img [ref=e91]
+              - text: 12 поездок
+          - generic [ref=e94]: пр-т Дзержинского, 8
+          - generic [ref=e95]:
+            - generic [ref=e96]: VW Polo
+            - generic [ref=e97]: ≈70 ₽
+        - generic [ref=e98]:
+          - generic [ref=e99]: 7:55
+          - generic [ref=e100]: 3 места
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e103]: Брагино, пр-т Дзержинского, 8
+          - generic [ref=e106]: Центр, пл. Волкова
+        - generic [ref=e108]:
+          - generic [ref=e109]: "Сбор: пр-т Дзержинского, 8"
+          - generic [ref=e111]:
+            - img [ref=e112]
+            - text: 7:55 · в пути ~25 мин
+        - generic [ref=e114]:
+          - text: Бензин
+          - generic [ref=e115]: ≈70 ₽ пополам
+          - text: — как подсказка для расчётов, без оплаты в приложении.
+        - button [ref=e116]: Забронировать
+    - generic [ref=e117]:
+      - button "Возьму попутчиков" [ref=e118] [cursor=pointer]:
+        - img [ref=e119]
+        - text: Возьму попутчиков
+      - button "Ищу, кто подвезёт" [ref=e121] [cursor=pointer]:
+        - img [ref=e122]
+        - text: Ищу, кто подвезёт
+  - button "Сменить тему" [ref=e124] [cursor=pointer]:
+    - img [ref=e125]
+  - navigation "Основная навигация" [ref=e127]:
+    - button "Поездки" [ref=e128] [cursor=pointer]:
+      - generic [ref=e129]:
+        - img [ref=e130]
+        - generic [ref=e132]: Поездки
+    - button "Профиль" [ref=e133] [cursor=pointer]:
+      - img [ref=e135]

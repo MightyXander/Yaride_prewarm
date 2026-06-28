@@ -24,6 +24,9 @@ export {
   createRating,
   getTripBookings,
   cancelBookingByDriver,
+  createNotification,
+  listNotifications,
+  markNotificationRead,
 } from './repo.ts';
 export type {
   TimeSlot,
@@ -37,6 +40,9 @@ export type {
   CreateRatingResult,
   BookingDetail,
   CancelBookingResult,
+  NotificationType,
+  NotificationItem,
+  CreateNotificationParams,
 } from './repo.ts';
 
 // JSON-API обработчики (issue #10): Express-независимые, подключаются в server.js.
@@ -57,6 +63,8 @@ export {
   handleSubmitLicense,
   handleGetUserProfile,
   handleGetUserReviews,
+  handleGetNotifications,
+  handleMarkNotificationRead,
 } from './api.ts';
 export type { ApiRequest, ApiResponse } from './api.ts';
 

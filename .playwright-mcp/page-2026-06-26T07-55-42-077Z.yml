@@ -1,0 +1,103 @@
+- generic [ref=e1]:
+  - generic [ref=e29]:
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - generic [ref=e32]: Брагино → Центр
+        - generic [ref=e33]: среда, утро 7:30–8:40
+      - button "Фильтры" [active] [ref=e34] [cursor=pointer]:
+        - img [ref=e35]
+    - generic [ref=e37]:
+      - img
+      - generic [ref=e38]: Сегодня по маршруту
+      - heading "2 поездки в твою сторону" [level=2] [ref=e39]:
+        - text: 2 поездки
+        - text: в твою сторону
+      - 'button "Перейти к поездке: Ближайшая в 07:40" [ref=e40] [cursor=pointer]':
+        - img [ref=e41]
+        - text: Ближайшая в 07:40
+    - generic [ref=e43]:
+      - button "Поездка от Андрей К. в 07:40, 2 места, нажмите чтобы раскрыть" [ref=e45] [cursor=pointer]:
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - generic [ref=e48]: АК
+            - generic [ref=e49]:
+              - img [ref=e50]
+              - text: "4.9"
+          - generic [ref=e52]:
+            - generic [ref=e53]:
+              - text: Андрей К.
+              - generic [ref=e54]:
+                - img [ref=e55]
+                - text: 37 поездок
+            - generic [ref=e58]: Брагино, ул. Урицкого, 12
+            - generic [ref=e59]:
+              - generic [ref=e60]: авто
+              - generic [ref=e61]: ≈80 ₽
+          - generic [ref=e62]:
+            - generic [ref=e63]: 07:40
+            - generic [ref=e64]: 2 места
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - generic [ref=e67]: Брагино, ул. Урицкого, 12
+            - generic [ref=e70]: Центр, пл. Волкова
+          - generic [ref=e72]:
+            - generic [ref=e73]: "Сбор: Брагино, ул. Урицкого, 12"
+            - generic [ref=e75]:
+              - img [ref=e76]
+              - text: 07:40 · в пути ~22 мин
+          - generic [ref=e78]:
+            - text: Бензин
+            - generic [ref=e79]: ≈80 ₽ пополам
+            - text: — как подсказка для расчётов, без оплаты в приложении.
+          - button [ref=e80]: Забронировать
+      - button "Поездка от Марина С. в 07:55, 3 места, нажмите чтобы раскрыть" [ref=e82] [cursor=pointer]:
+        - generic [ref=e83]:
+          - generic [ref=e84]:
+            - generic [ref=e85]: МС
+            - generic [ref=e86]:
+              - img [ref=e87]
+              - text: "5"
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - text: Марина С.
+              - generic [ref=e91]:
+                - img [ref=e92]
+                - text: 12 поездок
+            - generic [ref=e95]: Брагино, пр-т Дзержинского, 8
+            - generic [ref=e96]:
+              - generic [ref=e97]: авто
+              - generic [ref=e98]: ≈70 ₽
+          - generic [ref=e99]:
+            - generic [ref=e100]: 07:55
+            - generic [ref=e101]: 3 места
+        - generic [ref=e102]:
+          - generic [ref=e103]:
+            - generic [ref=e104]: Брагино, пр-т Дзержинского, 8
+            - generic [ref=e107]: Центр, пл. Волкова
+          - generic [ref=e109]:
+            - generic [ref=e110]: "Сбор: Брагино, пр-т Дзержинского, 8"
+            - generic [ref=e112]:
+              - img [ref=e113]
+              - text: 07:55 · в пути ~22 мин
+          - generic [ref=e115]:
+            - text: Бензин
+            - generic [ref=e116]: ≈70 ₽ пополам
+            - text: — как подсказка для расчётов, без оплаты в приложении.
+          - button [ref=e117]: Забронировать
+    - generic [ref=e118]:
+      - button "Возьму попутчиков" [ref=e119] [cursor=pointer]:
+        - img [ref=e120]
+        - text: Возьму попутчиков
+      - button "Ищу, кто подвезёт" [ref=e122] [cursor=pointer]:
+        - img [ref=e123]
+        - text: Ищу, кто подвезёт
+  - button "Сменить тему" [ref=e125] [cursor=pointer]:
+    - img [ref=e126]
+  - navigation "Основная навигация" [ref=e128]:
+    - button "Поездки" [ref=e129] [cursor=pointer]:
+      - generic [ref=e130]:
+        - img [ref=e131]
+        - generic [ref=e133]: Поездки
+    - button "Профиль" [ref=e134] [cursor=pointer]:
+      - img [ref=e136]
+  - status: Фильтры маршрута — скоро

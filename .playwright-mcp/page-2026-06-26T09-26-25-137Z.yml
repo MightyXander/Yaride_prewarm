@@ -1,0 +1,36 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e139]:
+    - generic [ref=e142]: Я за рулём
+    - generic [ref=e143]:
+      - generic [ref=e144]: Маршрут · из шаблона
+      - generic [ref=e145]:
+        - generic [ref=e146]: Брагино, ул. Урицкого, 12
+        - generic [ref=e149]: Центр, пл. Волкова
+    - group "Когда выезжаешь?" [ref=e151]:
+      - generic [ref=e152]: Когда выезжаешь?
+      - generic [ref=e153]:
+        - button "7:30" [ref=e154] [cursor=pointer]
+        - button "7:40" [pressed] [ref=e155] [cursor=pointer]
+        - button "7:55" [ref=e156] [cursor=pointer]
+        - button "8:10" [ref=e157] [cursor=pointer]
+        - button "другое" [ref=e158] [cursor=pointer]
+    - group "Сколько возьмёшь?" [ref=e159]:
+      - generic [ref=e160]: Сколько возьмёшь?
+      - generic [ref=e161]:
+        - button "Меньше мест" [ref=e162] [cursor=pointer]:
+          - generic [ref=e163]: −
+        - generic [ref=e164]: 3 места
+        - button "Больше мест" [ref=e165] [cursor=pointer]:
+          - generic [ref=e166]: +
+    - generic [ref=e168]:
+      - generic [ref=e169]: Точка сбора
+      - button "Точка сбора" [ref=e170] [cursor=pointer]:
+        - generic [ref=e171]: ул. Урицкого, 12
+        - img [ref=e172]
+    - generic [ref=e174]:
+      - button "Опубликовать поездку" [ref=e175] [cursor=pointer]:
+        - img [ref=e176]
+        - text: Опубликовать поездку
+      - generic [ref=e178]: Пассажиры увидят поездку и смогут забронировать место
+  - button "Назад" [ref=e179] [cursor=pointer]:
+    - img [ref=e180]

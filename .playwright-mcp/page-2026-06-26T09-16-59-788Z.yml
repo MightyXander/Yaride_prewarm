@@ -1,0 +1,102 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e853]:
+    - generic [ref=e854]:
+      - generic [ref=e855]:
+        - generic [ref=e856]: Брагино → Центр
+        - generic [ref=e857]: среда, утро 7:30–8:40
+      - button "Уведомления" [ref=e858] [cursor=pointer]:
+        - img [ref=e859]
+    - generic [ref=e861]:
+      - img
+      - generic [ref=e862]: Сегодня по маршруту
+      - heading "2 поездки в твою сторону" [level=2] [ref=e863]:
+        - text: 2 поездки
+        - text: в твою сторону
+      - 'button "Перейти к поездке: Ближайшая в 07:40" [ref=e864] [cursor=pointer]':
+        - img [ref=e865]
+        - text: Ближайшая в 07:40
+    - generic [ref=e867]:
+      - button "Поездка от Андрей К. в 07:40, 2 места, нажмите чтобы раскрыть" [ref=e869] [cursor=pointer]:
+        - generic [ref=e870]:
+          - generic [ref=e871]:
+            - generic [ref=e872]: АК
+            - generic [ref=e873]:
+              - img [ref=e874]
+              - text: "4.9"
+          - generic [ref=e876]:
+            - generic [ref=e877]:
+              - text: Андрей К.
+              - generic [ref=e878]:
+                - img [ref=e879]
+                - text: 37 поездок
+            - generic [ref=e882]: Брагино, ул. Урицкого, 12
+            - generic [ref=e883]:
+              - generic [ref=e884]: авто
+              - generic [ref=e885]: ≈80 ₽
+          - generic [ref=e886]:
+            - generic [ref=e887]: 07:40
+            - generic [ref=e888]: 2 места
+        - generic [ref=e889]:
+          - generic [ref=e890]:
+            - generic [ref=e891]: Брагино, ул. Урицкого, 12
+            - generic [ref=e894]: Центр, пл. Волкова
+          - generic [ref=e896]:
+            - generic [ref=e897]: "Сбор: Брагино, ул. Урицкого, 12"
+            - generic [ref=e899]:
+              - img [ref=e900]
+              - text: 07:40 · в пути ~22 мин
+          - generic [ref=e902]:
+            - text: Бензин
+            - generic [ref=e903]: ≈80 ₽ пополам
+            - text: — как подсказка для расчётов, без оплаты в приложении.
+          - button [ref=e904]: Забронировать
+      - button "Поездка от Марина С. в 07:55, 3 места, нажмите чтобы раскрыть" [ref=e906] [cursor=pointer]:
+        - generic [ref=e907]:
+          - generic [ref=e908]:
+            - generic [ref=e909]: МС
+            - generic [ref=e910]:
+              - img [ref=e911]
+              - text: "5"
+          - generic [ref=e913]:
+            - generic [ref=e914]:
+              - text: Марина С.
+              - generic [ref=e915]:
+                - img [ref=e916]
+                - text: 12 поездок
+            - generic [ref=e919]: Брагино, пр-т Дзержинского, 8
+            - generic [ref=e920]:
+              - generic [ref=e921]: авто
+              - generic [ref=e922]: ≈70 ₽
+          - generic [ref=e923]:
+            - generic [ref=e924]: 07:55
+            - generic [ref=e925]: 3 места
+        - generic [ref=e926]:
+          - generic [ref=e927]:
+            - generic [ref=e928]: Брагино, пр-т Дзержинского, 8
+            - generic [ref=e931]: Центр, пл. Волкова
+          - generic [ref=e933]:
+            - generic [ref=e934]: "Сбор: Брагино, пр-т Дзержинского, 8"
+            - generic [ref=e936]:
+              - img [ref=e937]
+              - text: 07:55 · в пути ~22 мин
+          - generic [ref=e939]:
+            - text: Бензин
+            - generic [ref=e940]: ≈70 ₽ пополам
+            - text: — как подсказка для расчётов, без оплаты в приложении.
+          - button [ref=e941]: Забронировать
+    - generic [ref=e942]:
+      - button "Возьму попутчиков" [ref=e943] [cursor=pointer]:
+        - img [ref=e944]
+        - text: Возьму попутчиков
+      - button "Ищу, кто подвезёт" [ref=e946] [cursor=pointer]:
+        - img [ref=e947]
+        - text: Ищу, кто подвезёт
+  - navigation "Основная навигация" [ref=e842]:
+    - button "Поездки" [ref=e843] [cursor=pointer]:
+      - generic [ref=e844]:
+        - img [ref=e845]
+        - generic [ref=e847]: Поездки
+    - button "Профиль" [ref=e848] [cursor=pointer]:
+      - img [ref=e850]
+  - button "Сменить тему" [ref=e949] [cursor=pointer]:
+    - img [ref=e950]
