@@ -35,3 +35,12 @@ dist-ssr
 
 # Артефакты agentic-dev оркестрации (не часть продукта)
 .agentic/context/
+
+# Мусор визуального QA / отчётов воркеров — не коммитить
+.playwright-mcp/
+test-results/
+/qa-*.png
+/e2e-*.png
+/desktop-*.png
+/main-screen-*.png
+.agentic/worker_report_*.md
