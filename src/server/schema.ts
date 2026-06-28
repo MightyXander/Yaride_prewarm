@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -141,6 +141,7 @@ const BOOTSTRAP_SQL = `
  * v1→v2: добавление таблицы ratings + пересчёт агрегатов users.rating_avg/rating_count.
  * v2→v3: добавление car_color TEXT NULL, plate TEXT NULL в trips и trip_templates.
  * v3→v4: добавление таблицы license_requests (модерация ВУ).
+ * v4→v5: добавление таблицы notifications (события для лент уведомлений).
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -187,6 +188,25 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
 
       CREATE INDEX IF NOT EXISTS idx_license_requests_driver ON license_requests(driver_id);
       CREATE INDEX IF NOT EXISTS idx_license_requests_status ON license_requests(status);
+    `);
+    return;
+  }
+  if (fromV === 4 && toV === 5) {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        type TEXT NOT NULL CHECK (type IN ('booking', 'booking_confirmed', 'cancel', 'rate_reminder')),
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        read BOOLEAN NOT NULL DEFAULT FALSE,
+        ref_trip_id INTEGER REFERENCES trips(id),
+        ref_user_id INTEGER REFERENCES users(id),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, read);
     `);
     return;
   }

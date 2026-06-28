@@ -1,0 +1,63 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - button "Назад" [ref=e290] [cursor=pointer]:
+      - img [ref=e291]
+    - generic [ref=e294]:
+      - generic [ref=e297]: Профиль
+      - generic [ref=e298]:
+        - generic [ref=e299]:
+          - generic [ref=e300]: Н
+          - generic [ref=e301]:
+            - img [ref=e302]
+            - text: "4.9"
+        - generic [ref=e304]:
+          - generic [ref=e305]:
+            - text: Никита Р.
+            - generic [ref=e306]: · 28 лет
+          - generic [ref=e307]:
+            - img [ref=e308]
+            - text: ВУ подтверждено · с апреля 2026
+      - generic [ref=e310]:
+        - generic [ref=e311]:
+          - generic [ref=e312]:
+            - img [ref=e313]
+            - text: "4.9"
+          - generic [ref=e315]: рейтинг
+        - generic [ref=e317]:
+          - generic [ref=e318]: "23"
+          - generic [ref=e319]: поездок
+      - button "Открыть статус водительского удостоверения" [ref=e320] [cursor=pointer]:
+        - generic [ref=e321]: Документы
+        - generic [ref=e322]:
+          - img [ref=e324]
+          - generic [ref=e326]:
+            - generic [ref=e327]: Водительское удостоверение
+            - generic [ref=e328]: Подтверждено
+          - img [ref=e329]
+      - generic [ref=e331]:
+        - button "Мои поездки" [ref=e332] [cursor=pointer]:
+          - img [ref=e334]
+          - generic [ref=e335]: Мои поездки
+          - img [ref=e336]
+        - button "Безопасность и SOS" [ref=e339] [cursor=pointer]:
+          - img [ref=e341]
+          - generic [ref=e343]: Безопасность и SOS
+          - img [ref=e344]
+        - 'button "Вечер: домой как вчера" [ref=e347] [cursor=pointer]':
+          - img [ref=e349]
+          - generic [ref=e351]: "Вечер: домой как вчера"
+          - img [ref=e352]
+      - generic [ref=e354]:
+        - button "Стать водителем" [ref=e355] [cursor=pointer]:
+          - img [ref=e356]
+          - text: Стать водителем
+        - button "Настройки" [ref=e358] [cursor=pointer]:
+          - img [ref=e359]
+          - text: Настройки
+  - navigation "Основная навигация" [ref=e280]:
+    - button "Поездки" [ref=e281] [cursor=pointer]:
+      - img [ref=e283]
+    - button "Профиль" [active] [ref=e286] [cursor=pointer]:
+      - generic [ref=e287]:
+        - img [ref=e288]
+        - generic [ref=e361]: Профиль

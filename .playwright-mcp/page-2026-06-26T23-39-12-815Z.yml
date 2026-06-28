@@ -1,0 +1,28 @@
+- generic [ref=e1]:
+  - generic [ref=e209]:
+    - generic [ref=e212]: Стать водителем
+    - generic [ref=e213]: Чтобы создавать поездки, подтвердите водительское удостоверение. Это разовая проверка.
+    - generic [ref=e214]:
+      - text: Серия и номер ВУ
+      - textbox "Серия и номер ВУ" [ref=e215]:
+        - /placeholder: 9916 АВ 123456
+        - text: 9916 АБ 123456
+    - generic [ref=e216]:
+      - text: Действительно до
+      - textbox "Действительно до" [active] [ref=e217]:
+        - /placeholder: 03 / 2030
+        - text: 03 / 2030
+    - generic [ref=e218]:
+      - generic [ref=e219]: Фото ВУ
+      - button "Загрузить фото удостоверения" [ref=e220] [cursor=pointer]:
+        - img [ref=e221]
+        - text: Загрузить фото удостоверения
+    - checkbox "Подтверждаю, что данные верны, и согласен с правилами водителя и обработкой документов." [ref=e223] [cursor=pointer]:
+      - generic [ref=e225]: Подтверждаю, что данные верны, и согласен с правилами водителя и обработкой документов.
+    - generic [ref=e226]:
+      - button "Отправить на проверку" [disabled] [ref=e227]:
+        - img [ref=e228]
+        - text: Отправить на проверку
+      - generic [ref=e230]: Обычно проверяем за пару часов
+  - button "Назад" [ref=e205] [cursor=pointer]:
+    - img [ref=e206]

@@ -1,0 +1,49 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e143]:
+    - generic [ref=e146]: Поездка 07:40
+    - generic [ref=e147]:
+      - generic [ref=e148]:
+        - generic [ref=e149]: АК
+        - generic [ref=e150]:
+          - img [ref=e151]
+          - text: "4.9"
+      - generic [ref=e153]:
+        - generic [ref=e154]: Андрей К.
+        - generic [ref=e155]:
+          - generic [ref=e156]:
+            - img [ref=e157]
+            - text: "4.9"
+          - text: · 37 поездок · 34 года
+        - generic [ref=e159]:
+          - img [ref=e160]
+          - text: ВУ подтверждено · с июня 2026
+    - generic [ref=e162]:
+      - generic [ref=e163]: Маршрут · ~22 мин
+      - generic [ref=e164]:
+        - generic [ref=e165]: Брагино, ул. Урицкого, 12
+        - generic [ref=e168]: Центр, пл. Волкова
+      - generic [ref=e171]:
+        - text: Выезд
+        - generic [ref=e172]: среда, 07:40
+        - text: Машина
+        - generic [ref=e173]: авто, белая
+        - text: Бензин
+        - generic [ref=e174]: ≈ 80 ₽
+        - text: (пополам · не оплата)
+    - generic [ref=e175]:
+      - img [ref=e177]
+      - generic [ref=e179]: Бензин ≈80 ₽ пополам — как подсказка для расчётов. Это информационный сервис, без платежей в приложении.
+    - generic [ref=e180]:
+      - button "Забронировать место" [ref=e181] [cursor=pointer]
+      - button "Поделиться поездкой" [ref=e182] [cursor=pointer]:
+        - img [ref=e183]
+        - text: Поделиться поездкой
+  - navigation "Основная навигация" [ref=e128]:
+    - button "Поездки" [ref=e129] [cursor=pointer]:
+      - generic [ref=e130]:
+        - img [ref=e131]
+        - generic [ref=e133]: Поездки
+    - button "Профиль" [ref=e134] [cursor=pointer]:
+      - img [ref=e136]
+  - button "Назад" [ref=e185] [cursor=pointer]:
+    - img [ref=e186]

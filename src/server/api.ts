@@ -763,3 +763,45 @@ export async function handleGetUserReviews(req: ApiRequest): Promise<ApiResponse
   const reviews = await listUserReviews(userId);
   return { status: 200, body: { reviews } };
 }
+
+/**
+ * GET /api/notifications — список уведомлений текущего пользователя.
+ * Требует initData-auth (как остальные эндпоинты Mini App).
+ */
+export async function handleGetNotifications(req: ApiRequest): Promise<ApiResponse> {
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+  const { user } = auth;
+
+  const { listNotifications } = await import('./repo.ts');
+  const notifications = await listNotifications(user.id);
+  return { status: 200, body: { notifications } };
+}
+
+/**
+ * POST /api/notifications/read — пометить уведомление прочитанным.
+ * Body: { notificationId: number }
+ */
+export async function handleMarkNotificationRead(req: ApiRequest): Promise<ApiResponse> {
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+  const { user } = auth;
+
+  const body = asRecord(req.body);
+  const notificationId = toPositiveInt(body.notificationId);
+  if (notificationId === undefined) {
+    return err(400, 'Обязательно поле notificationId (целое положительное число)');
+  }
+
+  const { markNotificationRead } = await import('./repo.ts');
+  const success = await markNotificationRead(notificationId, user.id);
+  if (!success) {
+    return err(404, 'Уведомление не найдено или не принадлежит пользователю');
+  }
+
+  return { status: 200, body: { success: true } };
+}

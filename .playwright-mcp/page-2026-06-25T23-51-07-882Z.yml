@@ -1,0 +1,102 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - button "Сменить тему" [ref=e181] [cursor=pointer]:
+      - img [ref=e182]
+    - generic [ref=e185]:
+      - generic [ref=e186]:
+        - generic [ref=e187]:
+          - generic [ref=e188]: Брагино → Центр
+          - generic [ref=e189]: среда, утро 7:30–8:40
+        - button "Фильтры" [ref=e190] [cursor=pointer]:
+          - img [ref=e191]
+      - generic [ref=e193]:
+        - img
+        - generic [ref=e194]: Сегодня по маршруту
+        - heading "2 поездки в твою сторону" [level=2] [ref=e195]:
+          - text: 2 поездки
+          - text: в твою сторону
+        - 'button "Перейти к поездке: Ближайшая в 7:40" [ref=e196] [cursor=pointer]':
+          - img [ref=e197]
+          - text: Ближайшая в 7:40
+      - button "Поездка от Андрей К. в 7:40, 2 места, нажмите чтобы раскрыть" [ref=e200] [cursor=pointer]:
+        - generic [ref=e201]:
+          - generic [ref=e202]:
+            - generic [ref=e203]: А
+            - generic [ref=e204]:
+              - img [ref=e205]
+              - text: "4.9"
+          - generic [ref=e207]:
+            - generic [ref=e208]:
+              - text: Андрей К.
+              - generic [ref=e209]:
+                - img [ref=e210]
+                - text: 37 поездок
+            - generic [ref=e213]: ул. Урицкого, 12
+            - generic [ref=e214]:
+              - generic [ref=e215]: Kia Rio
+              - generic [ref=e216]: ≈80 ₽
+          - generic [ref=e217]:
+            - generic [ref=e218]: 7:40
+            - generic [ref=e219]: 2 места
+        - generic [ref=e220]:
+          - generic [ref=e221]:
+            - generic [ref=e222]: Брагино, ул. Урицкого, 12
+            - generic [ref=e225]: Центр, пл. Волкова
+          - generic [ref=e227]:
+            - generic [ref=e228]: "Сбор: ул. Урицкого, 12"
+            - generic [ref=e230]:
+              - img [ref=e231]
+              - text: 7:40 · в пути ~22 мин
+          - generic [ref=e233]:
+            - text: Бензин
+            - generic [ref=e234]: ≈80 ₽ пополам
+            - text: — как подсказка для расчётов, без оплаты в приложении.
+          - button [ref=e235]: Забронировать
+      - button "Поездка от Марина С. в 7:55, 3 места, нажмите чтобы раскрыть" [ref=e237] [cursor=pointer]:
+        - generic [ref=e238]:
+          - generic [ref=e239]:
+            - generic [ref=e240]: М
+            - generic [ref=e241]:
+              - img [ref=e242]
+              - text: "5"
+          - generic [ref=e244]:
+            - generic [ref=e245]:
+              - text: Марина С.
+              - generic [ref=e246]:
+                - img [ref=e247]
+                - text: 12 поездок
+            - generic [ref=e250]: пр-т Дзержинского, 8
+            - generic [ref=e251]:
+              - generic [ref=e252]: VW Polo
+              - generic [ref=e253]: ≈70 ₽
+          - generic [ref=e254]:
+            - generic [ref=e255]: 7:55
+            - generic [ref=e256]: 3 места
+        - generic [ref=e257]:
+          - generic [ref=e258]:
+            - generic [ref=e259]: Брагино, пр-т Дзержинского, 8
+            - generic [ref=e262]: Центр, пл. Волкова
+          - generic [ref=e264]:
+            - generic [ref=e265]: "Сбор: пр-т Дзержинского, 8"
+            - generic [ref=e267]:
+              - img [ref=e268]
+              - text: 7:55 · в пути ~25 мин
+          - generic [ref=e270]:
+            - text: Бензин
+            - generic [ref=e271]: ≈70 ₽ пополам
+            - text: — как подсказка для расчётов, без оплаты в приложении.
+          - button [ref=e272]: Забронировать
+      - generic [ref=e273]:
+        - button "Возьму попутчиков" [ref=e274] [cursor=pointer]:
+          - img [ref=e275]
+          - text: Возьму попутчиков
+        - button "Ищу, кто подвезёт" [ref=e277] [cursor=pointer]:
+          - img [ref=e278]
+          - text: Ищу, кто подвезёт
+  - navigation "Основная навигация" [ref=e280]:
+    - button "Поездки" [ref=e281] [cursor=pointer]:
+      - generic [ref=e282]:
+        - img [ref=e283]
+        - generic [ref=e285]: Поездки
+    - button "Профиль" [ref=e286] [cursor=pointer]:
+      - img [ref=e288]
