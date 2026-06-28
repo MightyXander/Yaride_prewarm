@@ -297,6 +297,33 @@ export interface GetUserReviewsResponse {
   reviews: UserReview[];
 }
 
+// GET /api/notifications
+export type NotificationType = 'booking' | 'booking_confirmed' | 'cancel' | 'rate_reminder';
+
+export interface NotificationItem {
+  id: number;
+  type: NotificationType;
+  title: string;
+  body: string;
+  read: boolean;
+  ref_trip_id: number | null;
+  ref_user_id: number | null;
+  created_at: string;
+}
+
+export interface GetNotificationsResponse {
+  notifications: NotificationItem[];
+}
+
+// POST /api/notifications/read
+export interface MarkNotificationReadRequest {
+  notificationId: number;
+}
+
+export interface MarkNotificationReadResponse {
+  success: boolean;
+}
+
 // Ошибки
 export interface ApiErrorResponse {
   error: string;

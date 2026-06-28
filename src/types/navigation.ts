@@ -22,7 +22,8 @@ export type Screen =
   | 'evening-main'
   | 'evening-publish'
   | 'habit-home'
-  | 'user-profile';
+  | 'user-profile'
+  | 'notifications';
 
 // Откуда пришли на экран подтверждения (бронь пассажира или публикация водителя)
 export type ConfirmKind = 'booking' | 'publish';

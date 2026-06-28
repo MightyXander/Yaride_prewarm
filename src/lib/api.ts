@@ -27,6 +27,8 @@ import type {
   SubmitLicenseResponse,
   GetUserProfileResponse,
   GetUserReviewsResponse,
+  GetNotificationsResponse,
+  MarkNotificationReadResponse,
   ApiErrorResponse,
 } from '../types/api.ts';
 
@@ -199,4 +201,17 @@ export async function getUserProfile(userId: number): Promise<GetUserProfileResp
 /** GET /api/users/:id/reviews */
 export async function getUserReviews(userId: number): Promise<GetUserReviewsResponse> {
   return apiFetch<GetUserReviewsResponse>(`/users/${userId}/reviews`);
+}
+
+/** GET /api/notifications */
+export async function getNotifications(): Promise<GetNotificationsResponse> {
+  return apiFetch<GetNotificationsResponse>('/notifications');
+}
+
+/** POST /api/notifications/read */
+export async function markNotificationRead(notificationId: number): Promise<MarkNotificationReadResponse> {
+  return apiFetch<MarkNotificationReadResponse>('/notifications/read', {
+    method: 'POST',
+    body: JSON.stringify({ notificationId }),
+  });
 }

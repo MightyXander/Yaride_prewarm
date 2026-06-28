@@ -2,7 +2,6 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from './Icons';
 import { hapticImpact, hapticSelection } from '../lib/haptics';
-import { showToast } from '../lib/toast';
 import type { Screen } from '../types/navigation';
 
 // Какой таб нижней навигации владеет экраном (2 таба: Поездки / Профиль).
@@ -63,6 +62,7 @@ const SCREEN_TO_TAB: Record<Screen, NavTabRoot | null> = {
   'evening-publish': 'main',
   'habit-home': 'main',
   'user-profile': null,
+  notifications: null,
 };
 
 /** Высота pill без внешних отступов. */
@@ -85,9 +85,18 @@ export const FLOATING_NAV_SCROLL_CLEARANCE = `calc(${FLOATING_NAV_HEIGHT} + 40px
 interface FloatingNavProps {
   currentScreen: Screen;
   onNavigate: (root: NavTabRoot) => void;
+  onNotificationsClick: () => void;
 }
 
-function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNavigate: (root: NavTabRoot) => void }) {
+function FloatingNavBar({
+  activeTab,
+  onNavigate,
+  onNotificationsClick,
+}: {
+  activeTab: NavTabRoot;
+  onNavigate: (root: NavTabRoot) => void;
+  onNotificationsClick: () => void;
+}) {
   const current = ITEMS.findIndex(({ root }) => root === activeTab);
 
   return (
@@ -168,7 +177,7 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
             className="focus-ring pressable"
             onClick={() => {
               hapticImpact('light');
-              showToast('Уведомления — скоро');
+              onNotificationsClick();
             }}
             style={{
               position: 'relative',
@@ -282,13 +291,16 @@ function FloatingNavBar({ activeTab, onNavigate }: { activeTab: NavTabRoot; onNa
   );
 }
 
-export function FloatingNav({ currentScreen, onNavigate }: FloatingNavProps) {
+export function FloatingNav({ currentScreen, onNavigate, onNotificationsClick }: FloatingNavProps) {
   if (HIDDEN_ON.includes(currentScreen)) return null;
   const activeTab = SCREEN_TO_TAB[currentScreen];
   if (!activeTab) return null;
   if (typeof document === 'undefined') return null;
 
-  return createPortal(<FloatingNavBar activeTab={activeTab} onNavigate={onNavigate} />, document.body);
+  return createPortal(
+    <FloatingNavBar activeTab={activeTab} onNavigate={onNavigate} onNotificationsClick={onNotificationsClick} />,
+    document.body
+  );
 }
 
 export default FloatingNav;

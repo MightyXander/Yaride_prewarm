@@ -21,6 +21,7 @@ import RequestPublishedScreen from './screens/RequestPublishedScreen';
 import MyTripsScreen from './screens/MyTripsScreen';
 import RateTripScreen from './screens/RateTripScreen';
 import UserProfileScreen from './screens/UserProfileScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -33,6 +34,7 @@ import { formatSubtitle } from './lib/date';
 import { ProfileProvider } from './contexts/ProfileContext';
 import type { Screen } from './types/navigation';
 import type { BookingResult } from './types/api';
+import type { NotificationType } from './types/api';
 
 // Направленный слайд + fade при смене экрана. direction: 1 — вперёд, -1 — назад.
 const screenVariants = {
@@ -255,6 +257,44 @@ function App() {
       // Снимаем верхний профиль
       return prev.slice(0, -1);
     });
+  };
+
+  // Обработчик навигации из уведомлений (маршрутизация по типу)
+  const handleNotificationNavigate = (
+    type: NotificationType,
+    refTripId?: number | null,
+    refUserId?: number | null
+  ) => {
+    switch (type) {
+      case 'booking':
+        // бронь твоей поездки → DriverBookings («Мои поездки»)
+        navigate('driver-bookings');
+        break;
+      case 'booking_confirmed':
+        // твою бронь подтвердили → TripDetails
+        if (refTripId) {
+          // Пока navigate не поддерживает прямую передачу trip, переходим на my-trips
+          navigate('my-trips');
+        } else {
+          navigate('my-trips');
+        }
+        break;
+      case 'cancel':
+        // отмена водителем/пассажиром → TripDetails (или my-trips)
+        navigate('my-trips');
+        break;
+      case 'rate_reminder':
+        // напоминание оценить → RateTrip
+        if (refTripId && refUserId) {
+          navigateToRateTrip({ tripId: refTripId, rateeId: refUserId });
+        } else {
+          navigate('my-trips');
+        }
+        break;
+      default:
+        // fallback — вернуться на main
+        navigate('main');
+    }
   };
 
   // Экраны, где показываем плавающую навигацию (и резервируем под неё место).
@@ -489,12 +529,16 @@ function App() {
                 onOpenProfile={handleOpenUserProfile}
               />
             )}
+            {currentScreen === 'notifications' && (
+              <NotificationsScreen onNavigate={handleNotificationNavigate} />
+            )}
           </motion.div>
         </AnimatePresence>
         </div>
         <FloatingNav
           currentScreen={currentScreen}
           onNavigate={(root) => navigate(root === 'profile' ? 'profile' : 'main')}
+          onNotificationsClick={() => navigate('notifications')}
         />
       </div>
     </ProfileProvider>

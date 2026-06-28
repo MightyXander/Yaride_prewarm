@@ -36,6 +36,8 @@ try {
     submitLicense: mod.handleSubmitLicense,
     getUserProfile: mod.handleGetUserProfile,
     getUserReviews: mod.handleGetUserReviews,
+    getNotifications: mod.handleGetNotifications,
+    markNotificationRead: mod.handleMarkNotificationRead,
   };
   telegram = {
     sendMessage: mod.sendMessage,
@@ -156,6 +158,10 @@ app.get('/api/_debug/counts', wrap(api?.debugCounts));
 // Issue #198: публичный профиль пользователя и его отзывы.
 app.get('/api/users/:id/profile', wrap(api?.getUserProfile));
 app.get('/api/users/:id/reviews', wrap(api?.getUserReviews));
+
+// Issue #204: уведомления (NotificationsScreen).
+app.get('/api/notifications', wrap(api?.getNotifications));
+app.post('/api/notifications/read', wrap(api?.markNotificationRead));
 
 // Issue #85: Telegram webhook endpoint.
 app.post('/webhook/telegram', async (req, res) => {
