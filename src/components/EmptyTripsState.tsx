@@ -3,11 +3,10 @@
  */
 
 interface EmptyTripsStateProps {
-  timeWindow?: string;
   onLeaveRequest?: () => void;
 }
 
-const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ timeWindow = 'это время', onLeaveRequest }) => {
+const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ onLeaveRequest }) => {
   return (
     <div
       style={{
@@ -37,13 +36,8 @@ const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ timeWindow = 'это 
         <path d="M9 17h6" />
         <circle cx="17" cy="17" r="2" />
       </svg>
-      <div>
-        <div style={{ fontSize: '16px', fontWeight: 500, color: 'var(--foreground)' }}>
-          На {timeWindow} поездок нет
-        </div>
-        <div style={{ fontSize: '14px', marginTop: '4px' }}>
-          Попробуй другое время или опубликуй свою
-        </div>
+      <div style={{ fontSize: '14px' }}>
+        Попробуй другое время или опубликуй свою
       </div>
       {onLeaveRequest && (
         <button
