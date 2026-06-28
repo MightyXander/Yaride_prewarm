@@ -27,8 +27,8 @@ const HeroSkeleton: React.FC = () => {
         flexShrink: 0,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-        <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
+        <div style={{ minWidth: 0 }}>
           {/* статичный kicker — он не зависит от данных, поэтому виден сразу */}
           <div
             style={{
@@ -36,16 +36,16 @@ const HeroSkeleton: React.FC = () => {
               fontWeight: 800,
               letterSpacing: '.16em',
               textTransform: 'uppercase',
-              opacity: 0.65,
+              opacity: 0.62,
             }}
           >
             Сегодня по маршруту
           </div>
-          <Skeleton w="76%" h={17} r={7} className="on-brand" style={onBrand} />
+          <Skeleton w="76%" h={22} r={7} className="on-brand" style={onBrand} />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-          <Skeleton w={150} h={48} r={999} className="on-brand" style={onBrand} />
-          <Skeleton w={44} h={44} r={'50%'} className="on-brand" style={onBrand} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Skeleton w="100%" h={48} r={999} className="on-brand" style={{ ...onBrand, flex: '1 1 auto', minWidth: 0 }} />
+          <Skeleton w={48} h={48} r={'50%'} className="on-brand" style={{ ...onBrand, flexShrink: 0 }} />
         </div>
       </div>
     </div>
