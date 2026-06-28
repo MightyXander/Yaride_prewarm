@@ -74,6 +74,13 @@ export const FLOATING_NAV_BOTTOM = 'max(14px, env(safe-area-inset-bottom, 0px))'
  * Уменьшено для iOS-стиля: контент скроллится ПОД полупрозрачный навбар. */
 export const FLOATING_NAV_CONTENT_PADDING = `calc(env(safe-area-inset-bottom, 0px) + 12px)`;
 
+/** Нижний клиренс для собственных скролл-контейнеров (flex:1; overflow:auto).
+ * В отличие от FLOATING_NAV_CONTENT_PADDING (визуальное «подъезжание» под матовый
+ * навбар), здесь нужен полноценный отступ под высоту pill — чтобы ПОСЛЕДНИЙ
+ * интерактивный элемент (напр. кнопка «Забронировать» в раскрытой карточке)
+ * доскролливался ВЫШЕ навбара, а не оставался под ним. */
+export const FLOATING_NAV_SCROLL_CLEARANCE = `calc(${FLOATING_NAV_HEIGHT} + 40px)`;
+
 interface FloatingNavProps {
   currentScreen: Screen;
   onNavigate: (root: NavTabRoot) => void;
