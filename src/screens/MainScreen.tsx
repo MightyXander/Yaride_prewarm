@@ -7,6 +7,7 @@ import TripCardSkeleton from '../components/TripCardSkeleton';
 import HeroSkeleton from '../components/HeroSkeleton';
 import EmptyTripsState from '../components/EmptyTripsState';
 import ErrorTripsState from '../components/ErrorTripsState';
+import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { AppearList } from '../components/Appear';
 import type { Trip } from '../types/navigation';
 import type { UserRole } from '../lib/role';
@@ -62,7 +63,9 @@ const MainScreen: React.FC<MainScreenProps> = ({
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: '6px 16px 16px',
+        // Нижний клиренс под FloatingNav: последняя карточка/кнопка «Забронировать»
+        // должна доскролливаться выше навбара, а не оставаться под ним.
+        padding: `6px 16px ${FLOATING_NAV_SCROLL_CLEARANCE}`,
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
