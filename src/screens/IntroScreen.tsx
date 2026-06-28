@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { Icon } from '../components/Icons';
+import { hapticImpact } from '../lib/haptics';
 import type { UserRole } from '../lib/role';
 
+/**
+ * IntroScreen — первый вход: выбор роли (пассажир/водитель).
+ * Стиль приведён к остальному приложению:
+ *  - карточки ролей на --elevated + --shadow-card;
+ *  - выбранная: фон --accent, бренд-граница, иконка на --gradient-brand с --brand-foreground;
+ *  - кнопка «Продолжить»: --gradient-brand + --brand-foreground + --shadow-hero.
+ * Только inline-стили + токены тем. Без новых зависимостей.
+ */
 interface IntroScreenProps {
   onRoleSelect: (role: UserRole) => void;
 }
@@ -11,11 +20,11 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onRoleSelect }) => {
 
   const handleSelect = (role: UserRole) => {
     setSelectedRole(role);
-    window.Telegram?.WebApp.HapticFeedback?.impactOccurred('medium');
+    hapticImpact('medium');
   };
 
   const handleContinue = () => {
-    window.Telegram?.WebApp.HapticFeedback?.impactOccurred('light');
+    hapticImpact('light');
     onRoleSelect(selectedRole);
   };
 
@@ -23,10 +32,7 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onRoleSelect }) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       handleSelect(role);
-    } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-      e.preventDefault();
-      handleSelect(role === 'passenger' ? 'driver' : 'passenger');
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+    } else if (['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) {
       e.preventDefault();
       handleSelect(role === 'passenger' ? 'driver' : 'passenger');
     }
@@ -37,41 +43,26 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onRoleSelect }) => {
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: '6px 16px 16px',
+        padding: '18px 16px 16px',
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
       }}
     >
-      <div style={{ marginTop: '8px' }}>
-        <img
-          src="/brand/icon-192.png"
-          alt="поехали вместе"
-          width={44}
-          height={44}
-          style={{ width: '44px', height: '44px', borderRadius: '12px', display: 'block' }}
-        />
-      </div>
-      <div
-        style={{
-          fontSize: '28px',
-          lineHeight: 1.12,
-          marginTop: '4px',
-          fontWeight: 800,
-          letterSpacing: '-0.01em',
-        }}
-      >
+      <img
+        src="/brand/icon-192.png"
+        alt="поехали вместе"
+        width={48}
+        height={48}
+        style={{ width: '48px', height: '48px', borderRadius: '13px', display: 'block', marginTop: '4px' }}
+      />
+      <div style={{ fontSize: '28px', lineHeight: 1.12, marginTop: '4px', fontWeight: 800, letterSpacing: '-0.01em' }}>
         Выбери роль
       </div>
-      <div
-        style={{
-          fontSize: '15px',
-          marginTop: '-2px',
-          color: 'var(--muted-foreground)',
-        }}
-      >
+      <div style={{ fontSize: '15px', marginTop: '-2px', color: 'var(--muted-foreground)' }}>
         По одному маршруту — вместе выгоднее.
       </div>
+
       <div
         id="role-group-label"
         style={{
@@ -85,11 +76,8 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onRoleSelect }) => {
       >
         Кто ты сегодня?
       </div>
-      <div
-        role="radiogroup"
-        aria-labelledby="role-group-label"
-        style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-      >
+
+      <div role="radiogroup" aria-labelledby="role-group-label" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <RoleOption
           selected={selectedRole === 'passenger'}
           icon="i-user"
@@ -107,29 +95,23 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onRoleSelect }) => {
           onKeyDown={(e) => handleKeyDown('driver', e)}
         />
       </div>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '9px',
-          marginTop: 'auto',
-          paddingTop: '6px',
-        }}
-      >
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: 'auto', paddingTop: '6px' }}>
         <button
           onClick={handleContinue}
           className="focus-ring pressable"
           style={{
             minHeight: '52px',
             padding: '0 18px',
-            borderRadius: '14px',
-            background: 'var(--brand)',
-            color: '#fff',
+            borderRadius: '16px',
+            background: 'var(--gradient-brand)',
+            color: 'var(--brand-foreground)',
             fontSize: '15px',
             fontWeight: 700,
             border: 'none',
             cursor: 'pointer',
             fontFamily: 'var(--font-sans)',
+            boxShadow: 'var(--shadow-hero)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -154,14 +136,7 @@ interface RoleOptionProps {
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
-const RoleOption: React.FC<RoleOptionProps> = ({
-  selected,
-  icon,
-  title,
-  subtitle,
-  onSelect,
-  onKeyDown,
-}) => {
+const RoleOption: React.FC<RoleOptionProps> = ({ selected, icon, title, subtitle, onSelect, onKeyDown }) => {
   return (
     <div
       role="radio"
@@ -177,11 +152,11 @@ const RoleOption: React.FC<RoleOptionProps> = ({
         minHeight: '72px',
         padding: '0 16px',
         borderRadius: '18px',
-        background: 'var(--surface)',
+        background: selected ? 'var(--accent)' : 'var(--elevated)',
         border: `1px solid ${selected ? 'var(--brand)' : 'var(--border)'}`,
-        boxShadow: selected ? 'inset 0 0 0 1px var(--brand)' : 'none',
+        boxShadow: 'var(--shadow-card)',
         cursor: 'pointer',
-        transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+        transition: 'border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease',
       }}
     >
       <div
@@ -189,8 +164,8 @@ const RoleOption: React.FC<RoleOptionProps> = ({
           width: '48px',
           height: '48px',
           borderRadius: '12px',
-          background: selected ? 'var(--brand)' : 'var(--secondary)',
-          color: selected ? '#fff' : 'var(--foreground)',
+          background: selected ? 'var(--gradient-brand)' : 'var(--secondary)',
+          color: selected ? 'var(--brand-foreground)' : 'var(--muted-foreground)',
           display: 'grid',
           placeItems: 'center',
           fontSize: '20px',
@@ -202,14 +177,7 @@ const RoleOption: React.FC<RoleOptionProps> = ({
       </div>
       <div>
         <div style={{ fontWeight: 700, fontSize: '17px' }}>{title}</div>
-        <div
-          style={{
-            color: 'var(--muted-foreground)',
-            fontWeight: 500,
-            fontSize: '14px',
-            marginTop: '3px',
-          }}
-        >
+        <div style={{ color: 'var(--muted-foreground)', fontWeight: 500, fontSize: '14px', marginTop: '3px' }}>
           {subtitle}
         </div>
       </div>
