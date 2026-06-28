@@ -90,7 +90,7 @@ const getDemoData = () => {
 
 interface MyTripsScreenProps {
   onCreateTrip?: () => void;
-  onRateTrip?: (tripId: number, rateeId: number) => void;
+  onRateTrip?: (tripId: number, rateeId: number, raterRole: 'driver' | 'passenger') => void;
 }
 
 const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip }) => {
@@ -147,7 +147,7 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
   const handleTripClick = (trip: UserTripItem) => {
     if (activeTab === 'past' && trip.driver_id !== null) {
       hapticImpact('light');
-      onRateTrip?.(trip.trip_id, trip.driver_id);
+      onRateTrip?.(trip.trip_id, trip.driver_id, trip.role);
     }
   };
 

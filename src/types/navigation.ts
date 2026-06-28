@@ -57,6 +57,7 @@ export interface Trip {
 export interface RatingContext {
   tripId: number;
   rateeId: number;
+  raterRole: 'driver' | 'passenger';
 }
 
 export interface NavigationState {
