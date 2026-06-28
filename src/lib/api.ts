@@ -23,6 +23,8 @@ import type {
   CancelBookingResponse,
   GetRoutePointsResponse,
   GetMyTemplateResponse,
+  SubmitLicenseRequest,
+  SubmitLicenseResponse,
   ApiErrorResponse,
 } from '../types/api.ts';
 
@@ -177,4 +179,12 @@ export async function getRoutePoints(): Promise<GetRoutePointsResponse> {
 /** GET /api/me/template */
 export async function getMyTemplate(): Promise<GetMyTemplateResponse> {
   return apiFetch<GetMyTemplateResponse>('/me/template');
+}
+
+/** POST /api/me/license */
+export async function submitLicense(params: SubmitLicenseRequest): Promise<SubmitLicenseResponse> {
+  return apiFetch<SubmitLicenseResponse>('/me/license', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
 }

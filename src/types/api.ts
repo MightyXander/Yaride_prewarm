@@ -250,6 +250,21 @@ export interface GetMyTemplateResponse {
   seats_total: number;
 }
 
+// POST /api/me/license
+export interface SubmitLicenseRequest {
+  seriesNumber: string;
+  validUntil: string;
+}
+
+export interface SubmitLicenseResult {
+  requestId: number;
+  status: string;
+}
+
+export interface SubmitLicenseResponse {
+  request: SubmitLicenseResult;
+}
+
 // Ошибки
 export interface ApiErrorResponse {
   error: string;

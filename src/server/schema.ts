@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -140,6 +140,7 @@ const BOOTSTRAP_SQL = `
  * Применить одну линейную миграцию from_v → to_v.
  * v1→v2: добавление таблицы ratings + пересчёт агрегатов users.rating_avg/rating_count.
  * v2→v3: добавление car_color TEXT NULL, plate TEXT NULL в trips и trip_templates.
+ * v3→v4: добавление таблицы license_requests (модерация ВУ).
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -167,6 +168,25 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
       ALTER TABLE trips ADD COLUMN IF NOT EXISTS plate TEXT;
       ALTER TABLE trip_templates ADD COLUMN IF NOT EXISTS car_color TEXT;
       ALTER TABLE trip_templates ADD COLUMN IF NOT EXISTS plate TEXT;
+    `);
+    return;
+  }
+  if (fromV === 3 && toV === 4) {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS license_requests (
+        id SERIAL PRIMARY KEY,
+        driver_id INTEGER NOT NULL REFERENCES users(id),
+        series_number TEXT NOT NULL,
+        valid_until TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'approved', 'rejected')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        reviewed_at TIMESTAMPTZ,
+        reviewer TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_license_requests_driver ON license_requests(driver_id);
+      CREATE INDEX IF NOT EXISTS idx_license_requests_status ON license_requests(status);
     `);
     return;
   }
