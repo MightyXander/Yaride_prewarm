@@ -34,6 +34,8 @@ try {
     listRoutePoints: mod.handleListRoutePoints,
     debugCounts: mod.handleDebugCounts,
     submitLicense: mod.handleSubmitLicense,
+    getUserProfile: mod.handleGetUserProfile,
+    getUserReviews: mod.handleGetUserReviews,
   };
   telegram = {
     sendMessage: mod.sendMessage,
@@ -150,6 +152,10 @@ app.get('/api/route-points', wrap(api?.listRoutePoints));
 
 // Issue #54: debug endpoint для проверки наполнения БД (dev/прод demo-seed).
 app.get('/api/_debug/counts', wrap(api?.debugCounts));
+
+// Issue #198: публичный профиль пользователя и его отзывы.
+app.get('/api/users/:id/profile', wrap(api?.getUserProfile));
+app.get('/api/users/:id/reviews', wrap(api?.getUserReviews));
 
 // Issue #85: Telegram webhook endpoint.
 app.post('/webhook/telegram', async (req, res) => {

@@ -20,6 +20,7 @@ import PassengerRequestScreen from './screens/PassengerRequestScreen';
 import RequestPublishedScreen from './screens/RequestPublishedScreen';
 import MyTripsScreen from './screens/MyTripsScreen';
 import RateTripScreen from './screens/RateTripScreen';
+import UserProfileScreen from './screens/UserProfileScreen';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -215,11 +216,46 @@ function App() {
   // Текущая бронь (для передачи из booking-profile в booking-confirmed)
   const [currentBooking, setCurrentBooking] = useState<BookingResult | null>(null);
 
+  // Стек просмотренных профилей (для user-profile): [userId0, userId1, ...]
+  // Максимальная глубина 2 (корневой + 1 вложенный)
+  const [profileStack, setProfileStack] = useState<number[]>([]);
+
   // BackButton показываем везде, кроме «главных» (списки поездок с left-topbar
   // и нижней навигацией): intro/main/main-more/evening-main.
+  // Для user-profile: показываем BackButton всегда (даже на корневом уровне — выход из профиля).
   const showBackButton = !['intro', 'main', 'main-more', 'evening-main'].includes(
     currentScreen
   );
+
+  // Обработчики для user-profile навигации
+  const handleOpenUserProfile = (userId: number) => {
+    if (currentScreen !== 'user-profile') {
+      // Первый вход в user-profile — создаём новый стек
+      setProfileStack([userId]);
+      navigate('user-profile');
+    } else {
+      // Уже в user-profile — добавляем в стек (если глубина < 2)
+      setProfileStack((prev) => {
+        if (prev.length >= 2) {
+          // Глубина уже 2 — не добавляем
+          return prev;
+        }
+        return [...prev, userId];
+      });
+    }
+  };
+
+  const handleUserProfileBack = () => {
+    setProfileStack((prev) => {
+      if (prev.length <= 1) {
+        // Корневой уровень — выходим из user-profile
+        goBack();
+        return [];
+      }
+      // Снимаем верхний профиль
+      return prev.slice(0, -1);
+    });
+  };
 
   // Экраны, где показываем плавающую навигацию (и резервируем под неё место).
   const NAV_VISIBLE_SCREENS: Screen[] = [
@@ -228,6 +264,7 @@ function App() {
     'trip-details',
     'profile',
     'evening-main',
+    'user-profile',
   ];
   const navVisible = NAV_VISIBLE_SCREENS.includes(currentScreen);
 
@@ -242,7 +279,10 @@ function App() {
       >
         <Icons />
         <ToastHost />
-        <BackButton onClick={goBack} show={showBackButton} />
+        <BackButton
+          onClick={currentScreen === 'user-profile' ? handleUserProfileBack : goBack}
+          show={showBackButton}
+        />
         {splashVisible && (
           <Splash
             onHide={splashHiding}
@@ -324,6 +364,7 @@ function App() {
                   setMainDirection((prev) => (prev === 'morning' ? 'evening' : 'morning'));
                 }}
                 userRole={userRole ?? 'passenger'}
+                onOpenProfile={handleOpenUserProfile}
               />
             )}
             {currentScreen === 'main-more' && (
@@ -337,10 +378,11 @@ function App() {
                 onPublish={() => navigate('driver-publish')}
                 onLeaveRequest={() => navigate('passenger-request')}
                 userRole={userRole ?? 'passenger'}
+                onOpenProfile={handleOpenUserProfile}
               />
             )}
             {currentScreen === 'trip-details' && selectedTrip && (
-              <TripDetailsScreen trip={selectedTrip} onBook={() => navigate('booking-profile')} />
+              <TripDetailsScreen trip={selectedTrip} onBook={() => navigate('booking-profile')} onOpenProfile={handleOpenUserProfile} />
             )}
             {currentScreen === 'booking-profile' && selectedTrip && (
               <BookingProfileScreen
@@ -375,6 +417,7 @@ function App() {
                 onMyTrips={() => navigate('my-trips')}
                 onToggleTheme={toggleTheme}
                 theme={theme}
+                onOpenProfile={handleOpenUserProfile}
               />
             )}
             {currentScreen === 'driver-bookings' && (
@@ -425,6 +468,7 @@ function App() {
                 onPublish={() => navigate('evening-publish')}
                 onLeaveRequest={() => navigate('passenger-request')}
                 userRole={userRole ?? 'passenger'}
+                onOpenProfile={handleOpenUserProfile}
               />
             )}
             {currentScreen === 'evening-publish' && (
@@ -436,6 +480,13 @@ function App() {
                 defaultPickup="volkova"
                 reverse={true}
                 onPublish={(tripId) => navigate('booking-confirmed', null, 'publish', tripId)}
+              />
+            )}
+            {currentScreen === 'user-profile' && profileStack.length > 0 && (
+              <UserProfileScreen
+                userId={profileStack[profileStack.length - 1]}
+                depth={profileStack.length - 1}
+                onOpenProfile={handleOpenUserProfile}
               />
             )}
           </motion.div>

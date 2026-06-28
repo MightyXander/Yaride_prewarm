@@ -26,6 +26,7 @@ interface MainScreenProps {
   onRetry?: () => void;
   onToggleDirection?: () => void;
   userRole?: UserRole;
+  onOpenProfile?: (userId: number) => void;
 }
 
 const MainScreen: React.FC<MainScreenProps> = ({
@@ -41,6 +42,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
   onRetry,
   onToggleDirection,
   userRole = 'passenger',
+  onOpenProfile,
 }) => {
   const firstTripRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -124,6 +126,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                     expanded={expandedId === trip.id}
                     onToggle={() => setExpandedId((prev) => (prev === trip.id ? null : trip.id))}
                     onBook={() => onTripClick(trip)}
+                    onOpenProfile={onOpenProfile}
                   />
                 ))}
               </AppearList>

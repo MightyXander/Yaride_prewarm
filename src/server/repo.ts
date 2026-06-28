@@ -586,6 +586,82 @@ export async function getUserProfile(tgUserId: number): Promise<UserProfile | nu
   return res.rows[0] ?? null;
 }
 
+export interface PublicUserProfile {
+  id: number;
+  name: string;
+  age: number | null;
+  trips_count: number;
+  rating: number;
+  rating_count: number;
+  joined_at: string;
+  is_driver: boolean;
+  license_verified: boolean;
+}
+
+/**
+ * Публичный профиль пользователя по внутреннему id (для GET /api/users/:id/profile).
+ * Возвращает null если пользователь не найден.
+ */
+export async function getPublicUserProfile(userId: number): Promise<PublicUserProfile | null> {
+  await ensureReady();
+  const res = await getPool().query<{
+    id: number;
+    name: string;
+    age: number | null;
+    trips_driver_count: number;
+    trips_passenger_count: number;
+    rating_avg: number;
+    rating_count: number;
+    created_at: string;
+    license_status: string;
+  }>(
+    `SELECT id, name, age, trips_driver_count, trips_passenger_count, rating_avg, rating_count, created_at, license_status
+     FROM users WHERE id = $1`,
+    [userId],
+  );
+  const row = res.rows[0];
+  if (!row) {
+    return null;
+  }
+  return {
+    id: row.id,
+    name: row.name,
+    age: row.age,
+    trips_count: row.trips_driver_count + row.trips_passenger_count,
+    rating: row.rating_avg,
+    rating_count: row.rating_count,
+    joined_at: row.created_at,
+    is_driver: row.trips_driver_count > 0,
+    license_verified: row.license_status === 'verified',
+  };
+}
+
+export interface UserReview {
+  author_id: number;
+  author_name: string;
+  stars: number;
+  comment: string | null;
+  tags: string | null;
+  created_at: string;
+}
+
+/**
+ * Список отзывов о пользователе (для GET /api/users/:id/reviews).
+ * Возвращает отзывы, отсортированные по дате (новые — первыми).
+ */
+export async function listUserReviews(userId: number): Promise<UserReview[]> {
+  await ensureReady();
+  const res = await getPool().query<UserReview>(
+    `SELECT r.rater_id AS author_id, u.name AS author_name, r.stars, r.comment, r.tags, r.created_at
+     FROM ratings r
+     JOIN users u ON u.id = r.rater_id
+     WHERE r.ratee_id = $1
+     ORDER BY r.created_at DESC`,
+    [userId],
+  );
+  return res.rows;
+}
+
 export interface UserTripItem {
   trip_id: number;
   role: 'driver' | 'passenger';

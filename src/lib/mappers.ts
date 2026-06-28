@@ -30,6 +30,7 @@ export function mapTripListItemToTrip(item: TripListItem): Trip {
   return {
     id: String(item.id),
     driver: {
+      id: item.driver_id,
       name: item.driver_name,
       rating: item.driver_rating,
       tripCount: item.driver_trips_count,
