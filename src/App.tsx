@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icons } from './components/Icons';
 import BackButton from './components/BackButton';
 import { ToastHost } from './components/ToastHost';
+import Splash from './components/Splash';
 import IntroScreen from './screens/IntroScreen';
 import MainScreen from './screens/MainScreen';
 import TripDetailsScreen from './screens/TripDetailsScreen';
@@ -71,6 +72,10 @@ function App() {
 
   // Определяем начальный экран: если роль уже выбрана — сразу main, иначе intro.
   const initialScreen: Screen = userRole ? 'main' : 'intro';
+
+  // Splash-состояние: показываем при старте, скрываем когда данные готовы или прошло время
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashHiding, setSplashHiding] = useState(false);
 
   const { currentScreen, selectedTrip, confirmKind, ratingContext, publishedTripId, direction, navigate, navigateToRateTrip, goBack } =
     useNavigation(initialScreen);
@@ -175,6 +180,44 @@ function App() {
   const eveningTrips =
     eveningTripsState.status === 'success' ? eveningTripsState.data : [];
 
+  // Управление splash: скрываем когда данные готовы или прошло ~2.5с
+  useEffect(() => {
+    // Проверяем готовность данных (не loading и не idle)
+    const dataReady =
+      routePointsState.status !== 'loading' &&
+      routePointsState.status !== 'idle' &&
+      morningTripsState.status !== 'loading' &&
+      morningTripsState.status !== 'idle' &&
+      eveningTripsState.status !== 'loading' &&
+      eveningTripsState.status !== 'idle';
+
+    // Минимальное время показа splash ~2.5с
+    const minDisplayTimer = setTimeout(() => {
+      if (splashVisible) {
+        setSplashHiding(true);
+      }
+    }, 2500);
+
+    // Если данные готовы раньше — всё равно ждём минимум
+    if (dataReady && splashVisible) {
+      // Не скрываем мгновенно, ждём минимум времени
+      const checkTimer = setTimeout(() => {
+        setSplashHiding(true);
+      }, 2500);
+      return () => {
+        clearTimeout(minDisplayTimer);
+        clearTimeout(checkTimer);
+      };
+    }
+
+    return () => clearTimeout(minDisplayTimer);
+  }, [
+    routePointsState.status,
+    morningTripsState.status,
+    eveningTripsState.status,
+    splashVisible,
+  ]);
+
   // Текущая бронь (для передачи из booking-profile в booking-confirmed)
   const [currentBooking, setCurrentBooking] = useState<BookingResult | null>(null);
 
@@ -206,6 +249,12 @@ function App() {
         <Icons />
         <ToastHost />
         <BackButton onClick={goBack} show={showBackButton} />
+        {splashVisible && (
+          <Splash
+            onHide={splashHiding}
+            onHidden={() => setSplashVisible(false)}
+          />
+        )}
         <div
           style={{
             maxWidth: isDesktop ? '430px' : 'none',
