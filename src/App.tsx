@@ -180,9 +180,12 @@ function App() {
   const eveningTrips =
     eveningTripsState.status === 'success' ? eveningTripsState.data : [];
 
-  // Управление splash: скрываем когда данные готовы или прошло ~2.5с
+  // Splash уходит как только данные готовы (дав лого ~0.6с проявиться),
+  // но не позже ~2.5с — жёсткий cap на медленных/зависших данных.
   useEffect(() => {
-    // Проверяем готовность данных (не loading и не idle)
+    if (!splashVisible) return;
+
+    // Готовность данных: ни один источник не в loading/idle.
     const dataReady =
       routePointsState.status !== 'loading' &&
       routePointsState.status !== 'idle' &&
@@ -191,26 +194,17 @@ function App() {
       eveningTripsState.status !== 'loading' &&
       eveningTripsState.status !== 'idle';
 
-    // Минимальное время показа splash ~2.5с
-    const minDisplayTimer = setTimeout(() => {
-      if (splashVisible) {
-        setSplashHiding(true);
-      }
-    }, 2500);
+    // Потолок: уйти не позже ~2.5с в любом случае.
+    const capTimer = setTimeout(() => setSplashHiding(true), 2500);
+    // Данные готовы — уходим раньше (минимальный показ ~0.6с под анимацию лого).
+    const readyTimer = dataReady
+      ? setTimeout(() => setSplashHiding(true), 600)
+      : undefined;
 
-    // Если данные готовы раньше — всё равно ждём минимум
-    if (dataReady && splashVisible) {
-      // Не скрываем мгновенно, ждём минимум времени
-      const checkTimer = setTimeout(() => {
-        setSplashHiding(true);
-      }, 2500);
-      return () => {
-        clearTimeout(minDisplayTimer);
-        clearTimeout(checkTimer);
-      };
-    }
-
-    return () => clearTimeout(minDisplayTimer);
+    return () => {
+      clearTimeout(capTimer);
+      if (readyTimer) clearTimeout(readyTimer);
+    };
   }, [
     routePointsState.status,
     morningTripsState.status,
