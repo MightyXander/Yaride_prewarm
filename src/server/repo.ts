@@ -36,6 +36,8 @@ export interface TripListItem {
   driver_trips_count: number;
   driver_license_status: string;
   is_own: boolean;
+  car_color: string | null;
+  plate: string | null;
 }
 
 export interface TripCard extends TripListItem {
@@ -93,6 +95,8 @@ function buildTripListSelect(currentUserId?: number): string {
     u.rating_count AS driver_rating_count,
     u.trips_driver_count AS driver_trips_count,
     u.license_status AS driver_license_status,
+    t.car_color,
+    t.plate,
     ${isOwnExpr}
   FROM trips t
   JOIN route_points sp ON sp.id = t.start_point_id
@@ -159,6 +163,8 @@ export async function getTripCard(tripId: number, currentUserId?: number): Promi
       (t.seats_total - t.seats_booked) AS seats_available,
       t.status,
       t.comment,
+      t.car_color,
+      t.plate,
       t.start_point_id,
       t.end_point_id,
       sp.title AS start_title,
@@ -350,6 +356,8 @@ export interface TripTemplate {
   price_rub: number;
   seats_total: number;
   comment: string | null;
+  car_color: string | null;
+  plate: string | null;
 }
 
 /** Шаблоны поездок водителя (по telegram-id). Пусто, если профиля/шаблонов нет. */
@@ -359,7 +367,8 @@ export async function listTripTemplates(
   await ensureReady();
   const res = await getPool().query<TripTemplate>(
     `SELECT tt.id, tt.driver_id, tt.start_point_id, tt.end_point_id,
-            tt.time_slot, tt.price_rub, tt.seats_total, tt.comment
+            tt.time_slot, tt.price_rub, tt.seats_total, tt.comment,
+            tt.car_color, tt.plate
      FROM trip_templates tt
      JOIN users u ON u.id = tt.driver_id
      WHERE u.tg_user_id = $1
@@ -404,7 +413,7 @@ export async function createTripFromTemplate(
 
     const tplRes = await client.query<TripTemplate>(
       `SELECT id, driver_id, start_point_id, end_point_id, time_slot,
-              price_rub, seats_total, comment
+              price_rub, seats_total, comment, car_color, plate
        FROM trip_templates WHERE id = $1 AND driver_id = $2`,
       [params.templateId, driverId],
     );
@@ -424,8 +433,8 @@ export async function createTripFromTemplate(
     const ins = await client.query<{ id: number }>(
       `INSERT INTO trips(driver_id, start_point_id, end_point_id, trip_date,
                          departure_time, time_slot, price_rub, seats_total,
-                         comment, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')
+                         comment, car_color, plate, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'open')
        RETURNING id`,
       [
         driverId,
@@ -437,6 +446,8 @@ export async function createTripFromTemplate(
         tpl.price_rub,
         tpl.seats_total,
         tpl.comment,
+        tpl.car_color,
+        tpl.plate,
       ],
     );
 
