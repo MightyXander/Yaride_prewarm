@@ -11,11 +11,11 @@
 }
 
 .light {
-  --background: #f5f5f7;
+  --background: #f6f5f1;
   --foreground: #0f0f10;
-  --surface: #fff;
-  --elevated: #fff;
-  --card: #fff;
+  --surface: #fffefa;
+  --elevated: #fffefa;
+  --card: #fffefa;
   --muted: #e7e7ec;
   --muted-foreground: #6e6e73;
   --secondary: #ebebed;
@@ -42,7 +42,7 @@
   --elevated: #202026;
   --card: #1c1c21;
   --muted: #2a2a31;
-  --muted-foreground: #a3a3ad;
+  --muted-foreground: #b3b3bd;
   --secondary: #26262d;
   --secondary-foreground: #f5f5f7;
   --accent: #332f1c;
