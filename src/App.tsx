@@ -319,7 +319,7 @@ function App() {
                 trip={selectedTrip}
                 booking={confirmKind === 'booking' ? currentBooking : null}
                 publishedTripId={confirmKind === 'publish' ? publishedTripId ?? undefined : undefined}
-                onDone={() => navigate('main-more')}
+                onDone={() => navigate('main')}
                 onViewBookings={() => navigate('driver-bookings')}
                 onStartTrip={() => navigate('in-trip')}
               />
