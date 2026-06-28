@@ -2,10 +2,8 @@ import { forwardRef, useState } from 'react';
 import { Icon } from './Icons';
 import Card from './ui/Card';
 import Avatar from './ui/Avatar';
-import Chip from './ui/Chip';
 import Button from './ui/Button';
 import { showToast } from '../lib/toast';
-import { pluralize } from '../lib/plural';
 
 interface TripCardProps {
   driver: {
@@ -28,16 +26,21 @@ interface TripCardProps {
   onToggle: () => void;
   onBook: () => void;
   isOwn: boolean;
+  carColor: string | null;
+  plate: string | null;
 }
 
 const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
-  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook, isOwn }, ref) => {
+  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook, isOwn, carColor, plate }, ref) => {
     const [pressed, setPressed] = useState(false);
 
     const seatsLabel = seats === 1 ? 'место' : seats < 5 ? 'места' : 'мест';
     const from = route?.from || `Брагино, ${address}`;
     const to = route?.to || 'Центр, пл. Волкова';
     const duration = route?.duration || '22 мин';
+
+    // Извлечь только улицу из адреса (убрать район)
+    const street = address.split(',')[0]?.trim() || address;
 
     const handleBook = (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
@@ -81,55 +84,109 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
               alignItems: 'flex-start',
             }}
           >
-            <Avatar label={driver.avatar} rating={driver.rating} />
-            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            {/* Колонка 1: аватар + счётчик поездок под ним */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '9px', flexShrink: 0 }}>
+              <Avatar label={driver.avatar} rating={driver.rating} />
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  color: 'var(--muted-foreground)',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  whiteSpace: 'nowrap',
+                }}
+                title="совершено поездок"
+              >
+                <Icon
+                  id="i-car"
+                  style={{ width: '12px', height: '12px', display: 'inline-block' }}
+                />
+                {driver.tripCount}
+              </span>
+            </div>
+
+            {/* Колонка 2: имя, адрес-улица, модель·цвет + госномер */}
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div
                 style={{
                   fontWeight: 700,
                   fontSize: '17px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '7px',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
+                  display: 'block',
+                  maxWidth: '100%',
                 }}
               >
-                {driver.name}{' '}
-                <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '15px' }}>
-                  <Icon
-                    id="i-car"
-                    style={{ width: '12px', height: '12px', display: 'inline-block', marginRight: '3px' }}
-                  />
-                  {driver.tripCount} {pluralize(driver.tripCount, 'поездка', 'поездки', 'поездок')}
-                </span>
+                {driver.name}
               </div>
               <div
                 style={{
                   fontSize: '15px',
                   color: 'var(--muted-foreground)',
-                  lineHeight: 1.4,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: 'block',
+                  maxWidth: '100%',
                 }}
               >
-                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{address}</div>
+                {street}
               </div>
               <div
                 style={{
-                  fontSize: '15px',
-                  color: 'var(--muted-foreground)',
                   display: 'flex',
-                  gap: '10px',
-                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: '8px',
+                  minWidth: 0,
                 }}
               >
-                <span>{car}</span>
-                <span>≈{price} ₽</span>
+                <span
+                  style={{
+                    fontSize: '14px',
+                    color: 'var(--muted-foreground)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: 'block',
+                    flex: '1 1 auto',
+                    minWidth: 0,
+                  }}
+                >
+                  {car}
+                  {carColor ? ` · ${carColor}` : ''}
+                </span>
+                {plate && (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      height: '19px',
+                      padding: '0 7px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '4px',
+                      background: 'color-mix(in srgb, var(--foreground) 6%, var(--card))',
+                      fontWeight: 800,
+                      fontSize: '11px',
+                      letterSpacing: '0.03em',
+                      color: 'var(--foreground)',
+                      fontVariantNumeric: 'tabular-nums',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {plate}
+                  </span>
+                )}
               </div>
             </div>
+
+            {/* Колонка 3: время + кнопка с ценой и местами */}
             <div
               style={{
                 flexShrink: 0,
-                width: '58px',
+                minWidth: '58px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'flex-end',
@@ -146,9 +203,42 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
               >
                 {time}
               </div>
-              <Chip variant="brand">
-                {seats} {seatsLabel}
-              </Chip>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '2px',
+                  minHeight: '36px',
+                  padding: '5px 13px',
+                  borderRadius: '13px',
+                  background: 'var(--secondary)',
+                  color: 'var(--foreground)',
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span
+                  style={{
+                    fontWeight: 800,
+                    fontSize: '14px',
+                    letterSpacing: '-0.01em',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  ≈{price} ₽
+                </span>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    fontSize: '10.5px',
+                    color: 'var(--muted-foreground)',
+                  }}
+                >
+                  {seats} {seatsLabel}
+                </span>
+              </span>
             </div>
           </div>
 
