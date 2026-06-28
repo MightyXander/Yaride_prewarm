@@ -5,6 +5,7 @@ import Chip from '../components/ui/Chip';
 import Header from '../components/Header';
 import Select from '../components/ui/Select';
 import type { SelectOption } from '../components/ui/Select';
+import { Skeleton } from '../components/ui/Skeleton';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
 import { createAlert, getRoutePoints } from '../lib/api';
 import { ApiException } from '../lib/api';
@@ -196,14 +197,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
         {isLoadingPoints ? (
           <Card>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <Select
-                options={[]}
-                value=""
-                onChange={() => {}}
-                placeholder="Загрузка..."
-                aria-label="Точка отправления"
-                disabled
-              />
+              <Skeleton h={48} r={16} />
 
               <div
                 style={{
@@ -213,14 +207,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
                 }}
               />
 
-              <Select
-                options={[]}
-                value=""
-                onChange={() => {}}
-                placeholder="Загрузка..."
-                aria-label="Точка назначения"
-                disabled
-              />
+              <Skeleton h={48} r={16} />
             </div>
           </Card>
         ) : pointsError ? (

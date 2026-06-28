@@ -4,6 +4,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import { Skeleton } from '../components/ui/Skeleton';
 import { hapticSelection, hapticImpact } from '../lib/haptics';
 import { getMyTrips, ApiException } from '../lib/api';
 import type { UserTripItem } from '../types/api';
@@ -256,42 +257,10 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
             <>
               {[1, 2].map((i) => (
                 <Card key={i} style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '140px', marginBottom: '12px' }}>
-                  <div
-                    style={{
-                      height: '16px',
-                      width: '50%',
-                      borderRadius: '8px',
-                      background: 'var(--secondary)',
-                      animation: 'pulse 1.5s ease-in-out infinite',
-                    }}
-                  />
-                  <div
-                    style={{
-                      height: '20px',
-                      width: '70%',
-                      borderRadius: '10px',
-                      background: 'var(--secondary)',
-                      animation: 'pulse 1.5s ease-in-out infinite',
-                    }}
-                  />
-                  <div
-                    style={{
-                      height: '14px',
-                      width: '90%',
-                      borderRadius: '7px',
-                      background: 'var(--secondary)',
-                      animation: 'pulse 1.5s ease-in-out infinite',
-                    }}
-                  />
-                  <div
-                    style={{
-                      height: '14px',
-                      width: '90%',
-                      borderRadius: '7px',
-                      background: 'var(--secondary)',
-                      animation: 'pulse 1.5s ease-in-out infinite',
-                    }}
-                  />
+                  <Skeleton h={16} w="50%" r={8} />
+                  <Skeleton h={20} w="70%" r={10} />
+                  <Skeleton h={14} w="90%" r={7} />
+                  <Skeleton h={14} w="90%" r={7} />
                 </Card>
               ))}
             </>
