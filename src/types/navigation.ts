@@ -21,7 +21,8 @@ export type Screen =
   | 'rate-trip'
   | 'evening-main'
   | 'evening-publish'
-  | 'habit-home';
+  | 'habit-home'
+  | 'user-profile';
 
 // Откуда пришли на экран подтверждения (бронь пассажира или публикация водителя)
 export type ConfirmKind = 'booking' | 'publish';
@@ -29,6 +30,7 @@ export type ConfirmKind = 'booking' | 'publish';
 export interface Trip {
   id: string;
   driver: {
+    id?: number;
     name: string;
     rating: number;
     tripCount: number;

@@ -55,6 +55,8 @@ export {
   handleListRoutePoints,
   handleDebugCounts,
   handleSubmitLicense,
+  handleGetUserProfile,
+  handleGetUserReviews,
 } from './api.ts';
 export type { ApiRequest, ApiResponse } from './api.ts';
 

@@ -31,9 +31,11 @@ interface ProfileScreenProps {
   onToggleTheme?: () => void;
   /** Текущая тема. */
   theme?: 'light' | 'dark';
+  /** Открыть публичный профиль пользователя. */
+  onOpenProfile?: (userId: number) => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onToggleTheme, theme }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onToggleTheme, theme, onOpenProfile }) => {
   const { profile, loading } = useProfile();
 
   const avatar = profile ? profile.name.charAt(0).toUpperCase() : 'Н';
@@ -43,11 +45,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
   const tripCount = (profile?.trips_driver_count ?? 0) + (profile?.trips_passenger_count ?? 0);
   const licenseStatus = profile?.license_status;
   const licenseVerified = licenseStatus === 'verified';
+  const userId = profile?.id;
 
   // Логика кнопки «Стать водителем» / «Заполнить заново»
   const shouldShowDriverButton = licenseStatus !== 'verified' && licenseStatus !== 'pending';
   const isLicenseRejected = licenseStatus === 'rejected' || licenseStatus === 'declined';
   const driverButtonLabel = isLicenseRejected ? 'Заполнить заново' : 'Стать водителем';
+
+  const handleAvatarClick = (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation();
+    if (userId && onOpenProfile) {
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+      onOpenProfile(userId);
+    }
+  };
 
   return (
     <div
@@ -118,7 +129,25 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
       ) : (
         <>
           <Card style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '14px' }}>
-            <Avatar label={avatar} rating={rating} size={54} />
+            <div
+              role={userId && onOpenProfile ? 'button' : undefined}
+              tabIndex={userId && onOpenProfile ? 0 : undefined}
+              aria-label={userId && onOpenProfile ? `Открыть публичный профиль ${name}` : undefined}
+              onClick={userId && onOpenProfile ? handleAvatarClick : undefined}
+              onKeyDown={userId && onOpenProfile ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleAvatarClick(e);
+                }
+              } : undefined}
+              style={{
+                cursor: userId && onOpenProfile ? 'pointer' : 'default',
+                flexShrink: 0,
+              }}
+              className={userId && onOpenProfile ? 'focus-ring pressable' : undefined}
+            >
+              <Avatar label={avatar} rating={rating} size={54} />
+            </div>
             <div style={{ minWidth: 0, flex: 1 }}>
               {/* Имя + возраст: зарезервированная высота строки */}
               <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.4 }}>

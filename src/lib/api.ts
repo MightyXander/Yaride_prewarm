@@ -25,6 +25,8 @@ import type {
   GetMyTemplateResponse,
   SubmitLicenseRequest,
   SubmitLicenseResponse,
+  GetUserProfileResponse,
+  GetUserReviewsResponse,
   ApiErrorResponse,
 } from '../types/api.ts';
 
@@ -187,4 +189,14 @@ export async function submitLicense(params: SubmitLicenseRequest): Promise<Submi
     method: 'POST',
     body: JSON.stringify(params),
   });
+}
+
+/** GET /api/users/:id/profile */
+export async function getUserProfile(userId: number): Promise<GetUserProfileResponse> {
+  return apiFetch<GetUserProfileResponse>(`/users/${userId}/profile`);
+}
+
+/** GET /api/users/:id/reviews */
+export async function getUserReviews(userId: number): Promise<GetUserReviewsResponse> {
+  return apiFetch<GetUserReviewsResponse>(`/users/${userId}/reviews`);
 }

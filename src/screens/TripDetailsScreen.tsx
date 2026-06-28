@@ -10,9 +10,10 @@ import type { Trip } from '../types/navigation';
 interface TripDetailsScreenProps {
   trip: Trip;
   onBook: () => void;
+  onOpenProfile?: (userId: number) => void;
 }
 
-const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) => {
+const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onOpenProfile }) => {
   const age = trip.driver.age || 34;
   const verified = trip.driver.verified !== false;
   const memberSince = trip.driver.memberSince || 'мая 2026';
@@ -23,6 +24,15 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
       return;
     }
     onBook();
+  };
+
+  const handleAvatarClick = (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation();
+    const driverId = (trip.driver as { id?: number }).id;
+    if (driverId && onOpenProfile) {
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+      onOpenProfile(driverId);
+    }
   };
 
   return (
@@ -46,7 +56,25 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook }) =
           alignItems: 'center',
         }}
       >
-        <Avatar label={trip.driver.avatar} rating={trip.driver.rating} size={54} />
+        <div
+          role={(trip.driver as { id?: number }).id && onOpenProfile ? 'button' : undefined}
+          tabIndex={(trip.driver as { id?: number }).id && onOpenProfile ? 0 : undefined}
+          aria-label={(trip.driver as { id?: number }).id && onOpenProfile ? `Открыть профиль ${trip.driver.name}` : undefined}
+          onClick={(trip.driver as { id?: number }).id && onOpenProfile ? handleAvatarClick : undefined}
+          onKeyDown={(trip.driver as { id?: number }).id && onOpenProfile ? (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleAvatarClick(e);
+            }
+          } : undefined}
+          style={{
+            cursor: (trip.driver as { id?: number }).id && onOpenProfile ? 'pointer' : 'default',
+            flexShrink: 0,
+          }}
+          className={(trip.driver as { id?: number }).id && onOpenProfile ? 'focus-ring pressable' : undefined}
+        >
+          <Avatar label={trip.driver.avatar} rating={trip.driver.rating} size={54} />
+        </div>
         <div>
           <div style={{ fontSize: '17px', fontWeight: 700 }}>{trip.driver.name}</div>
           <div

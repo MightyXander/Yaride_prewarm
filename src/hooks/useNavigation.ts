@@ -25,6 +25,7 @@ const PARENT_SCREEN: Record<Screen, Screen> = {
   'evening-main': 'habit-home',
   'evening-publish': 'evening-main',
   'habit-home': 'profile',
+  'user-profile': 'main',
 };
 
 export const useNavigation = (initialScreen: Screen = 'intro') => {
@@ -60,6 +61,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       'evening-main': 0,
       'evening-publish': 0,
       'habit-home': 0,
+      'user-profile': 0,
     },
   });
 

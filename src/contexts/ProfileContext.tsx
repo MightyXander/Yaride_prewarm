@@ -10,6 +10,7 @@ import {
 
 // Демо-данные для браузера без Telegram (graceful fallback при 401).
 const DEMO_PROFILE: UserProfile = {
+  id: 1,
   name: 'Никита Р.',
   age: 28,
   rating_avg: 4.9,

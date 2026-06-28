@@ -62,6 +62,7 @@ const SCREEN_TO_TAB: Record<Screen, NavTabRoot | null> = {
   'evening-main': 'main',
   'evening-publish': 'main',
   'habit-home': 'main',
+  'user-profile': null,
 };
 
 /** Высота pill без внешних отступов. */

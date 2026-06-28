@@ -122,6 +122,7 @@ export interface PublishTripResponse {
 
 // GET /api/me/profile
 export interface UserProfile {
+  id: number;
   name: string;
   age: number | null;
   rating_avg: number;
@@ -263,6 +264,37 @@ export interface SubmitLicenseResult {
 
 export interface SubmitLicenseResponse {
   request: SubmitLicenseResult;
+}
+
+// GET /api/users/:id/profile
+export interface PublicUserProfile {
+  id: number;
+  name: string;
+  age: number | null;
+  trips_count: number;
+  rating: number;
+  rating_count: number;
+  joined_at: string;
+  is_driver: boolean;
+  license_verified: boolean;
+}
+
+export interface GetUserProfileResponse {
+  profile: PublicUserProfile;
+}
+
+// GET /api/users/:id/reviews
+export interface UserReview {
+  author_id: number;
+  author_name: string;
+  stars: number;
+  comment: string | null;
+  tags: string | null;
+  created_at: string;
+}
+
+export interface GetUserReviewsResponse {
+  reviews: UserReview[];
 }
 
 // Ошибки

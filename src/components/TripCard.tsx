@@ -11,6 +11,7 @@ interface TripCardProps {
     rating: number;
     tripCount: number;
     avatar: string;
+    id?: number;
   };
   address: string;
   car: string;
@@ -28,10 +29,11 @@ interface TripCardProps {
   isOwn: boolean;
   carColor: string | null;
   plate: string | null;
+  onOpenProfile?: (userId: number) => void;
 }
 
 const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
-  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook, isOwn, carColor, plate }, ref) => {
+  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook, isOwn, carColor, plate, onOpenProfile }, ref) => {
     const [pressed, setPressed] = useState(false);
 
     const seatsLabel = seats === 1 ? 'место' : seats < 5 ? 'места' : 'мест';
@@ -49,6 +51,14 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
         return;
       }
       onBook();
+    };
+
+    const handleAvatarClick = (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.stopPropagation();
+      if (driver.id && onOpenProfile) {
+        window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+        onOpenProfile(driver.id);
+      }
     };
 
     return (
@@ -86,7 +96,24 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
           >
             {/* Колонка 1: аватар + счётчик поездок под ним */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '9px', flexShrink: 0 }}>
-              <Avatar label={driver.avatar} rating={driver.rating} />
+              <div
+                role={driver.id && onOpenProfile ? 'button' : undefined}
+                tabIndex={driver.id && onOpenProfile ? 0 : undefined}
+                aria-label={driver.id && onOpenProfile ? `Открыть профиль ${driver.name}` : undefined}
+                onClick={driver.id && onOpenProfile ? handleAvatarClick : undefined}
+                onKeyDown={driver.id && onOpenProfile ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleAvatarClick(e);
+                  }
+                } : undefined}
+                style={{
+                  cursor: driver.id && onOpenProfile ? 'pointer' : 'default',
+                }}
+                className={driver.id && onOpenProfile ? 'focus-ring pressable' : undefined}
+              >
+                <Avatar label={driver.avatar} rating={driver.rating} />
+              </div>
               <span
                 style={{
                   display: 'inline-flex',

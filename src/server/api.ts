@@ -40,6 +40,8 @@ import {
   listRoutePoints,
   getOrCreateDriverTemplate,
   submitLicenseRequest,
+  getPublicUserProfile,
+  listUserReviews,
   type FindTripsParams,
   type TimeSlot,
   type TripStatusFilter,
@@ -445,6 +447,7 @@ export async function handleGetMyProfile(req: ApiRequest): Promise<ApiResponse> 
     status: 200,
     body: {
       profile: {
+        id: profile.id,
         name: profile.name,
         age: profile.age,
         rating_avg: profile.rating_avg,
@@ -717,4 +720,46 @@ export async function handleSubmitLicense(req: ApiRequest): Promise<ApiResponse>
     const status = message.includes('не найден') ? 404 : 400;
     return err(status, message);
   }
+}
+
+/**
+ * GET /api/users/:id/profile — публичный профиль пользователя по внутреннему id.
+ * Требует initData-auth (как остальные эндпоинты Mini App).
+ */
+export async function handleGetUserProfile(req: ApiRequest): Promise<ApiResponse> {
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+
+  const userId = toPositiveInt(req.params.id);
+  if (userId === undefined) {
+    return err(400, 'Некорректный id пользователя');
+  }
+
+  const profile = await getPublicUserProfile(userId);
+  if (profile === null) {
+    return err(404, 'Пользователь не найден');
+  }
+
+  return { status: 200, body: { profile } };
+}
+
+/**
+ * GET /api/users/:id/reviews — отзывы о пользователе по внутреннему id.
+ * Требует initData-auth (как остальные эндпоинты Mini App).
+ */
+export async function handleGetUserReviews(req: ApiRequest): Promise<ApiResponse> {
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+
+  const userId = toPositiveInt(req.params.id);
+  if (userId === undefined) {
+    return err(400, 'Некорректный id пользователя');
+  }
+
+  const reviews = await listUserReviews(userId);
+  return { status: 200, body: { reviews } };
 }
