@@ -130,13 +130,14 @@ const Hero: React.FC<HeroProps> = ({ title, subtitle, ctaText, onCtaClick, onTog
                 display: 'grid',
                 placeItems: 'center',
                 color: '#f5f5f7',
-                fontSize: '18px',
                 border: 'none',
                 cursor: 'pointer',
                 flexShrink: 0,
               }}
             >
-              ⇄
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M7 4v16M7 4L4 7m3-3l3 3M17 20V4m0 16l3-3m-3 3l-3-3" />
+              </svg>
             </button>
           )}
           {onPublish && showPublish && (

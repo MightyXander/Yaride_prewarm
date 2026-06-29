@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Icon } from './Icons';
 import { hapticImpact, hapticSelection } from '../lib/haptics';
 import type { Screen } from '../types/navigation';
@@ -103,6 +103,7 @@ function FloatingNavBar({
   // На экране уведомлений активна подсветка колокола → pill уезжает в первую ячейку (current = -1).
   const bellActive = activeTab === 'notifications';
   const current = ITEMS.findIndex(({ root }) => root === activeTab);
+  const prefersReduced = useReducedMotion();
 
   return (
     <div
@@ -171,7 +172,7 @@ function FloatingNavBar({
               background: 'var(--gradient-brand)',
               boxShadow: '0 4px 14px -4px rgba(255, 210, 40, 0.55)',
               transform: `translateX(calc(${current + 1} * (100% + 0.25rem)))`,
-              transition: 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
+              transition: prefersReduced ? 'none' : 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           />
           {/* Колокол уведомлений — слева, действие (не таб) */}
@@ -275,7 +276,7 @@ function FloatingNavBar({
                         initial={{ opacity: 0, width: 0, marginLeft: 0 }}
                         animate={{ opacity: 1, width: 'auto', marginLeft: 6 }}
                         exit={{ opacity: 0, width: 0, marginLeft: 0 }}
-                        transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                        transition={prefersReduced ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 32 }}
                         style={{
                           overflow: 'hidden',
                           fontSize: '15px',

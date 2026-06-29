@@ -40,6 +40,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     confirmKind: 'booking',
     ratingContext: null,
     publishedTripId: null,
+    backOverrides: {},
     scrollPositions: {
       intro: 0,
       main: 0,
@@ -82,7 +83,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
 
   // Navigate to a screen
   const navigate = useCallback(
-    (screen: Screen, trip: Trip | null = null, confirmKind?: ConfirmKind, publishedTripId?: number) => {
+    (screen: Screen, trip: Trip | null = null, confirmKind?: ConfirmKind, publishedTripId?: number, backTo?: Screen) => {
       // Save current scroll position
       const currentPosition = window.scrollY;
       saveScrollPosition(navState.currentScreen, currentPosition);
@@ -95,6 +96,8 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
         selectedTrip: trip !== null ? trip : prev.selectedTrip,
         confirmKind: confirmKind ?? prev.confirmKind,
         publishedTripId: publishedTripId !== undefined ? publishedTripId : prev.publishedTripId,
+        // Запоминаем явный «назад»-таргет для этого экрана, если передан
+        backOverrides: backTo ? { ...prev.backOverrides, [screen]: backTo } : prev.backOverrides,
       }));
 
       // Scroll to top for new screen
@@ -123,8 +126,8 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
 
   // Go back to previous screen
   const goBack = useCallback(() => {
-    const { currentScreen, scrollPositions } = navState;
-    const previousScreen: Screen = PARENT_SCREEN[currentScreen] ?? 'main';
+    const { currentScreen, scrollPositions, backOverrides } = navState;
+    const previousScreen: Screen = backOverrides[currentScreen] ?? PARENT_SCREEN[currentScreen] ?? 'main';
     setDirection(-1);
 
     setNavState((prev) => ({

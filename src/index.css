@@ -17,7 +17,7 @@
   --elevated: #fffefa;
   --card: #fffefa;
   --muted: #e7e7ec;
-  --muted-foreground: #6e6e73;
+  --muted-foreground: #5c5c61;
   --secondary: #ebebed;
   --secondary-foreground: #0f0f10;
   --accent: #fff4c2;
@@ -25,7 +25,9 @@
   --shadow-elevated: 0 10px 30px -18px rgba(0, 0, 0, .55);
   --shadow-hero: 0 14px 40px -16px rgba(255, 221, 45, .55);
   --shadow-card: 0 6px 22px -16px rgba(0, 0, 0, .30);
-  --success: #1f9d57;
+  /* Затемнён до AA-контраста (≈5:1 на светлых поверхностях) — токен служит и текстом, и заливкой. */
+  --success: #157a3c;
+  --success-foreground: #ffffff;
   --star: #f4b400;
   --danger: #e53935;
   --danger-foreground: #fff;
@@ -54,6 +56,7 @@
   --shadow-hero: 0 12px 32px -18px rgba(255, 221, 45, .38);
   --shadow-card: 0 12px 32px -24px rgba(0, 0, 0, .85);
   --success: #4cc38a;
+  --success-foreground: #06281b;
   --star: #ffc107;
   --danger: #ff5b50;
   --danger-foreground: #fff;

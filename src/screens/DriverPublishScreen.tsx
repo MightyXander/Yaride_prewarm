@@ -354,8 +354,8 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                     top: '50%',
                     transform: 'translateY(-50%)',
                     zIndex: 5,
-                    width: '40px',
-                    height: '40px',
+                    width: '44px',
+                    height: '44px',
                     borderRadius: '50%',
                     background: 'var(--field)',
                     border: '1px solid var(--field-border)',
@@ -419,11 +419,14 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
           </span>
           <span
             style={{
+              display: 'inline-flex',
               transform: showCalendar ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 0.2s ease',
             }}
           >
-            ▼
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </span>
         </button>
 
@@ -595,12 +598,15 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
           {/* Шеврон */}
           <span
             style={{
+              display: 'inline-flex',
               transform: showCarDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 0.2s ease',
               flexShrink: 0,
             }}
           >
-            ▼
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </span>
         </button>
 
