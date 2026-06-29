@@ -42,6 +42,8 @@ import {
   submitLicenseRequest,
   getPublicUserProfile,
   listUserReviews,
+  listCarsByDriver,
+  createCar,
   type FindTripsParams,
   type TimeSlot,
   type TripStatusFilter,
@@ -373,6 +375,9 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
 
   const reverse = typeof body.reverse === 'boolean' ? body.reverse : false;
 
+  // Опциональная выбранная машина: её модель/цвет/номер попадут в поездку.
+  const carId = toPositiveInt(body.carId);
+
   // Водитель должен иметь профиль; JIT создаёт, шаблон проверит принадлежность.
   await ensureUser({
     tgUserId: user.id,
@@ -387,6 +392,7 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
       tripDate: rawDate,
       departureTime: rawTime,
       reverse,
+      carId,
     });
 
     // Fire-and-forget уведомления пассажирам по route_alerts (не блокируем ответ)
@@ -418,6 +424,59 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
     return { status: 201, body: { trip } };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не удалось опубликовать поездку';
+    const status = message.includes('не найден') ? 404 : 400;
+    return err(status, message);
+  }
+}
+
+/** GET /api/me/cars — машины текущего водителя. */
+export async function handleListMyCars(req: ApiRequest): Promise<ApiResponse> {
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+  const { user } = auth;
+
+  await ensureUser({
+    tgUserId: user.id,
+    name: telegramDisplayName(user),
+    username: user.username ?? null,
+  });
+
+  const cars = await listCarsByDriver(user.id);
+  return { status: 200, body: { cars } };
+}
+
+/** POST /api/me/cars — добавить машину водителю (model обяз., color/plate опц.). */
+export async function handleAddCar(req: ApiRequest): Promise<ApiResponse> {
+  const body = asRecord(req.body);
+
+  const auth = authenticate(req, body.initData);
+  if ('status' in auth) {
+    return auth;
+  }
+  const { user } = auth;
+
+  const model = typeof body.model === 'string' ? body.model.trim() : '';
+  if (model === '') {
+    return err(400, 'model обязателен (марка/модель машины)');
+  }
+  const color =
+    typeof body.color === 'string' && body.color.trim() !== '' ? body.color.trim() : null;
+  const plate =
+    typeof body.plate === 'string' && body.plate.trim() !== '' ? body.plate.trim() : null;
+
+  await ensureUser({
+    tgUserId: user.id,
+    name: telegramDisplayName(user),
+    username: user.username ?? null,
+  });
+
+  try {
+    const car = await createCar({ tgDriverId: user.id, model, color, plate });
+    return { status: 201, body: { car } };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Не удалось добавить машину';
     const status = message.includes('не найден') ? 404 : 400;
     return err(status, message);
   }

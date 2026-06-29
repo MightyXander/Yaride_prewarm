@@ -22,6 +22,8 @@ interface DriverPublishScreenProps {
   routeLabel?: string;
   defaultPickup?: string;
   reverse?: boolean;
+  /** Открыть экран «Добавить машину» (из выпадающего списка машин). */
+  onAddCar?: () => void;
 }
 
 const sectionLabelStyle: React.CSSProperties = {

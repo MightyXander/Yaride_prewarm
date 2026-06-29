@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -59,6 +59,7 @@ const BOOTSTRAP_SQL = `
     seats_total INTEGER NOT NULL,
     seats_booked INTEGER NOT NULL DEFAULT 0,
     comment TEXT,
+    car_model TEXT,
     car_color TEXT,
     plate TEXT,
     status TEXT NOT NULL DEFAULT 'open'
@@ -134,6 +135,17 @@ const BOOTSTRAP_SQL = `
 
   CREATE INDEX IF NOT EXISTS idx_ratings_trip ON ratings(trip_id);
   CREATE INDEX IF NOT EXISTS idx_ratings_ratee ON ratings(ratee_id);
+
+  CREATE TABLE IF NOT EXISTS cars (
+    id SERIAL PRIMARY KEY,
+    driver_id INTEGER NOT NULL REFERENCES users(id),
+    model TEXT NOT NULL,
+    color TEXT,
+    plate TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_cars_driver ON cars(driver_id);
 `;
 
 /**
@@ -142,6 +154,7 @@ const BOOTSTRAP_SQL = `
  * v2→v3: добавление car_color TEXT NULL, plate TEXT NULL в trips и trip_templates.
  * v3→v4: добавление таблицы license_requests (модерация ВУ).
  * v4→v5: добавление таблицы notifications (события для лент уведомлений).
+ * v5→v6: добавление таблицы cars (машины водителя) + колонки trips.car_model.
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -207,6 +220,23 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
 
       CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, read);
+    `);
+    return;
+  }
+  if (fromV === 5 && toV === 6) {
+    await pool.query(`
+      ALTER TABLE trips ADD COLUMN IF NOT EXISTS car_model TEXT;
+
+      CREATE TABLE IF NOT EXISTS cars (
+        id SERIAL PRIMARY KEY,
+        driver_id INTEGER NOT NULL REFERENCES users(id),
+        model TEXT NOT NULL,
+        color TEXT,
+        plate TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_cars_driver ON cars(driver_id);
     `);
     return;
   }

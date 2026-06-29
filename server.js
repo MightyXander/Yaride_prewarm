@@ -38,6 +38,8 @@ try {
     getUserReviews: mod.handleGetUserReviews,
     getNotifications: mod.handleGetNotifications,
     markNotificationRead: mod.handleMarkNotificationRead,
+    listMyCars: mod.handleListMyCars,
+    addCar: mod.handleAddCar,
   };
   telegram = {
     sendMessage: mod.sendMessage,
@@ -144,6 +146,8 @@ app.post('/api/alerts', wrap(api?.createAlert));
 app.get('/api/me/profile', wrap(api?.getMyProfile));
 app.get('/api/me/trips', wrap(api?.getMyTrips));
 app.get('/api/me/template', wrap(api?.getMyTemplate));
+app.get('/api/me/cars', wrap(api?.listMyCars));
+app.post('/api/me/cars', wrap(api?.addCar));
 app.post('/api/me/license', wrap(api?.submitLicense));
 app.post('/api/ratings', wrap(api?.createRating));
 app.get('/api/trips/:id/bookings', wrap(api?.getTripBookings));

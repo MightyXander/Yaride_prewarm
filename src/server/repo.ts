@@ -36,6 +36,7 @@ export interface TripListItem {
   driver_trips_count: number;
   driver_license_status: string;
   is_own: boolean;
+  car_model: string | null;
   car_color: string | null;
   plate: string | null;
 }
@@ -95,6 +96,7 @@ function buildTripListSelect(currentUserId?: number): string {
     u.rating_count AS driver_rating_count,
     u.trips_driver_count AS driver_trips_count,
     u.license_status AS driver_license_status,
+    t.car_model,
     t.car_color,
     t.plate,
     ${isOwnExpr}
@@ -163,6 +165,7 @@ export async function getTripCard(tripId: number, currentUserId?: number): Promi
       (t.seats_total - t.seats_booked) AS seats_available,
       t.status,
       t.comment,
+      t.car_model,
       t.car_color,
       t.plate,
       t.start_point_id,
@@ -384,6 +387,8 @@ export interface PublishTripParams {
   tripDate: string;
   departureTime: string;
   reverse?: boolean;
+  /** Выбранная машина водителя; её модель/цвет/номер пишутся в поездку. */
+  carId?: number;
 }
 
 export interface PublishTripResult {
@@ -430,11 +435,33 @@ export async function createTripFromTemplate(
     const departureHour = Number.parseInt(params.departureTime.split(':')[0], 10);
     const timeSlot: TimeSlot = departureHour < 12 ? 'morning' : 'evening';
 
+    // Машина поездки: из выбранной (carId) — иначе данные машины из шаблона.
+    let carModel: string | null = null;
+    let carColor: string | null = tpl.car_color;
+    let carPlate: string | null = tpl.plate;
+    if (params.carId !== undefined) {
+      const carRes = await client.query<{
+        model: string;
+        color: string | null;
+        plate: string | null;
+      }>(
+        'SELECT model, color, plate FROM cars WHERE id = $1 AND driver_id = $2',
+        [params.carId, driverId],
+      );
+      const car = carRes.rows[0];
+      if (!car) {
+        throw new Error('Машина не найдена.');
+      }
+      carModel = car.model;
+      carColor = car.color;
+      carPlate = car.plate;
+    }
+
     const ins = await client.query<{ id: number }>(
       `INSERT INTO trips(driver_id, start_point_id, end_point_id, trip_date,
                          departure_time, time_slot, price_rub, seats_total,
-                         comment, car_color, plate, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'open')
+                         comment, car_model, car_color, plate, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'open')
        RETURNING id`,
       [
         driverId,
@@ -446,8 +473,9 @@ export async function createTripFromTemplate(
         tpl.price_rub,
         tpl.seats_total,
         tpl.comment,
-        tpl.car_color,
-        tpl.plate,
+        carModel,
+        carColor,
+        carPlate,
       ],
     );
 
@@ -460,6 +488,57 @@ export async function createTripFromTemplate(
       seatsTotal: tpl.seats_total,
       priceRub: tpl.price_rub,
     };
+  });
+}
+
+export interface Car {
+  id: number;
+  model: string;
+  color: string | null;
+  plate: string | null;
+}
+
+/** Машины водителя (по telegram-id), новые сверху. Пусто, если профиля/машин нет. */
+export async function listCarsByDriver(tgDriverId: number): Promise<Car[]> {
+  await ensureReady();
+  const res = await getPool().query<Car>(
+    `SELECT c.id, c.model, c.color, c.plate
+     FROM cars c
+     JOIN users u ON u.id = c.driver_id
+     WHERE u.tg_user_id = $1
+     ORDER BY c.id DESC`,
+    [tgDriverId],
+  );
+  return res.rows;
+}
+
+export interface CreateCarParams {
+  tgDriverId: number;
+  model: string;
+  color?: string | null;
+  plate?: string | null;
+}
+
+/** Добавить машину водителю (по telegram-id). Профиль создаётся JIT в API до вызова. */
+export async function createCar(params: CreateCarParams): Promise<Car> {
+  await ensureReady();
+  return withTransaction(async (client): Promise<Car> => {
+    const driverId = await getInternalUserId(client, params.tgDriverId);
+    if (driverId === null) {
+      throw new Error('Профиль водителя не найден.');
+    }
+    const ins = await client.query<Car>(
+      `INSERT INTO cars(driver_id, model, color, plate)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, model, color, plate`,
+      [
+        driverId,
+        params.model.trim(),
+        params.color?.trim() || null,
+        params.plate?.trim() || null,
+      ],
+    );
+    return ins.rows[0];
   });
 }
 

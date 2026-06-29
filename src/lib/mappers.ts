@@ -40,7 +40,7 @@ export function mapTripListItemToTrip(item: TripListItem): Trip {
       memberSince,
     },
     address: item.start_title,
-    car: 'авто', // API не возвращает модель авто в списке; при детализации можно дозагрузить
+    car: item.car_model ?? 'авто', // модель из выбранной при публикации машины; иначе плейсхолдер
     price: String(item.price_rub),
     time: item.departure_time.slice(0, 5), // "HH:MM:SS" → "HH:MM"
     seats: item.seats_available,

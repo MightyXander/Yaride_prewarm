@@ -31,6 +31,7 @@ export interface TripListItem {
   driver_trips_count: number;
   driver_license_status: string;
   is_own: boolean;
+  car_model: string | null;
   car_color: string | null;
   plate: string | null;
 }
@@ -104,6 +105,8 @@ export interface PublishTripRequest {
   date: string;
   departureTime: string;
   reverse?: boolean;
+  /** Выбранная машина водителя (опц.) — её модель/цвет/номер попадут в поездку. */
+  carId?: number;
 }
 
 export interface PublishTripResult {
@@ -322,6 +325,29 @@ export interface MarkNotificationReadRequest {
 
 export interface MarkNotificationReadResponse {
   success: boolean;
+}
+
+// GET /api/me/cars
+export interface Car {
+  id: number;
+  model: string;
+  color: string | null;
+  plate: string | null;
+}
+
+export interface GetMyCarsResponse {
+  cars: Car[];
+}
+
+// POST /api/me/cars
+export interface AddCarRequest {
+  model: string;
+  color?: string | null;
+  plate?: string | null;
+}
+
+export interface AddCarResponse {
+  car: Car;
 }
 
 // Ошибки
