@@ -30,10 +30,12 @@ interface TripCardProps {
   carColor: string | null;
   plate: string | null;
   onOpenProfile?: (userId: number) => void;
+  /** Ближайшая по времени поездка — подсвечивается цветом (фон --accent + бренд-рамка). */
+  isNext?: boolean;
 }
 
 const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
-  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook, isOwn, carColor, plate, onOpenProfile }, ref) => {
+  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook, isOwn, carColor, plate, onOpenProfile, isNext = false }, ref) => {
     const [pressed, setPressed] = useState(false);
 
     const seatsLabel = seats === 1 ? 'место' : seats < 5 ? 'места' : 'мест';
@@ -80,6 +82,11 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
           }}
           style={{
             cursor: 'pointer',
+            // Ближайшая поездка выделена цветом: мягко-жёлтый фон + бренд-рамка.
+            ...(isNext && {
+              background: 'var(--accent)',
+              border: '1px solid color-mix(in srgb, var(--brand) 55%, var(--border))',
+            }),
           }}
           onPointerDown={() => setPressed(true)}
           onPointerUp={() => setPressed(false)}
