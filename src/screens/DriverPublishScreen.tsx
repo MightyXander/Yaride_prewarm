@@ -1,4 +1,4 @@
-import { useId, useState, useEffect } from 'react';
+import { useId, useState, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -8,11 +8,11 @@ import RouteConnector from '../components/ui/RouteConnector';
 import { Icon } from '../components/Icons';
 import Header from '../components/Header';
 import { hapticSelection } from '../lib/haptics';
-import { getMyTemplate, publishTrip, ApiException, getRoutePoints } from '../lib/api';
+import { getMyTemplate, publishTrip, ApiException, getRoutePoints, getMyCars } from '../lib/api';
 import { showToast } from '../lib/toast';
 import { Appear } from '../components/Appear';
 import type { SelectOption } from '../components/ui/Select';
-import type { GetMyTemplateResponse, RoutePoint } from '../types/api';
+import type { GetMyTemplateResponse, RoutePoint, Car } from '../types/api';
 
 interface DriverPublishScreenProps {
   onPublish: (tripId: number) => void;
@@ -35,16 +35,19 @@ const sectionLabelStyle: React.CSSProperties = {
   marginBottom: '6px',
 };
 
-// Единый фиксированный стиль полей маршрута: одна строка, одинаковая высота.
+// Единый фиксированный стиль полей маршрута: одна строка, одинаковая высота, радиус 18px.
 const routeFieldStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  minHeight: '52px',
-  borderRadius: '14px',
+  minHeight: '48px',
+  borderRadius: '18px',
   background: 'var(--field)',
   border: '1px solid var(--field-border)',
   boxShadow: 'var(--field-shadow)',
-  padding: '0 14px',
+  padding: '12px 16px',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
 };
 
 const DEFAULT_TIME_OPTIONS = ['7:30', '7:40', '7:55', '8:10', 'другое'];
@@ -106,6 +109,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   routeLabel = 'Маршрут · из шаблона',
   defaultPickup = 'uritskogo',
   reverse = false,
+  onAddCar,
 }) => {
   const [time, setTime] = useState<string>(defaultTime);
   const [customTime, setCustomTime] = useState<string>('');
@@ -118,24 +122,35 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState<boolean>(false);
+  const [isReversed, setIsReversed] = useState<boolean>(reverse);
+  const [cars, setCars] = useState<Car[]>([]);
+  const [selectedCarId, setSelectedCarId] = useState<number | null>(null);
+  const [showCarDropdown, setShowCarDropdown] = useState<boolean>(false);
+  const carDropdownRef = useRef<HTMLDivElement>(null);
   const timeLabelId = useId();
   const seatsLabelId = useId();
   const customTimeLabelId = useId();
   const dateLabelId = useId();
 
-  // Загрузить шаблон и route points при монтировании
+  // Загрузить шаблон, route points и машины при монтировании
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
-        const [tmpl, pointsResp] = await Promise.all([
+        const [tmpl, pointsResp, carsResp] = await Promise.all([
           getMyTemplate(),
           getRoutePoints(),
+          getMyCars(),
         ]);
         setTemplate(tmpl);
         setRoutePoints(pointsResp.points);
         setSeats(tmpl.seats_total);
+        setCars(carsResp.cars);
+        // Выбрать первую машину по умолчанию, если есть
+        if (carsResp.cars.length > 0) {
+          setSelectedCarId(carsResp.cars[0].id);
+        }
       } catch (err) {
         const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки данных';
         setError(msg);
@@ -146,6 +161,19 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     };
     void loadData();
   }, [reverse]);
+
+  // Закрыть выпадающий список машин при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (carDropdownRef.current && !carDropdownRef.current.contains(e.target as Node)) {
+        setShowCarDropdown(false);
+      }
+    };
+    if (showCarDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showCarDropdown]);
 
   // Форматирование времени в HH:MM (паддинг часа до 2 цифр)
   const formatTimeToHHMM = (timeStr: string): string => {
@@ -168,14 +196,14 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
       return;
     }
 
-    // Направление зафиксировано пропом reverse — экран открыт уже в нужную сторону.
     try {
       setPublishing(true);
       const response = await publishTrip({
         templateId: template.id,
         date,
         departureTime: formatTimeToHHMM(actualTime),
-        reverse,
+        reverse: isReversed,
+        carId: selectedCarId ?? undefined,
       });
       onPublish(response.trip.tripId);
     } catch (err) {
@@ -186,15 +214,34 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     }
   };
 
-  // Направление зафиксировано пропом reverse — экран открыт уже в нужную сторону.
-  // Пункт назначения — противоположная точка коридора. Район НЕ подписываем
-  // (он понятен из направления) — показываем только название точки.
-  const destPointId = template ? (reverse ? template.start_point_id : template.end_point_id) : null;
+  const handleSwapDirection = () => {
+    hapticSelection();
+    setIsReversed((prev) => !prev);
+  };
+
+  const handleCarSelect = (carId: number) => {
+    hapticSelection();
+    setSelectedCarId(carId);
+    setShowCarDropdown(false);
+  };
+
+  const handleAddCarClick = () => {
+    hapticSelection();
+    setShowCarDropdown(false);
+    if (onAddCar) {
+      onAddCar();
+    }
+  };
+
+  // Определяем точки маршрута в зависимости от направления (swap-кнопка)
+  const destPointId = template ? (isReversed ? template.start_point_id : template.end_point_id) : null;
   const destPoint = routePoints.find((p) => p.id === destPointId) ?? null;
-  const destLabel = destPoint ? destPoint.title : reverse ? 'Брагино' : 'Центр';
+  const destLabel = destPoint ? destPoint.title : isReversed ? 'Брагино' : 'Центр';
 
   // Единственное поле выбора — улица отправления (без подписи района).
   const pickupOptions = defaultPickup === 'volkova' ? EVENING_PICKUP_OPTIONS : DEFAULT_PICKUP_OPTIONS;
+
+  const selectedCar = cars.find((c) => c.id === selectedCarId);
 
   const stepBtnStyle = (enabled: boolean): React.CSSProperties => ({
     width: '44px',
@@ -249,14 +296,36 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         ) : (
           <Appear key="content" animateKey="content">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Маршрут из шаблона — интерактивный */}
-              <Card>
+              {/* Маршрут из шаблона — карточка с swap-кнопкой */}
+              <div
+                style={{
+                  background: 'var(--elevated)',
+                  borderRadius: 'var(--radius-xl)',
+                  padding: '16px',
+                  border: '1px solid var(--border)',
+                  boxShadow: 'var(--shadow-card)',
+                  position: 'relative',
+                }}
+              >
                 <div style={sectionLabelStyle}>{routeLabel}</div>
-                <div style={{ display: 'flex', gap: '12px', margin: '4px 0' }}>
+                <div style={{ display: 'flex', gap: '12px', margin: '4px 0', paddingRight: '48px' }}>
                   <RouteConnector />
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {/* Первая точка — inline Select с белым фоном (только улица) */}
-                    <div style={routeFieldStyle}>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                    }}
+                  >
+                    {/* Первая точка — inline Select с белым фоном r18 (только улица) */}
+                    <div
+                      style={{
+                        ...routeFieldStyle,
+                        order: isReversed ? 1 : 0,
+                      }}
+                    >
                       <Select
                         options={pickupOptions}
                         value={pickup}
@@ -268,15 +337,17 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                       />
                     </div>
 
-                    {/* Вторая точка — read-only с пунктирной рамкой и замком */}
+                    {/* Вторая точка — read-only с пунктирной рамкой r18 и замком */}
                     <div
                       style={{
                         ...routeFieldStyle,
-                        border: '1.5px dashed var(--field-border)',
+                        border: '1px dashed var(--border)',
+                        background: 'color-mix(in srgb, var(--secondary) 42%, transparent)',
                         color: 'var(--muted-foreground)',
                         fontSize: '15px',
                         fontWeight: 600,
                         gap: '10px',
+                        order: isReversed ? 0 : 1,
                       }}
                     >
                       <Icon
@@ -301,7 +372,44 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                     </div>
                   </div>
                 </div>
-              </Card>
+
+                {/* Swap-кнопка направления */}
+                <button
+                  type="button"
+                  onClick={handleSwapDirection}
+                  aria-label="Поменять направление"
+                  className="focus-ring pressable"
+                  style={{
+                    position: 'absolute',
+                    right: '14px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    zIndex: 5,
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: 'var(--field)',
+                    border: '1px solid var(--field-border)',
+                    boxShadow: 'var(--shadow-card)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M7 4v16M7 4L4 7m3-3l3 3M17 20V4m0 16l3-3m-3 3l-3-3" />
+                  </svg>
+                </button>
+              </div>
 
       {/* Дата выезда */}
       <div role="group" aria-labelledby={dateLabelId}>
@@ -318,7 +426,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
             width: '100%',
             minHeight: '48px',
             padding: '12px 16px',
-            borderRadius: '16px',
+            borderRadius: '18px',
             border: '1px solid var(--field-border)',
             background: 'var(--field)',
             boxShadow: 'var(--field-shadow)',
@@ -454,6 +562,158 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
             <span style={{ fontSize: '20px', fontWeight: 700, lineHeight: 1 }}>+</span>
           </button>
         </div>
+      </div>
+
+      {/* Секция выбора машины */}
+      <div style={{ position: 'relative' }} ref={carDropdownRef}>
+        <div style={sectionLabelStyle}>Машина</div>
+        <button
+          type="button"
+          onClick={() => {
+            hapticSelection();
+            setShowCarDropdown(!showCarDropdown);
+          }}
+          className="focus-ring pressable"
+          style={{
+            width: '100%',
+            minHeight: '50px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '10px 14px',
+            borderRadius: '18px',
+            background: 'var(--field)',
+            border: '1px solid var(--field-border)',
+            boxShadow: 'var(--field-shadow)',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-sans)',
+          }}
+        >
+          {/* Иконка авто */}
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '10px',
+              background: 'var(--gradient-brand)',
+              color: 'var(--brand-foreground)',
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon id="i-car" style={{ width: '18px', height: '18px' }} />
+          </div>
+
+          {/* Текст: модель · номер или "Выбрать машину" */}
+          <div
+            style={{
+              flex: 1,
+              textAlign: 'left',
+              fontSize: '15px',
+              fontWeight: 600,
+              color: selectedCar ? 'var(--foreground)' : 'var(--muted-foreground)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {selectedCar
+              ? `${selectedCar.model}${selectedCar.plate ? ` · ${selectedCar.plate}` : ''}`
+              : 'Выбрать машину'}
+          </div>
+
+          {/* Шеврон */}
+          <span
+            style={{
+              transform: showCarDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+              flexShrink: 0,
+            }}
+          >
+            ▼
+          </span>
+        </button>
+
+        {/* Выпадающий список */}
+        {showCarDropdown && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 'calc(100% + 6px)',
+              left: 0,
+              right: 0,
+              background: 'var(--elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-xl)',
+              boxShadow: 'var(--shadow-card)',
+              overflow: 'hidden',
+              zIndex: 10,
+            }}
+          >
+            {/* Список машин */}
+            {cars.map((car) => (
+              <button
+                key={car.id}
+                type="button"
+                onClick={() => handleCarSelect(car.id)}
+                className="focus-ring pressable"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  color: 'var(--foreground)',
+                  fontFamily: 'var(--font-sans)',
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {car.model}
+                  {car.plate && ` · ${car.plate}`}
+                </div>
+                {selectedCarId === car.id && (
+                  <span style={{ fontSize: '18px', color: 'var(--brand)' }}>✓</span>
+                )}
+              </button>
+            ))}
+
+            {/* Разделитель перед "Добавить машину" */}
+            {cars.length > 0 && (
+              <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+            )}
+
+            {/* Кнопка "Добавить машину" */}
+            <button
+              type="button"
+              onClick={handleAddCarClick}
+              className="focus-ring pressable"
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '12px 14px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '15px',
+                fontWeight: 600,
+                color: 'var(--brand-dark)',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              <span style={{ fontSize: '20px' }}>+</span>
+              <span>Добавить машину</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div
