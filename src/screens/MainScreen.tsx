@@ -123,6 +123,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                     key={trip.id}
                     {...trip}
                     ref={index === 0 ? firstTripRef : null}
+                    isNext={index === 0}
                     expanded={expandedId === trip.id}
                     onToggle={() => setExpandedId((prev) => (prev === trip.id ? null : trip.id))}
                     onBook={() => onTripClick(trip)}
