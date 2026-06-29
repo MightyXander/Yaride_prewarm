@@ -212,7 +212,7 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip,
           onClick={() => handleTabChange('upcoming')}
           style={{
             flex: 1,
-            height: '36px',
+            height: '44px',
             borderRadius: '12px',
             display: 'grid',
             placeItems: 'center',
@@ -234,7 +234,7 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip,
           onClick={() => handleTabChange('past')}
           style={{
             flex: 1,
-            height: '36px',
+            height: '44px',
             borderRadius: '12px',
             display: 'grid',
             placeItems: 'center',

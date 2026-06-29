@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { subscribeToast } from '../lib/toast';
 
 // Минимальный тост: показывает короткое сообщение и сам гаснет.
@@ -9,6 +9,7 @@ import { subscribeToast } from '../lib/toast';
 
 export function ToastHost() {
   const [msg, setMsg] = useState<string | null>(null);
+  const prefersReduced = useReducedMotion();
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -32,10 +33,10 @@ export function ToastHost() {
           key={msg}
           role="status"
           aria-live="polite"
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: prefersReduced ? 0 : 16 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 16 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+          exit={{ opacity: 0, y: prefersReduced ? 0 : 16 }}
+          transition={prefersReduced ? { duration: 0.12 } : { type: 'spring', stiffness: 500, damping: 40 }}
           style={{
             position: 'fixed',
             left: 0,

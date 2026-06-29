@@ -88,7 +88,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
           >
             <span
               style={{
-                color: 'var(--brand)',
+                color: 'var(--foreground)',
                 fontWeight: 700,
                 display: 'inline-flex',
                 alignItems: 'center',

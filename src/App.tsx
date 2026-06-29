@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icons } from './components/Icons';
 import BackButton from './components/BackButton';
@@ -6,23 +6,25 @@ import { ToastHost } from './components/ToastHost';
 import Splash from './components/Splash';
 import IntroScreen from './screens/IntroScreen';
 import MainScreen from './screens/MainScreen';
-import TripDetailsScreen from './screens/TripDetailsScreen';
-import BookingProfileScreen from './screens/BookingProfileScreen';
-import DriverPublishScreen from './screens/DriverPublishScreen';
-import BookingConfirmedScreen from './screens/BookingConfirmedScreen';
-import ProfileScreen from './screens/ProfileScreen';
-import DriverBookingsScreen from './screens/DriverBookingsScreen';
-import BecomeDriverScreen from './screens/BecomeDriverScreen';
-import LicenseReviewScreen from './screens/LicenseReviewScreen';
-import InTripScreen from './screens/InTripScreen';
-import SafetyScreen from './screens/SafetyScreen';
-import PassengerRequestScreen from './screens/PassengerRequestScreen';
-import RequestPublishedScreen from './screens/RequestPublishedScreen';
-import MyTripsScreen from './screens/MyTripsScreen';
-import RateTripScreen from './screens/RateTripScreen';
-import UserProfileScreen from './screens/UserProfileScreen';
-import NotificationsScreen from './screens/NotificationsScreen';
-import AddCarScreen from './screens/AddCarScreen';
+// Не-стартовые экраны грузим лениво (code-splitting) — режет initial-бандл и TTI.
+// IntroScreen и MainScreen остаются в основном бандле (первый рендер).
+const TripDetailsScreen = lazy(() => import('./screens/TripDetailsScreen'));
+const BookingProfileScreen = lazy(() => import('./screens/BookingProfileScreen'));
+const DriverPublishScreen = lazy(() => import('./screens/DriverPublishScreen'));
+const BookingConfirmedScreen = lazy(() => import('./screens/BookingConfirmedScreen'));
+const ProfileScreen = lazy(() => import('./screens/ProfileScreen'));
+const DriverBookingsScreen = lazy(() => import('./screens/DriverBookingsScreen'));
+const BecomeDriverScreen = lazy(() => import('./screens/BecomeDriverScreen'));
+const LicenseReviewScreen = lazy(() => import('./screens/LicenseReviewScreen'));
+const InTripScreen = lazy(() => import('./screens/InTripScreen'));
+const SafetyScreen = lazy(() => import('./screens/SafetyScreen'));
+const PassengerRequestScreen = lazy(() => import('./screens/PassengerRequestScreen'));
+const RequestPublishedScreen = lazy(() => import('./screens/RequestPublishedScreen'));
+const MyTripsScreen = lazy(() => import('./screens/MyTripsScreen'));
+const RateTripScreen = lazy(() => import('./screens/RateTripScreen'));
+const UserProfileScreen = lazy(() => import('./screens/UserProfileScreen'));
+const NotificationsScreen = lazy(() => import('./screens/NotificationsScreen'));
+const AddCarScreen = lazy(() => import('./screens/AddCarScreen'));
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -266,7 +268,8 @@ function App() {
   const handleOpenTripById = async (tripId: number) => {
     try {
       const res = await getTrip(tripId);
-      navigate('trip-details', mapTripCardToTrip(res.trip));
+      // backTo='my-trips' — «Назад» вернёт в список «Мои поездки», а не на главный экран
+      navigate('trip-details', mapTripCardToTrip(res.trip), undefined, undefined, 'my-trips');
     } catch {
       showToast('Не удалось открыть поездку');
     }
@@ -383,6 +386,7 @@ function App() {
               paddingBottom: navVisible ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
             }}
           >
+            <Suspense fallback={null}>
             {currentScreen === 'intro' && <IntroScreen onRoleSelect={handleRoleSelect} />}
             {currentScreen === 'main' && (
               <MainScreen
@@ -554,6 +558,7 @@ function App() {
             {currentScreen === 'add-car' && (
               <AddCarScreen onSaved={goBack} />
             )}
+            </Suspense>
           </motion.div>
         </AnimatePresence>
         </div>

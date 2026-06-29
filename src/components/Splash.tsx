@@ -58,7 +58,7 @@ const Splash: React.FC<SplashProps> = ({ onHide, onHidden }) => {
     >
       <img
         className="splash-logo"
-        src="/brand/logo.png"
+        src="/brand/logo-splash.jpg"
         alt="поехали вместе — карпуллинг в Ярославле"
         style={{
           width: '300px',

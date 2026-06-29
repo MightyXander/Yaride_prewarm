@@ -254,7 +254,7 @@ export async function notifyDriverAboutLicenseDecision(params: {
 }): Promise<void> {
   try {
     const text = params.approved
-      ? 'Заявка водителя одобрена. Теперь можно создавать поездки в «поехали вместе».'
+      ? 'Заявка водителя одобрена. Теперь можно создавать поездки.'
       : 'Заявка водителя отклонена. Проверь данные ВУ и подай заявку заново через профиль.';
 
     await sendMessage(params.driverTgUserId, text);
