@@ -139,16 +139,13 @@ const MainScreen: React.FC<MainScreenProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: D, ease: EASE }}
-              style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
             >
-              <Hero
-                subtitle={heroKicker}
-                title="поездок нет"
-                onToggleDirection={onToggleDirection}
+              {/* Без Hero: по эталону в пустом состоянии показываем только карточку «Поездок пока нет». */}
+              <EmptyTripsState
+                onLeaveRequest={onLeaveRequest}
                 onPublish={onPublish}
                 showPublish={userRole === 'driver'}
               />
-              <EmptyTripsState onLeaveRequest={onLeaveRequest} />
             </motion.div>
           )}
         </AnimatePresence>
