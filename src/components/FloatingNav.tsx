@@ -38,7 +38,8 @@ const HIDDEN_ON: Screen[] = [
 ];
 
 // Маппинг экрана → корневой таб. Поток поездок → Поездки; профиль → Профиль.
-const SCREEN_TO_TAB: Record<Screen, NavTabRoot | null> = {
+// 'notifications' — особый «таб»: навбар виден, активна подсветка колокола (не Поездки/Профиль).
+const SCREEN_TO_TAB: Record<Screen, NavTabRoot | 'notifications' | null> = {
   intro: null,
   main: 'main',
   'main-more': 'main',
@@ -62,7 +63,7 @@ const SCREEN_TO_TAB: Record<Screen, NavTabRoot | null> = {
   'evening-publish': 'main',
   'habit-home': 'main',
   'user-profile': null,
-  notifications: null,
+  notifications: 'notifications',
 };
 
 /** Высота pill без внешних отступов. */
@@ -93,10 +94,12 @@ function FloatingNavBar({
   onNavigate,
   onNotificationsClick,
 }: {
-  activeTab: NavTabRoot;
+  activeTab: NavTabRoot | 'notifications';
   onNavigate: (root: NavTabRoot) => void;
   onNotificationsClick: () => void;
 }) {
+  // На экране уведомлений активна подсветка колокола → pill уезжает в первую ячейку (current = -1).
+  const bellActive = activeTab === 'notifications';
   const current = ITEMS.findIndex(({ root }) => root === activeTab);
 
   return (
@@ -173,6 +176,7 @@ function FloatingNavBar({
           <button
             type="button"
             aria-label="Уведомления"
+            aria-current={bellActive ? 'page' : undefined}
             title="Уведомления"
             className="focus-ring pressable"
             onClick={() => {
@@ -204,7 +208,9 @@ function FloatingNavBar({
                 height: '19px',
                 flexShrink: 0,
                 strokeWidth: 2,
-                color: 'color-mix(in srgb, var(--foreground) 76%, transparent)',
+                color: bellActive
+                  ? 'var(--brand-foreground)'
+                  : 'color-mix(in srgb, var(--foreground) 76%, transparent)',
                 transition: 'color 200ms ease',
               }}
             />
