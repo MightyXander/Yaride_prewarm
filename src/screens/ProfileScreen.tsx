@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
@@ -5,6 +6,7 @@ import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { showToast } from '../lib/toast';
 import { useProfile } from '../contexts/ProfileContext';
+import { getMyCars } from '../lib/api';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 
 const statValueStyle: React.CSSProperties = {
@@ -38,8 +40,9 @@ interface ProfileScreenProps {
   onOpenProfile?: (userId: number) => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onToggleTheme, theme, onOpenProfile }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onToggleTheme, theme, onOpenProfile }) => {
   const { profile, loading } = useProfile();
+  const [carsCount, setCarsCount] = useState(0);
 
   const avatar = profile ? profile.name.charAt(0).toUpperCase() : 'Н';
   const name = profile?.name ?? 'Загрузка…';
@@ -54,6 +57,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
   const shouldShowDriverButton = licenseStatus !== 'verified' && licenseStatus !== 'pending';
   const isLicenseRejected = licenseStatus === 'rejected' || licenseStatus === 'declined';
   const driverButtonLabel = isLicenseRejected ? 'Заполнить заново' : 'Стать водителем';
+
+  // Загрузка количества машин
+  useEffect(() => {
+    getMyCars()
+      .then((r) => setCarsCount(r.cars.length))
+      .catch(() => {
+        // Не блокируем UI при ошибке, просто оставляем 0
+      });
+  }, []);
 
   const handleAvatarClick = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
@@ -269,8 +281,53 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
         </>
       )}
 
-      {/* Меню: мои поездки (экран 17), безопасность (экран 19), переключатель темы */}
+      {/* Меню: мои машины, мои поездки (экран 17), безопасность (экран 19), переключатель темы */}
       <Card style={{ padding: '4px 6px' }}>
+        <button
+          type="button"
+          className="focus-ring pressable"
+          onClick={() => {
+            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+            onMyCars?.();
+          }}
+          style={{
+            width: '100%',
+            minHeight: '52px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '8px 8px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--foreground)',
+            fontFamily: 'var(--font-sans)',
+            textAlign: 'left',
+            borderRadius: '14px',
+          }}
+        >
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '11px',
+              background: 'var(--secondary)',
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon id="i-car" style={{ width: '17px', height: '17px' }} />
+          </div>
+          <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>
+            Мои машины{carsCount > 0 && ` · ${carsCount}`}
+          </span>
+          <Icon
+            id="i-chev-r"
+            style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }}
+          />
+        </button>
+        <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
         <button
           type="button"
           className="focus-ring pressable"

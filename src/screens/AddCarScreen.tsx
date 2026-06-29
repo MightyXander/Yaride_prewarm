@@ -3,6 +3,7 @@ import Header from '../components/Header';
 import Button from '../components/ui/Button';
 import { addCar, ApiException } from '../lib/api';
 import { showToast } from '../lib/toast';
+import { hapticSelection } from '../lib/haptics';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 
 interface AddCarScreenProps {
@@ -34,6 +35,50 @@ const fieldStyle: React.CSSProperties = {
   outline: 'none',
   boxSizing: 'border-box',
 };
+
+// Список цветов для чипов
+const COLOR_OPTIONS = [
+  'белый',
+  'чёрный',
+  'серый',
+  'серебристый',
+  'синий',
+  'красный',
+  'зелёный',
+  'коричневый',
+];
+
+// Допустимые буквы для российских номеров (кириллица)
+const ALLOWED_LETTERS = 'АВЕКМНОРСТУХ';
+
+/**
+ * Форматирование гос. номера: А123ВС (буква + 3 цифры + 2 буквы).
+ * Максимум 6 символов, верхний регистр.
+ */
+function formatPlate(raw: string): string {
+  const upper = raw.toUpperCase();
+  let result = '';
+
+  for (const char of upper) {
+    const isDigit = char >= '0' && char <= '9';
+    const isAllowedLetter = ALLOWED_LETTERS.includes(char);
+
+    if (result.length === 0) {
+      // Позиция 0: только буква
+      if (isAllowedLetter) result += char;
+    } else if (result.length >= 1 && result.length <= 3) {
+      // Позиции 1-3: только цифры
+      if (isDigit) result += char;
+    } else if (result.length >= 4 && result.length <= 5) {
+      // Позиции 4-5: только буквы
+      if (isAllowedLetter) result += char;
+    }
+
+    if (result.length >= 6) break;
+  }
+
+  return result;
+}
 
 /**
  * AddCarScreen — добавить машину водителя (модель/цвет/номер).
@@ -92,20 +137,58 @@ const AddCarScreen: React.FC<AddCarScreenProps> = ({ onSaved }) => {
 
       <div>
         <div style={labelStyle}>Цвет</div>
-        <input
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          placeholder="белый"
-          className="focus-ring"
-          style={fieldStyle}
-        />
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {COLOR_OPTIONS.map((label) => {
+            const isSelected = color === label;
+            const shouldReduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+            return (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={isSelected}
+                className="focus-ring pressable"
+                onClick={() => {
+                  setColor(label);
+                  hapticSelection();
+                }}
+                style={{
+                  minHeight: '42px',
+                  padding: '6px 15px',
+                  borderRadius: '999px',
+                  fontSize: '14.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  fontFamily: 'var(--font-sans)',
+                  transition: shouldReduceMotion ? 'none' : 'all 0.15s ease-in-out',
+                  ...(isSelected
+                    ? {
+                        border: 'none',
+                        background: 'var(--gradient-brand)',
+                        color: 'var(--brand-foreground)',
+                        boxShadow: 'var(--shadow-hero)',
+                      }
+                    : {
+                        border: '1px solid var(--field-border)',
+                        background: 'var(--field)',
+                        color: 'var(--secondary-foreground)',
+                        boxShadow: 'var(--field-shadow)',
+                      }),
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div>
         <div style={labelStyle}>Гос. номер</div>
         <input
           value={plate}
-          onChange={(e) => setPlate(e.target.value.toUpperCase())}
+          onChange={(e) => setPlate(formatPlate(e.target.value))}
           placeholder="А123ВС"
           className="focus-ring"
           style={{ ...fieldStyle, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}
