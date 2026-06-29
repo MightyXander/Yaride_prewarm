@@ -603,6 +603,19 @@ async function handleCallbackQuery(
         const { confirmBookingByDriver } = await import('./repo.ts');
         const result = await confirmBookingByDriver(id, from.id);
 
+        // Уведомить пассажира о подтверждении (in-app лента + Telegram), fire-and-forget
+        const { notifyPassengerAboutBookingDecision: notifyConfirm } = await import('./notify.ts');
+        void notifyConfirm({
+          passengerId: result.passengerId,
+          passengerTgUserId: result.passengerTgUserId,
+          tripId: result.tripId,
+          startTitle: result.startTitle,
+          endTitle: result.endTitle,
+          tripDate: result.tripDate,
+          departureTime: result.departureTime,
+          confirmed: true,
+        });
+
         await answerCallbackQuery(
           callbackQuery.id,
           `Бронь подтверждена: ${result.passengerName}, ${result.seats} мест`,
@@ -625,6 +638,19 @@ async function handleCallbackQuery(
         // Отклонить бронь
         const { cancelBookingByDriver } = await import('./repo.ts');
         const result = await cancelBookingByDriver(id, from.id);
+
+        // Уведомить пассажира об отклонении (in-app лента + Telegram), fire-and-forget
+        const { notifyPassengerAboutBookingDecision: notifyDecline } = await import('./notify.ts');
+        void notifyDecline({
+          passengerId: result.passengerId,
+          passengerTgUserId: result.passengerTgUserId,
+          tripId: result.tripId,
+          startTitle: result.startTitle,
+          endTitle: result.endTitle,
+          tripDate: result.tripDate,
+          departureTime: result.departureTime,
+          confirmed: false,
+        });
 
         await answerCallbackQuery(
           callbackQuery.id,

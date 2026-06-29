@@ -24,6 +24,8 @@ export {
   createRating,
   getTripBookings,
   cancelBookingByDriver,
+  cancelTripByDriver,
+  ensureRateReminders,
   createNotification,
   listNotifications,
   markNotificationRead,
@@ -71,6 +73,7 @@ export {
   handleMarkNotificationRead,
   handleListMyCars,
   handleAddCar,
+  handleCancelTrip,
 } from './api.ts';
 export type { ApiRequest, ApiResponse } from './api.ts';
 

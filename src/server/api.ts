@@ -37,6 +37,8 @@ import {
   createRating,
   getTripBookings,
   cancelBookingByDriver,
+  cancelTripByDriver,
+  ensureRateReminders,
   listRoutePoints,
   getOrCreateDriverTemplate,
   submitLicenseRequest,
@@ -57,6 +59,8 @@ import {
   notifyPassengersAboutNewTrip,
   notifyDriverAboutNewBooking,
   notifyAdminAboutLicenseRequest,
+  notifyPassengerAboutBookingDecision,
+  notifyPassengersAboutTripCancellation,
 } from './notify.ts';
 
 export interface ApiRequest {
@@ -275,6 +279,7 @@ export async function handleCreateBooking(req: ApiRequest): Promise<ApiResponse>
           void notifyDriverAboutNewBooking({
             tripId,
             bookingId: result.bookingId,
+            driverId: tripCard.driver_id,
             driverTgUserId: tripCard.driver_tg_user_id,
             passengerName,
             startTitle: tripCard.start_title,
@@ -626,10 +631,75 @@ export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse>
   }
 
   try {
-    const result = await cancelBookingByDriver(bookingId, user.id);
+    const r = await cancelBookingByDriver(bookingId, user.id);
+
+    // Fire-and-forget: уведомить пассажира об отмене его брони (in-app лента + Telegram)
+    void notifyPassengerAboutBookingDecision({
+      passengerId: r.passengerId,
+      passengerTgUserId: r.passengerTgUserId,
+      tripId: r.tripId,
+      startTitle: r.startTitle,
+      endTitle: r.endTitle,
+      tripDate: r.tripDate,
+      departureTime: r.departureTime,
+      confirmed: false,
+    });
+
+    // В ответ — только публичные поля (без tg-id пассажира)
+    const result = {
+      bookingId: r.bookingId,
+      tripId: r.tripId,
+      seatsFreed: r.seatsFreed,
+      newAvailable: r.newAvailable,
+    };
     return { status: 200, body: { result } };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не удалось отменить бронь';
+    const status = message.includes('не найден') ? 404 : 400;
+    return err(status, message);
+  }
+}
+
+/**
+ * POST /api/trips/:id/cancel — отменить всю поездку (только водитель поездки).
+ * Отменяет поездку и все активные брони, уведомляет пассажиров (in-app + Telegram).
+ */
+export async function handleCancelTrip(req: ApiRequest): Promise<ApiResponse> {
+  const body = asRecord(req.body);
+
+  const auth = authenticate(req, body.initData ?? req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+  const { user } = auth;
+
+  const tripId = toPositiveInt(req.params.id);
+  if (tripId === undefined) {
+    return err(400, 'Некорректный id поездки');
+  }
+
+  try {
+    const r = await cancelTripByDriver(tripId, user.id);
+
+    // Fire-and-forget: уведомить всех пассажиров об отмене поездки
+    void notifyPassengersAboutTripCancellation({
+      tripId: r.tripId,
+      startTitle: r.startTitle,
+      endTitle: r.endTitle,
+      tripDate: r.tripDate,
+      departureTime: r.departureTime,
+      passengers: r.passengers.map((p) => ({
+        passengerId: p.passengerId,
+        passengerTgUserId: p.passengerTgUserId,
+      })),
+    });
+
+    return {
+      status: 200,
+      body: { result: { tripId: r.tripId, cancelledBookings: r.passengers.length } },
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Не удалось отменить поездку';
     const status = message.includes('не найден') ? 404 : 400;
     return err(status, message);
   }
@@ -843,6 +913,15 @@ export async function handleGetNotifications(req: ApiRequest): Promise<ApiRespon
     return auth;
   }
   const { user } = auth;
+
+  // Лениво до-генерировать напоминания «оставьте отзыв» по завершённым поездкам (крона нет).
+  // Best-effort: ошибка не должна ломать выдачу ленты.
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    await ensureRateReminders(user.id, today);
+  } catch (e) {
+    console.error('[handleGetNotifications] ensureRateReminders:', e);
+  }
 
   const { listNotifications } = await import('./repo.ts');
   const notifications = await listNotifications(user.id);

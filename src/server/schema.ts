@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -146,6 +146,36 @@ const BOOTSTRAP_SQL = `
   );
 
   CREATE INDEX IF NOT EXISTS idx_cars_driver ON cars(driver_id);
+
+  CREATE TABLE IF NOT EXISTS license_requests (
+    id SERIAL PRIMARY KEY,
+    driver_id INTEGER NOT NULL REFERENCES users(id),
+    series_number TEXT NOT NULL,
+    valid_until TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMPTZ,
+    reviewer TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_license_requests_driver ON license_requests(driver_id);
+  CREATE INDEX IF NOT EXISTS idx_license_requests_status ON license_requests(status);
+
+  CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    type TEXT NOT NULL CHECK (type IN ('booking', 'booking_confirmed', 'cancel', 'rate_reminder', 'trip_new')),
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    read BOOLEAN NOT NULL DEFAULT FALSE,
+    ref_trip_id INTEGER REFERENCES trips(id),
+    ref_user_id INTEGER REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, read);
 `;
 
 /**
@@ -155,6 +185,7 @@ const BOOTSTRAP_SQL = `
  * v3→v4: добавление таблицы license_requests (модерация ВУ).
  * v4→v5: добавление таблицы notifications (события для лент уведомлений).
  * v5→v6: добавление таблицы cars (машины водителя) + колонки trips.car_model.
+ * v6→v7: расширение notifications.type — добавлен тип 'trip_new' (поездка по маршруту пассажира).
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -237,6 +268,16 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
       );
 
       CREATE INDEX IF NOT EXISTS idx_cars_driver ON cars(driver_id);
+    `);
+    return;
+  }
+  if (fromV === 6 && toV === 7) {
+    // Расширяем CHECK notifications.type типом 'trip_new'. Имя inline-констрейнта
+    // в Postgres детерминировано — notifications_type_check.
+    await pool.query(`
+      ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+      ALTER TABLE notifications ADD CONSTRAINT notifications_type_check
+        CHECK (type IN ('booking', 'booking_confirmed', 'cancel', 'rate_reminder', 'trip_new'));
     `);
     return;
   }
