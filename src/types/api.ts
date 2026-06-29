@@ -301,7 +301,7 @@ export interface GetUserReviewsResponse {
 }
 
 // GET /api/notifications
-export type NotificationType = 'booking' | 'booking_confirmed' | 'cancel' | 'rate_reminder';
+export type NotificationType = 'booking' | 'booking_confirmed' | 'cancel' | 'rate_reminder' | 'trip_new';
 
 export interface NotificationItem {
   id: number;
@@ -348,6 +348,14 @@ export interface AddCarRequest {
 
 export interface AddCarResponse {
   car: Car;
+}
+
+// POST /api/trips/:id/cancel
+export interface CancelTripResponse {
+  result: {
+    tripId: number;
+    cancelledBookings: number;
+  };
 }
 
 // Ошибки

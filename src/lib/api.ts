@@ -32,6 +32,7 @@ import type {
   GetMyCarsResponse,
   AddCarRequest,
   AddCarResponse,
+  CancelTripResponse,
   ApiErrorResponse,
 } from '../types/api.ts';
 
@@ -137,6 +138,14 @@ export async function publishTrip(params: PublishTripRequest): Promise<PublishTr
   return apiFetch<PublishTripResponse>('/trips', {
     method: 'POST',
     body: JSON.stringify(params),
+  });
+}
+
+/** POST /api/trips/:id/cancel — отменить всю поездку (только водитель). */
+export async function cancelTrip(tripId: number): Promise<CancelTripResponse> {
+  return apiFetch<CancelTripResponse>(`/trips/${tripId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({}),
   });
 }
 
