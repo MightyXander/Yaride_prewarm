@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
@@ -12,12 +13,16 @@ interface TripDetailsScreenProps {
   trip: Trip;
   onBook: () => void;
   onOpenProfile?: (userId: number) => void;
+  /** Отменить всю поездку (доступно водителю своей поездки). */
+  onCancelTrip?: () => void;
 }
 
-const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onOpenProfile }) => {
+const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onOpenProfile, onCancelTrip }) => {
   const age = trip.driver.age || 34;
   const verified = trip.driver.verified !== false;
   const memberSince = trip.driver.memberSince || 'мая 2026';
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const handleBook = () => {
     if (trip.isOwn) {
@@ -25,6 +30,11 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
       return;
     }
     onBook();
+  };
+
+  const handleConfirmCancel = () => {
+    setCancelling(true);
+    onCancelTrip?.();
   };
 
   const handleAvatarClick = (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -209,23 +219,43 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
           paddingTop: '6px',
         }}
       >
-        <Button
-          variant="primary"
-          onClick={handleBook}
-          style={{
-            ...(trip.isOwn && {
-              opacity: 0.5,
-              background: 'var(--muted)',
-              color: 'var(--muted-foreground)',
-              cursor: 'not-allowed',
-            }),
-          }}
-        >
-          Забронировать место
-        </Button>
-        <Button variant="ghost" icon="i-share" style={{ minHeight: '44px' }}>
-          Поделиться поездкой
-        </Button>
+        {trip.isOwn ? (
+          confirmingCancel ? (
+            <>
+              <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', lineHeight: 1.5 }}>
+                Отменить поездку? Все брони будут сняты, пассажиры получат уведомление.
+              </div>
+              <Button
+                variant="primary"
+                onClick={handleConfirmCancel}
+                disabled={cancelling}
+                style={{ background: 'var(--destructive)', color: '#ffffff' }}
+              >
+                {cancelling ? 'Отменяем…' : 'Да, отменить поездку'}
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirmingCancel(false)} disabled={cancelling} style={{ minHeight: '44px' }}>
+                Не отменять
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmingCancel(true)}
+              style={{ minHeight: '48px', color: 'var(--destructive)', fontWeight: 700 }}
+            >
+              Отменить поездку
+            </Button>
+          )
+        ) : (
+          <>
+            <Button variant="primary" onClick={handleBook}>
+              Забронировать место
+            </Button>
+            <Button variant="ghost" icon="i-share" style={{ minHeight: '44px' }}>
+              Поделиться поездкой
+            </Button>
+          </>
+        )}
         </div>
       </Appear>
     </div>

@@ -30,7 +30,7 @@ import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useAsync } from './hooks/useAsync';
 import { useStartParam } from './hooks/useStartParam';
-import { getTrips, getRoutePoints, getTrip } from './lib/api';
+import { getTrips, getRoutePoints, getTrip, cancelTrip, ApiException } from './lib/api';
 import { mapTripListItemToTrip, mapTripCardToTrip } from './lib/mappers';
 import { showToast } from './lib/toast';
 import { loadRole, saveRole, type UserRole } from './lib/role';
@@ -265,13 +265,26 @@ function App() {
 
   // Открыть детали поездки по ID (из «Моих поездок»): дозагрузка карточки + переход.
   // Тот же путь, что у deep-link trip-<id>: getTrip → mapTripCardToTrip → trip-details.
-  const handleOpenTripById = async (tripId: number) => {
+  const handleOpenTripById = async (tripId: number, backTo: Screen = 'my-trips') => {
     try {
       const res = await getTrip(tripId);
-      // backTo='my-trips' — «Назад» вернёт в список «Мои поездки», а не на главный экран
-      navigate('trip-details', mapTripCardToTrip(res.trip), undefined, undefined, 'my-trips');
+      // backTo — куда вернёт «Назад» (по умолчанию «Мои поездки»; из уведомлений — обратно в ленту)
+      navigate('trip-details', mapTripCardToTrip(res.trip), undefined, undefined, backTo);
     } catch {
       showToast('Не удалось открыть поездку');
+    }
+  };
+
+  // Отменить свою поездку (водитель в деталях поездки): API + тост + возврат в «Мои поездки».
+  const handleCancelOwnTrip = async () => {
+    const t = selectedTrip;
+    if (!t) return;
+    try {
+      await cancelTrip(Number(t.id));
+      showToast('Поездка отменена');
+      navigate('my-trips');
+    } catch (e) {
+      showToast(e instanceof ApiException ? e.message : 'Не удалось отменить поездку');
     }
   };
 
@@ -307,6 +320,14 @@ function App() {
           navigateToRateTrip({ tripId: refTripId, rateeId: refUserId, raterRole: 'passenger' });
         } else {
           navigate('my-trips');
+        }
+        break;
+      case 'trip_new':
+        // поездка по твоему маршруту → детали поездки (назад — в ленту)
+        if (refTripId) {
+          void handleOpenTripById(refTripId, 'notifications');
+        } else {
+          navigate('main');
         }
         break;
       default:
@@ -441,7 +462,7 @@ function App() {
               />
             )}
             {currentScreen === 'trip-details' && selectedTrip && (
-              <TripDetailsScreen trip={selectedTrip} onBook={() => navigate('booking-profile')} onOpenProfile={handleOpenUserProfile} />
+              <TripDetailsScreen trip={selectedTrip} onBook={() => navigate('booking-profile')} onOpenProfile={handleOpenUserProfile} onCancelTrip={handleCancelOwnTrip} />
             )}
             {currentScreen === 'booking-profile' && selectedTrip && (
               <BookingProfileScreen

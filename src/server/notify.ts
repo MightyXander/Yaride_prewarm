@@ -11,6 +11,26 @@
 
 import { getPool } from './db.ts';
 import { sendMessage } from './telegram.ts';
+import { createNotification } from './repo.ts';
+
+/**
+ * Создать in-app уведомление (запись в notifications) безопасно: ошибки логируются,
+ * но не пробрасываются — уведомления никогда не ломают основное действие.
+ */
+async function safeInApp(params: {
+  userId: number;
+  type: 'booking' | 'booking_confirmed' | 'cancel' | 'rate_reminder' | 'trip_new';
+  title: string;
+  body: string;
+  refTripId?: number | null;
+  refUserId?: number | null;
+}): Promise<void> {
+  try {
+    await createNotification(params);
+  } catch (err) {
+    console.error('[safeInApp] Не удалось создать in-app уведомление:', err);
+  }
+}
 
 /**
  * Отправить уведомления пассажирам по route_alerts, совпадающим с опубликованной поездкой.
@@ -108,6 +128,14 @@ export async function notifyPassengersAboutNewTrip(params: {
         },
       };
 
+      // In-app уведомление в ленту пассажира + Telegram-пуш
+      await safeInApp({
+        userId: row.passenger_id,
+        type: 'trip_new',
+        title: 'Поездка по вашему маршруту',
+        body: text,
+        refTripId: params.tripId,
+      });
       await sendMessage(row.tg_user_id, text, opts);
     });
 
@@ -139,6 +167,7 @@ export async function notifyPassengersAboutNewTrip(params: {
 export async function notifyDriverAboutNewBooking(params: {
   tripId: number;
   bookingId: number;
+  driverId: number;
   driverTgUserId: number;
   passengerName: string;
   startTitle: string;
@@ -151,6 +180,15 @@ export async function notifyDriverAboutNewBooking(params: {
     const miniAppUrl = (process.env.MINIAPP_URL ?? '').trim();
     const seatsText = params.seatsBooked === 1 ? 'место' : 'места';
     const text = `${params.passengerName} забронировал ${params.seatsBooked} ${seatsText} на поездку ${params.startTitle} → ${params.endTitle}, ${params.tripDate} ${params.departureTime}.`;
+
+    // In-app уведомление в ленту водителя
+    await safeInApp({
+      userId: params.driverId,
+      type: 'booking',
+      title: 'Новая бронь',
+      body: text,
+      refTripId: params.tripId,
+    });
 
     const buttons: Array<Array<{ text: string; url?: string; callback_data?: string }>> = [];
 
@@ -261,5 +299,84 @@ export async function notifyDriverAboutLicenseDecision(params: {
   } catch (err) {
     // Не ломаем обработку callback при ошибке уведомления — только логируем
     console.error('[notifyDriverAboutLicenseDecision] Ошибка уведомления водителя:', err);
+  }
+}
+
+/**
+ * Уведомить пассажира о решении водителя по его брони (подтверждена/отменена).
+ * In-app уведомление в ленту + Telegram-пуш (с deep-link при подтверждении).
+ */
+export async function notifyPassengerAboutBookingDecision(params: {
+  passengerId: number;
+  passengerTgUserId: number;
+  tripId: number;
+  startTitle: string;
+  endTitle: string;
+  tripDate: string;
+  departureTime: string;
+  confirmed: boolean;
+}): Promise<void> {
+  try {
+    const route = `${params.startTitle} → ${params.endTitle}`;
+    const when = `${params.tripDate} ${params.departureTime}`;
+    const body = params.confirmed
+      ? `Водитель подтвердил вашу бронь: ${route}, ${when}.`
+      : `Водитель отменил вашу бронь: ${route}, ${when}.`;
+
+    await safeInApp({
+      userId: params.passengerId,
+      type: params.confirmed ? 'booking_confirmed' : 'cancel',
+      title: params.confirmed ? 'Бронь подтверждена' : 'Бронь отменена',
+      body,
+      refTripId: params.tripId,
+    });
+
+    const miniAppUrl = (process.env.MINIAPP_URL ?? '').trim();
+    const opts =
+      miniAppUrl !== '' && params.confirmed
+        ? {
+            reply_markup: {
+              inline_keyboard: [[{ text: 'Открыть поездку', url: `${miniAppUrl}?startapp=trip-${params.tripId}` }]],
+            },
+          }
+        : undefined;
+
+    await sendMessage(params.passengerTgUserId, body, opts);
+  } catch (err) {
+    console.error('[notifyPassengerAboutBookingDecision] Ошибка уведомления пассажира:', err);
+  }
+}
+
+/**
+ * Уведомить всех активных пассажиров об отмене всей поездки водителем.
+ * In-app уведомление (cancel) + Telegram-пуш каждому.
+ */
+export async function notifyPassengersAboutTripCancellation(params: {
+  tripId: number;
+  startTitle: string;
+  endTitle: string;
+  tripDate: string;
+  departureTime: string;
+  passengers: Array<{ passengerId: number; passengerTgUserId: number }>;
+}): Promise<void> {
+  try {
+    const route = `${params.startTitle} → ${params.endTitle}`;
+    const when = `${params.tripDate} ${params.departureTime}`;
+    const body = `Водитель отменил поездку ${route}, ${when}. Бронь снята.`;
+
+    await Promise.all(
+      params.passengers.map(async (p) => {
+        await safeInApp({
+          userId: p.passengerId,
+          type: 'cancel',
+          title: 'Поездка отменена',
+          body,
+          refTripId: params.tripId,
+        });
+        await sendMessage(p.passengerTgUserId, body);
+      }),
+    );
+  } catch (err) {
+    console.error('[notifyPassengersAboutTripCancellation] Ошибка уведомлений:', err);
   }
 }

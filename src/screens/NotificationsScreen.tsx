@@ -86,6 +86,8 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
         return { icon: 'i-x', color: 'var(--destructive)' };
       case 'rate_reminder':
         return { icon: 'i-star', color: 'var(--star)' };
+      case 'trip_new':
+        return { icon: 'i-car', color: 'var(--brand)' };
       default:
         return { icon: 'i-bell', color: 'var(--muted-foreground)' };
     }

@@ -963,6 +963,43 @@ export interface CancelBookingResult {
   newAvailable: number;
 }
 
+/** Данные брони + пассажира + поездки для построения уведомлений (подтверждение/отмена). */
+export interface BookingActionResult {
+  bookingId: number;
+  tripId: number;
+  passengerId: number;
+  passengerTgUserId: number;
+  passengerName: string;
+  seats: number;
+  startTitle: string;
+  endTitle: string;
+  tripDate: string;
+  departureTime: string;
+}
+
+/** Результат отмены брони водителем: освобождённые места + данные для уведомления пассажиру. */
+export type CancelBookingActionResult = BookingActionResult & {
+  seatsFreed: number;
+  newAvailable: number;
+};
+
+/** Пассажир активной брони отменяемой поездки (для уведомлений). */
+export interface AffectedPassenger {
+  passengerId: number;
+  passengerTgUserId: number;
+  seats: number;
+}
+
+/** Результат отмены всей поездки водителем: данные поездки + затронутые пассажиры. */
+export interface CancelTripResult {
+  tripId: number;
+  startTitle: string;
+  endTitle: string;
+  tripDate: string;
+  departureTime: string;
+  passengers: AffectedPassenger[];
+}
+
 /**
  * Отменить бронь водителем (PATCH /api/bookings/:id action='cancel_by_driver').
  * Переводит бронь в status='cancelled_by_driver', освобождает seats в trips.seats_booked.
@@ -971,10 +1008,10 @@ export interface CancelBookingResult {
 export async function cancelBookingByDriver(
   bookingId: number,
   tgDriverId: number,
-): Promise<CancelBookingResult> {
+): Promise<CancelBookingActionResult> {
   await ensureReady();
 
-  return withTransaction(async (client): Promise<CancelBookingResult> => {
+  return withTransaction(async (client): Promise<CancelBookingActionResult> => {
     const driverId = await getInternalUserId(client, tgDriverId);
     if (driverId === null) {
       throw new Error('Профиль водителя не найден.');
@@ -986,10 +1023,23 @@ export async function cancelBookingByDriver(
       status: string;
       seats: number;
       driver_id: number;
+      passenger_id: number;
+      passenger_tg_user_id: string;
+      passenger_name: string;
+      start_title: string;
+      end_title: string;
+      trip_date: string;
+      departure_time: string;
     }>(
-      `SELECT b.id, b.trip_id, b.status, b.seats, t.driver_id
+      `SELECT b.id, b.trip_id, b.status, b.seats, t.driver_id,
+              b.passenger_id, u.tg_user_id AS passenger_tg_user_id, u.name AS passenger_name,
+              sp.title AS start_title, ep.title AS end_title,
+              t.trip_date, t.departure_time
        FROM bookings b
        JOIN trips t ON t.id = b.trip_id
+       JOIN users u ON u.id = b.passenger_id
+       JOIN route_points sp ON sp.id = t.start_point_id
+       JOIN route_points ep ON ep.id = t.end_point_id
        WHERE b.id = $1`,
       [bookingId],
     );
@@ -1027,8 +1077,100 @@ export async function cancelBookingByDriver(
     return {
       bookingId,
       tripId: booking.trip_id,
+      passengerId: booking.passenger_id,
+      passengerTgUserId: Number(booking.passenger_tg_user_id),
+      passengerName: booking.passenger_name,
+      seats: booking.seats,
+      startTitle: booking.start_title,
+      endTitle: booking.end_title,
+      tripDate: booking.trip_date,
+      departureTime: booking.departure_time,
       seatsFreed: booking.seats,
       newAvailable: availRes.rows[0].avail,
+    };
+  });
+}
+
+/**
+ * Отменить всю поездку водителем (POST /api/trips/:id/cancel).
+ * Переводит trips.status='cancelled', отменяет все активные брони (cancelled_by_driver).
+ * Возвращает данные поездки и список затронутых пассажиров для уведомлений.
+ * Бросает Error при отсутствии поездки/прав/неоткрытом статусе.
+ */
+export async function cancelTripByDriver(
+  tripId: number,
+  tgDriverId: number,
+): Promise<CancelTripResult> {
+  await ensureReady();
+
+  return withTransaction(async (client): Promise<CancelTripResult> => {
+    const driverId = await getInternalUserId(client, tgDriverId);
+    if (driverId === null) {
+      throw new Error('Профиль водителя не найден.');
+    }
+
+    const tripRes = await client.query<{
+      id: number;
+      driver_id: number;
+      status: string;
+      start_title: string;
+      end_title: string;
+      trip_date: string;
+      departure_time: string;
+    }>(
+      `SELECT t.id, t.driver_id, t.status,
+              sp.title AS start_title, ep.title AS end_title,
+              t.trip_date, t.departure_time
+       FROM trips t
+       JOIN route_points sp ON sp.id = t.start_point_id
+       JOIN route_points ep ON ep.id = t.end_point_id
+       WHERE t.id = $1`,
+      [tripId],
+    );
+    const trip = tripRes.rows[0];
+
+    if (!trip) {
+      throw new Error('Поездка не найдена.');
+    }
+    if (trip.driver_id !== driverId) {
+      throw new Error('Вы не водитель этой поездки.');
+    }
+    if (trip.status !== 'open') {
+      throw new Error('Поездка уже отменена или завершена.');
+    }
+
+    // Список активных пассажиров (для уведомлений) — собираем до отмены броней
+    const passengersRes = await client.query<{
+      passenger_id: number;
+      passenger_tg_user_id: string;
+      seats: number;
+    }>(
+      `SELECT b.passenger_id, u.tg_user_id AS passenger_tg_user_id, b.seats
+       FROM bookings b
+       JOIN users u ON u.id = b.passenger_id
+       WHERE b.trip_id = $1 AND b.status = 'active'`,
+      [tripId],
+    );
+
+    await client.query(`UPDATE trips SET status = 'cancelled' WHERE id = $1`, [tripId]);
+    await client.query(
+      `UPDATE bookings
+       SET status = 'cancelled_by_driver', cancelled_at = CURRENT_TIMESTAMP
+       WHERE trip_id = $1 AND status = 'active'`,
+      [tripId],
+    );
+
+    return {
+      tripId,
+      startTitle: trip.start_title,
+      endTitle: trip.end_title,
+      tripDate: trip.trip_date,
+      departureTime: trip.departure_time,
+      passengers: passengersRes.rows.map((r) => ({
+        passengerId: r.passenger_id,
+        passengerTgUserId: Number(r.passenger_tg_user_id),
+        seats: r.seats,
+      })),
     };
   });
 }
@@ -1049,7 +1191,7 @@ export async function cancelBookingByDriver(
 export async function confirmBookingByDriver(
   bookingId: number,
   tgDriverId: number,
-): Promise<{ bookingId: number; tripId: number; passengerName: string; seats: number }> {
+): Promise<BookingActionResult> {
   await ensureReady();
 
   return withTransaction(async (client) => {
@@ -1064,12 +1206,23 @@ export async function confirmBookingByDriver(
       status: string;
       seats: number;
       driver_id: number;
+      passenger_id: number;
+      passenger_tg_user_id: string;
       passenger_name: string;
+      start_title: string;
+      end_title: string;
+      trip_date: string;
+      departure_time: string;
     }>(
-      `SELECT b.id, b.trip_id, b.status, b.seats, t.driver_id, u.name AS passenger_name
+      `SELECT b.id, b.trip_id, b.status, b.seats, t.driver_id,
+              b.passenger_id, u.tg_user_id AS passenger_tg_user_id, u.name AS passenger_name,
+              sp.title AS start_title, ep.title AS end_title,
+              t.trip_date, t.departure_time
        FROM bookings b
        JOIN trips t ON t.id = b.trip_id
        JOIN users u ON u.id = b.passenger_id
+       JOIN route_points sp ON sp.id = t.start_point_id
+       JOIN route_points ep ON ep.id = t.end_point_id
        WHERE b.id = $1`,
       [bookingId],
     );
@@ -1086,12 +1239,18 @@ export async function confirmBookingByDriver(
     }
 
     // В текущей схеме нет статуса 'confirmed', поэтому просто возвращаем подтверждение
-    // Можно добавить логирование или дополнительный флаг, но для MVP достаточно проверки
+    // (бронь уже активна с момента создания). Данные нужны для уведомления пассажиру.
     return {
       bookingId: booking.id,
       tripId: booking.trip_id,
+      passengerId: booking.passenger_id,
+      passengerTgUserId: Number(booking.passenger_tg_user_id),
       passengerName: booking.passenger_name,
       seats: booking.seats,
+      startTitle: booking.start_title,
+      endTitle: booking.end_title,
+      tripDate: booking.trip_date,
+      departureTime: booking.departure_time,
     };
   });
 }
@@ -1397,7 +1556,7 @@ export async function rejectLicenseRequest(
 /**
  * Типы уведомлений.
  */
-export type NotificationType = 'booking' | 'booking_confirmed' | 'cancel' | 'rate_reminder';
+export type NotificationType = 'booking' | 'booking_confirmed' | 'cancel' | 'rate_reminder' | 'trip_new';
 
 export interface NotificationItem {
   id: number;
@@ -1443,27 +1602,68 @@ export async function createNotification(params: CreateNotificationParams): Prom
 /**
  * Получить список уведомлений пользователя (упорядочены по created_at DESC).
  */
-export async function listNotifications(userId: number, limit = 50): Promise<NotificationItem[]> {
+export async function listNotifications(tgUserId: number, limit = 50): Promise<NotificationItem[]> {
   await ensureReady();
   const res = await getPool().query<NotificationItem>(
-    `SELECT id, type, title, body, read, ref_trip_id, ref_user_id, created_at
-     FROM notifications
-     WHERE user_id = $1
-     ORDER BY created_at DESC
+    `SELECT n.id, n.type, n.title, n.body, n.read, n.ref_trip_id, n.ref_user_id, n.created_at
+     FROM notifications n
+     JOIN users u ON u.id = n.user_id
+     WHERE u.tg_user_id = $1
+     ORDER BY n.created_at DESC
      LIMIT $2`,
-    [userId, limit],
+    [tgUserId, limit],
   );
   return res.rows;
 }
 
 /**
- * Пометить уведомление как прочитанное.
+ * Пометить уведомление как прочитанное. Принадлежность проверяется по tg-id владельца.
  */
-export async function markNotificationRead(notificationId: number, userId: number): Promise<boolean> {
+export async function markNotificationRead(notificationId: number, tgUserId: number): Promise<boolean> {
   await ensureReady();
   const res = await getPool().query(
-    `UPDATE notifications SET read = TRUE WHERE id = $1 AND user_id = $2`,
-    [notificationId, userId],
+    `UPDATE notifications n SET read = TRUE
+     FROM users u
+     WHERE n.id = $1 AND n.user_id = u.id AND u.tg_user_id = $2`,
+    [notificationId, tgUserId],
   );
   return res.rowCount !== null && res.rowCount > 0;
+}
+
+/**
+ * Лениво создать недостающие напоминания «оставьте отзыв» для пользователя как пассажира.
+ *
+ * Для каждой завершённой поездки (trip_date в прошлом), где пользователь был активным
+ * пассажиром, ещё не оценил водителя и для которой ещё нет напоминания — создаётся
+ * уведомление rate_reminder. Идемпотентно (NOT EXISTS по существующему rate_reminder).
+ * Вызывается из GET /api/notifications перед выдачей списка (крона нет).
+ *
+ * @param tgUserId Telegram ID пользователя
+ * @param today Сегодняшняя дата YYYY-MM-DD (для сравнения с trip_date)
+ */
+export async function ensureRateReminders(tgUserId: number, today: string): Promise<void> {
+  await ensureReady();
+  await getPool().query(
+    `INSERT INTO notifications (user_id, type, title, body, ref_trip_id, ref_user_id)
+     SELECT b.passenger_id, 'rate_reminder', 'Оцените поездку',
+            'Как прошла поездка ' || sp.title || ' → ' || ep.title || '? Оставьте оценку.',
+            t.id, t.driver_id
+     FROM bookings b
+     JOIN trips t ON t.id = b.trip_id
+     JOIN users u ON u.id = b.passenger_id
+     JOIN route_points sp ON sp.id = t.start_point_id
+     JOIN route_points ep ON ep.id = t.end_point_id
+     WHERE u.tg_user_id = $1
+       AND b.status = 'active'
+       AND t.status <> 'cancelled'
+       AND t.trip_date < $2
+       AND NOT EXISTS (
+         SELECT 1 FROM ratings r WHERE r.trip_id = t.id AND r.rater_id = b.passenger_id
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM notifications n
+         WHERE n.user_id = b.passenger_id AND n.type = 'rate_reminder' AND n.ref_trip_id = t.id
+       )`,
+    [tgUserId, today],
+  );
 }

@@ -40,6 +40,7 @@ try {
     markNotificationRead: mod.handleMarkNotificationRead,
     listMyCars: mod.handleListMyCars,
     addCar: mod.handleAddCar,
+    cancelTrip: mod.handleCancelTrip,
   };
   telegram = {
     sendMessage: mod.sendMessage,
@@ -139,6 +140,7 @@ function wrap(handler) {
 app.get('/api/trips', wrap(api?.listTrips));
 app.get('/api/trips/:id', wrap(api?.getTrip));
 app.post('/api/trips', wrap(api?.publishTrip));
+app.post('/api/trips/:id/cancel', wrap(api?.cancelTrip));
 app.post('/api/bookings', wrap(api?.createBooking));
 app.post('/api/alerts', wrap(api?.createAlert));
 
