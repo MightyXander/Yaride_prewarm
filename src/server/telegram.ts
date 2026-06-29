@@ -534,15 +534,40 @@ export async function handleWebhookUpdate(
 }
 
 /**
+ * Проверка прав администратора для модерации ВУ.
+ *
+ * Подтверждать/отклонять ВУ в чате бота может только админ. Признаётся админом тот,
+ * у кого Telegram ID совпадает с ADMIN_CHAT_ID, ИЛИ username совпадает с ADMIN_USERNAME
+ * (по умолчанию 'mightyxander'). Сравнение username — регистронезависимое, ведущий '@' срезается.
+ */
+function isAdminActor(from: { id: number; username?: string }): boolean {
+  const adminChatId = Number((process.env.ADMIN_CHAT_ID ?? '').trim());
+  const adminUsername = (process.env.ADMIN_USERNAME ?? 'mightyxander')
+    .trim()
+    .toLowerCase()
+    .replace(/^@/, '');
+  if (adminChatId && from.id === adminChatId) {
+    return true;
+  }
+  if (adminUsername && (from.username ?? '').toLowerCase() === adminUsername) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Обработать callback_query (нажатие на inline-кнопку).
  * callback_data format:
  * - bk:cfm:<bookingId> — подтвердить бронь
  * - bk:dec:<bookingId> — отклонить бронь
  * - al:cxl:<alertId> — снять заявку (route_alert)
+ * - lic:ok:<requestId> — подтвердить ВУ (только админ)
+ * - lic:no:<requestId> — отклонить ВУ (только админ)
  *
  * Проверяет владельца через from.id (Telegram user ID):
  * - bk:* — инициатор должен быть водителем поездки брони
  * - al:cxl — инициатор должен быть владельцем алерта
+ * - lic:* — инициатор должен быть админом (isAdminActor)
  */
 async function handleCallbackQuery(
   callbackQuery: NonNullable<TelegramUpdate['callback_query']>,
@@ -632,6 +657,53 @@ async function handleCallbackQuery(
           message.chat.id,
           message.message_id,
           `${message.text ?? ''}\n\n🔕 Заявка снята`,
+          { reply_markup: { inline_keyboard: [] } },
+          botToken,
+        );
+      }
+
+      return true;
+    } else if (prefix === 'lic' && (action === 'ok' || action === 'no')) {
+      // Модерация ВУ: подтвердить/отклонить заявку. Только админ (@mightyxander).
+      if (!isAdminActor(from)) {
+        await answerCallbackQuery(
+          callbackQuery.id,
+          'Недостаточно прав: проверять ВУ может только администратор.',
+          true,
+          botToken,
+        );
+        return true;
+      }
+
+      const approved = action === 'ok';
+      const reviewer = from.username ? `@${from.username}` : String(from.id);
+      const { approveLicenseRequest, rejectLicenseRequest } = await import('./repo.ts');
+      const { notifyDriverAboutLicenseDecision } = await import('./notify.ts');
+
+      const result = approved
+        ? await approveLicenseRequest(id, reviewer)
+        : await rejectLicenseRequest(id, reviewer);
+
+      // Уведомить водителя о решении (fire-and-forget)
+      void notifyDriverAboutLicenseDecision({
+        driverTgUserId: result.driverTgUserId,
+        approved,
+      });
+
+      await answerCallbackQuery(
+        callbackQuery.id,
+        approved
+          ? `ВУ подтверждено: ${result.driverName}`
+          : `ВУ отклонено: ${result.driverName}`,
+        false,
+        botToken,
+      );
+
+      if (message) {
+        await editMessageText(
+          message.chat.id,
+          message.message_id,
+          `${message.text ?? ''}\n\n${approved ? '✅ ВУ подтверждено' : '❌ ВУ отклонено'} (${reviewer})`,
           { reply_markup: { inline_keyboard: [] } },
           botToken,
         );

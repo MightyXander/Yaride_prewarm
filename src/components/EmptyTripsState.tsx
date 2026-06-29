@@ -10,9 +10,11 @@ interface EmptyTripsStateProps {
   /** Создать поездку (показывается только водителю — гейтинг публикации). */
   onPublish?: () => void;
   showPublish?: boolean;
+  /** Сменить направление маршрута — чтобы из пустого направления посмотреть обратное без перезахода. */
+  onToggleDirection?: () => void;
 }
 
-const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ onLeaveRequest, onPublish, showPublish }) => (
+const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ onLeaveRequest, onPublish, showPublish, onToggleDirection }) => (
   <EmptyState
     icon={
       <svg viewBox="0 0 24 24" style={{ width: '34px', height: '34px', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
@@ -46,6 +48,38 @@ const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ onLeaveRequest, onPub
             }}
           >
             Оставить заявку
+          </button>
+        )}
+        {onToggleDirection && (
+          <button
+            type="button"
+            onClick={onToggleDirection}
+            className="focus-ring pressable"
+            style={{
+              minHeight: '48px',
+              padding: '0 22px',
+              borderRadius: '18px',
+              border: '1px solid var(--field-border)',
+              background: 'var(--field)',
+              boxShadow: 'var(--field-shadow)',
+              color: 'var(--foreground)',
+              fontWeight: 700,
+              fontSize: '15px',
+              fontFamily: 'var(--font-sans)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '9px',
+            }}
+          >
+            <svg viewBox="0 0 24 24" style={{ width: '17px', height: '17px', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
+              <path d="M17 4l3 3-3 3" />
+              <path d="M20 7H8" />
+              <path d="M7 14l-3 3 3 3" />
+              <path d="M4 17h12" />
+            </svg>
+            Сменить направление
           </button>
         )}
         {showPublish && onPublish && (

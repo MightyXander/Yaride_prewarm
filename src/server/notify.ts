@@ -186,3 +186,80 @@ export async function notifyDriverAboutNewBooking(params: {
     console.error('[notifyDriverAboutNewBooking] Ошибка уведомления:', err);
   }
 }
+
+/**
+ * Уведомить администратора о новой заявке на проверку ВУ.
+ *
+ * Сообщение уходит в чат ADMIN_CHAT_ID (числовой Telegram ID @mightyxander)
+ * с двумя кнопками модерации:
+ * - «✅ Подтвердить ВУ» callback_data=`lic:ok:<requestId>`
+ * - «❌ Отклонить»       callback_data=`lic:no:<requestId>`
+ *
+ * Если ADMIN_CHAT_ID не задан — no-op (логируем и выходим), чтобы submit-заявки
+ * не падал на окружениях без настроенной админки.
+ *
+ * @param requestId ID заявки (license_requests.id)
+ * @param driverName Имя водителя (для текста)
+ * @param seriesNumber Серия/номер ВУ
+ * @param validUntil Срок действия ВУ (как ввёл водитель)
+ */
+export async function notifyAdminAboutLicenseRequest(params: {
+  requestId: number;
+  driverName: string;
+  seriesNumber: string;
+  validUntil: string;
+}): Promise<void> {
+  try {
+    const adminChatId = Number((process.env.ADMIN_CHAT_ID ?? '').trim());
+    if (!adminChatId) {
+      console.log(
+        '[notifyAdminAboutLicenseRequest] ADMIN_CHAT_ID не задан — уведомление админу пропущено',
+      );
+      return;
+    }
+
+    const text =
+      `Новая заявка на проверку ВУ.\n\n` +
+      `Водитель: ${params.driverName}\n` +
+      `Серия/номер: ${params.seriesNumber}\n` +
+      `Действует до: ${params.validUntil}`;
+
+    const opts = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✅ Подтвердить ВУ', callback_data: `lic:ok:${params.requestId}` },
+            { text: '❌ Отклонить', callback_data: `lic:no:${params.requestId}` },
+          ],
+        ],
+      },
+    };
+
+    await sendMessage(adminChatId, text, opts);
+  } catch (err) {
+    // Не ломаем API при ошибке уведомления — только логируем
+    console.error('[notifyAdminAboutLicenseRequest] Ошибка уведомления админа:', err);
+  }
+}
+
+/**
+ * Уведомить водителя о решении админа по заявке на проверку ВУ.
+ *
+ * @param driverTgUserId Telegram ID водителя
+ * @param approved true — одобрено (license_status=verified), false — отклонено
+ */
+export async function notifyDriverAboutLicenseDecision(params: {
+  driverTgUserId: number;
+  approved: boolean;
+}): Promise<void> {
+  try {
+    const text = params.approved
+      ? 'Заявка водителя одобрена. Теперь можно создавать поездки в «поехали вместе».'
+      : 'Заявка водителя отклонена. Проверь данные ВУ и подай заявку заново через профиль.';
+
+    await sendMessage(params.driverTgUserId, text);
+  } catch (err) {
+    // Не ломаем обработку callback при ошибке уведомления — только логируем
+    console.error('[notifyDriverAboutLicenseDecision] Ошибка уведомления водителя:', err);
+  }
+}

@@ -1319,6 +1319,81 @@ export async function submitLicenseRequest(
   });
 }
 
+export interface LicenseDecisionResult {
+  driverTgUserId: number;
+  driverName: string;
+  seriesNumber: string;
+}
+
+/**
+ * Решение по заявке на проверку ВУ (модерация админом).
+ * Транзакционно: проверяет, что заявка существует и pending; выставляет
+ * license_requests.status (approved|rejected) + reviewer/reviewed_at и
+ * users.license_status (verified|rejected). Возвращает данные водителя для пуша.
+ * Бросает Error, если заявка не найдена или уже обработана.
+ */
+async function decideLicenseRequest(
+  requestId: number,
+  decision: 'approved' | 'rejected',
+  reviewer: string,
+): Promise<LicenseDecisionResult> {
+  await ensureReady();
+  const userStatus = decision === 'approved' ? 'verified' : 'rejected';
+
+  return withTransaction(async (client): Promise<LicenseDecisionResult> => {
+    const reqRes = await client.query<{
+      driver_id: number;
+      series_number: string;
+      status: string;
+    }>(
+      'SELECT driver_id, series_number, status FROM license_requests WHERE id = $1 FOR UPDATE',
+      [requestId],
+    );
+    if (reqRes.rows.length === 0) {
+      throw new Error('Заявка на проверку ВУ не найдена.');
+    }
+    const reqRow = reqRes.rows[0];
+    if (reqRow.status !== 'pending') {
+      throw new Error('Заявка уже обработана.');
+    }
+
+    await client.query(
+      `UPDATE license_requests
+       SET status = $1, reviewed_at = CURRENT_TIMESTAMP, reviewer = $2
+       WHERE id = $3`,
+      [decision, reviewer, requestId],
+    );
+
+    const userRes = await client.query<{ tg_user_id: number; name: string }>(
+      'UPDATE users SET license_status = $1 WHERE id = $2 RETURNING tg_user_id, name',
+      [userStatus, reqRow.driver_id],
+    );
+    const u = userRes.rows[0];
+
+    return {
+      driverTgUserId: u.tg_user_id,
+      driverName: u.name,
+      seriesNumber: reqRow.series_number,
+    };
+  });
+}
+
+/** Одобрить заявку на проверку ВУ → license_status='verified'. */
+export async function approveLicenseRequest(
+  requestId: number,
+  reviewer: string,
+): Promise<LicenseDecisionResult> {
+  return decideLicenseRequest(requestId, 'approved', reviewer);
+}
+
+/** Отклонить заявку на проверку ВУ → license_status='rejected'. */
+export async function rejectLicenseRequest(
+  requestId: number,
+  reviewer: string,
+): Promise<LicenseDecisionResult> {
+  return decideLicenseRequest(requestId, 'rejected', reviewer);
+}
+
 /**
  * Типы уведомлений.
  */
