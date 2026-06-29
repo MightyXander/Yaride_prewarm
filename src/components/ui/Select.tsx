@@ -191,7 +191,16 @@ const Select: React.FC<SelectProps> = ({
           transition: 'filter 0.12s ease',
         }}
       >
-        <span>{selectedOption?.label || placeholder}</span>
+        <span
+          style={{
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {selectedOption?.label || placeholder}
+        </span>
         <svg
           width="16"
           height="16"
