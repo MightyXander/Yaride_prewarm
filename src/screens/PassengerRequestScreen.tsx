@@ -26,23 +26,6 @@ const sectionLabelStyle: React.CSSProperties = {
   marginBottom: '6px',
 };
 
-// Единый фиксированный стиль полей маршрута: одна строка, одинаковая высота, радиус 18px.
-const routeFieldStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  minHeight: '48px',
-  borderRadius: '18px',
-  background: 'var(--field)',
-  border: '1px solid var(--field-border)',
-  boxShadow: 'var(--field-shadow)',
-  padding: '12px 16px',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  fontSize: '15px',
-  fontWeight: 600,
-};
-
 interface PassengerRequestScreenProps {
   direction?: 'morning' | 'evening';
   onPublish?: () => void;
@@ -257,8 +240,9 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', paddingRight: '48px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px' }}>
                 <RouteDot filled />
-                <div style={{ ...routeFieldStyle, flex: 1, minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <Select
+                    variant="field"
                     options={routePoints.map((point): SelectOption => ({
                       value: String(point.id),
                       label: point.title,
@@ -278,8 +262,9 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px' }}>
                 <RouteDot />
-                <div style={{ ...routeFieldStyle, flex: 1, minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <Select
+                    variant="field"
                     options={routePoints.map((point): SelectOption => ({
                       value: String(point.id),
                       label: point.title,

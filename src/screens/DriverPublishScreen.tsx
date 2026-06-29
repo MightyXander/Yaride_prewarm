@@ -37,37 +37,9 @@ const sectionLabelStyle: React.CSSProperties = {
   marginBottom: '6px',
 };
 
-// Единый фиксированный стиль полей маршрута: одна строка, одинаковая высота, радиус 18px.
-const routeFieldStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  minHeight: '48px',
-  borderRadius: '18px',
-  background: 'var(--field)',
-  border: '1px solid var(--field-border)',
-  boxShadow: 'var(--field-shadow)',
-  padding: '12px 16px',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-};
-
 const DEFAULT_TIME_OPTIONS = ['7:30', '7:40', '7:55', '8:10', 'другое'];
 const MIN_SEATS = 1;
 const MAX_SEATS = 4;
-
-const DEFAULT_PICKUP_OPTIONS: SelectOption[] = [
-  { value: 'uritskogo', label: 'ул. Урицкого, 12' },
-  { value: 'dzerzhinskogo', label: 'пр-т Дзержинского, 8' },
-  { value: 'svobody', label: 'ул. Свободы, 60' },
-  { value: 'leningradsky', label: 'Ленинградский пр-т, 40' },
-];
-
-const EVENING_PICKUP_OPTIONS: SelectOption[] = [
-  { value: 'volkova', label: 'пл. Волкова, у фонтана' },
-  { value: 'svobody', label: 'ул. Свободы, 60' },
-  { value: 'dzerzhinskogo', label: 'пр-т Дзержинского, 8' },
-];
 
 interface SelectableChipProps {
   label: string;
@@ -109,14 +81,14 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   timeOptions = DEFAULT_TIME_OPTIONS,
   defaultTime = '7:40',
   routeLabel = 'Маршрут · из шаблона',
-  defaultPickup = 'uritskogo',
   reverse = false,
   onAddCar,
 }) => {
   const [time, setTime] = useState<string>(defaultTime);
   const [customTime, setCustomTime] = useState<string>('');
   const [seats, setSeats] = useState<number>(3);
-  const [pickup, setPickup] = useState<string>(defaultPickup);
+  const [fromPointId, setFromPointId] = useState<string>('');
+  const [toPointId, setToPointId] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [template, setTemplate] = useState<GetMyTemplateResponse | null>(null);
@@ -124,7 +96,6 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState<boolean>(false);
-  const [isReversed, setIsReversed] = useState<boolean>(reverse);
   const [cars, setCars] = useState<Car[]>([]);
   const [selectedCarId, setSelectedCarId] = useState<number | null>(null);
   const [showCarDropdown, setShowCarDropdown] = useState<boolean>(false);
@@ -147,6 +118,9 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
       setTemplate(tmpl);
       setRoutePoints(pointsResp.points);
       setSeats(tmpl.seats_total);
+      // Инициализация точек маршрута из шаблона с учётом начального направления (reverse)
+      setFromPointId(String(reverse ? tmpl.end_point_id : tmpl.start_point_id));
+      setToPointId(String(reverse ? tmpl.start_point_id : tmpl.end_point_id));
       setCars(carsResp.cars);
       // Выбрать первую машину по умолчанию, если есть
       if (carsResp.cars.length > 0) {
@@ -158,7 +132,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [reverse]);
 
   useEffect(() => {
     void loadData();
@@ -198,13 +172,22 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
       return;
     }
 
+    // Точки отправления и назначения должны отличаться
+    if (fromPointId === toPointId) {
+      showToast('Точки отправления и назначения должны отличаться');
+      return;
+    }
+
+    // Направление коридора для API: reverse=true, если старт совпал с конечной точкой шаблона
+    const reverseForApi = Number(fromPointId) === template.end_point_id;
+
     try {
       setPublishing(true);
       const response = await publishTrip({
         templateId: template.id,
         date,
         departureTime: formatTimeToHHMM(actualTime),
-        reverse: isReversed,
+        reverse: reverseForApi,
         carId: selectedCarId ?? undefined,
       });
       onPublish(response.trip.tripId);
@@ -218,7 +201,9 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
 
   const handleSwapDirection = () => {
     hapticSelection();
-    setIsReversed((prev) => !prev);
+    // Реально меняем точки местами (обе редактируемые) — без CSS order и блокировки
+    setFromPointId(toPointId);
+    setToPointId(fromPointId);
   };
 
   const handleCarSelect = (carId: number) => {
@@ -235,13 +220,13 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     }
   };
 
-  // Определяем точки маршрута в зависимости от направления (swap-кнопка)
-  const destPointId = template ? (isReversed ? template.start_point_id : template.end_point_id) : null;
-  const destPoint = routePoints.find((p) => p.id === destPointId) ?? null;
-  const destLabel = destPoint ? destPoint.title : isReversed ? 'Брагино' : 'Центр';
-
-  // Единственное поле выбора — улица отправления (без подписи района).
-  const pickupOptions = defaultPickup === 'volkova' ? EVENING_PICKUP_OPTIONS : DEFAULT_PICKUP_OPTIONS;
+  // Опции маршрута — концы коридора из шаблона (стартовая и конечная точки).
+  // Обе точки редактируемые; свап и выбор задают направление (reverse вычисляется при публикации).
+  const corridorOptions: SelectOption[] = template
+    ? routePoints
+        .filter((p) => p.id === template.start_point_id || p.id === template.end_point_id)
+        .map((p) => ({ value: String(p.id), label: p.title }))
+    : [];
 
   const selectedCar = cars.find((c) => c.id === selectedCarId);
 
@@ -318,59 +303,41 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
               >
                 <div style={sectionLabelStyle}>{routeLabel}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', margin: '4px 0', paddingRight: '48px' }}>
-                  {/* Первая точка — редактируемый Select (только улица); сверху, пока не reversed */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px', order: isReversed ? 3 : 1 }}>
-                    <RouteDot filled={!isReversed} />
-                    <div style={{ ...routeFieldStyle, flex: 1, minWidth: 0 }}>
+                  {/* Точка отправления — редактируемый Select */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px' }}>
+                    <RouteDot filled />
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <Select
-                        options={pickupOptions}
-                        value={pickup}
+                        variant="field"
+                        options={corridorOptions}
+                        value={fromPointId}
                         onChange={(val) => {
                           hapticSelection();
-                          setPickup(val);
+                          setFromPointId(val);
                         }}
-                        aria-label="Откуда забрать"
+                        placeholder="Откуда"
+                        aria-label="Точка отправления"
                       />
                     </div>
                   </div>
 
-                  <RouteMidConnector order={2} />
+                  <RouteMidConnector />
 
-                  {/* Вторая точка — read-only с пунктирной рамкой r18 и замком */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px', order: isReversed ? 1 : 3 }}>
-                    <RouteDot filled={isReversed} />
-                    <div
-                      style={{
-                        ...routeFieldStyle,
-                        flex: 1,
-                        minWidth: 0,
-                        border: '1px dashed var(--border)',
-                        background: 'color-mix(in srgb, var(--secondary) 42%, transparent)',
-                        color: 'var(--muted-foreground)',
-                        fontSize: '15px',
-                        fontWeight: 600,
-                        gap: '10px',
-                      }}
-                    >
-                      <Icon
-                        id="i-lock"
-                        style={{
-                          width: '16px',
-                          height: '16px',
-                          flexShrink: 0,
-                          opacity: 0.6,
+                  {/* Точка назначения — редактируемый Select (разблокирована) */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px' }}>
+                    <RouteDot />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Select
+                        variant="field"
+                        options={corridorOptions}
+                        value={toPointId}
+                        onChange={(val) => {
+                          hapticSelection();
+                          setToPointId(val);
                         }}
+                        placeholder="Куда"
+                        aria-label="Точка назначения"
                       />
-                      <span
-                        style={{
-                          minWidth: 0,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {destLabel}
-                      </span>
                     </div>
                   </div>
                 </div>

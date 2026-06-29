@@ -14,6 +14,8 @@ interface SelectProps {
   disabled?: boolean;
   label?: string;
   'aria-label'?: string;
+  /** 'field' — триггер стилизован как самостоятельное поле (фон/рамка/радиус 18); 'bare' — прозрачный (по умолчанию). */
+  variant?: 'bare' | 'field';
 }
 
 const Select: React.FC<SelectProps> = ({
@@ -24,6 +26,7 @@ const Select: React.FC<SelectProps> = ({
   disabled = false,
   label,
   'aria-label': ariaLabel,
+  variant = 'bare',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -174,11 +177,7 @@ const Select: React.FC<SelectProps> = ({
         style={{
           width: '100%',
           minHeight: '48px',
-          padding: '4px 0',
-          borderRadius: '0',
-          background: 'transparent',
           color: selectedOption ? 'var(--foreground)' : 'var(--muted-foreground)',
-          border: 'none',
           fontSize: '15px',
           fontWeight: 600,
           fontFamily: 'var(--font-sans)',
@@ -189,6 +188,22 @@ const Select: React.FC<SelectProps> = ({
           gap: '10px',
           opacity: disabled ? 0.5 : 1,
           transition: 'filter 0.12s ease',
+          // variant='field' — поле само рисует фон/рамку/радиус; dropdown выходит за его границы
+          // (родитель Select без overflow:hidden), что чинит обрезку списка.
+          ...(variant === 'field'
+            ? {
+                padding: '0 16px',
+                borderRadius: '18px',
+                background: 'var(--field)',
+                border: '1px solid var(--field-border)',
+                boxShadow: 'var(--field-shadow)',
+              }
+            : {
+                padding: '4px 0',
+                borderRadius: '0',
+                background: 'transparent',
+                border: 'none',
+              }),
         }}
       >
         <span
