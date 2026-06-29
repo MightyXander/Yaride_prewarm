@@ -47,7 +47,8 @@ const Splash: React.FC<SplashProps> = ({ onHide, onHidden }) => {
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: 'var(--background)',
+        // Одноцветный сплеш: цвет левого верхнего пикселя лого (бесшовно с logo.png).
+        background: '#fdfffe',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
