@@ -7,6 +7,12 @@ function mockApiPlugin() {
   return {
     name: 'mock-api',
     configureServer(server: ViteDevServer) {
+      // In-memory машины водителя для mock-режима: переживают между запросами,
+      // POST добавляет в список (как реальный backend в server.js / src/server).
+      const mockCars: { id: number; model: string; color: string | null; plate: string | null }[] = [
+        { id: 1, model: 'Hyundai Solaris', color: 'белый', plate: 'Е456КХ' },
+      ];
+
       server.middlewares.use('/api', (req, res, next) => {
         // Если backend запущен — пропустить к proxy
         if (process.env.USE_REAL_API === 'true') {
@@ -326,6 +332,30 @@ function mockApiPlugin() {
             seats_total: 3,
           };
           sendJson(template);
+          return;
+        }
+
+        // GET /api/me/cars — машины водителя (mock_empty=true → пустой список)
+        if (method === 'GET' && pathname === '/me/cars') {
+          sendJson({ cars: forceEmpty ? [] : mockCars });
+          return;
+        }
+
+        // POST /api/me/cars — добавить машину (пишем в in-memory список)
+        if (method === 'POST' && pathname === '/me/cars') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', () => {
+            const params = JSON.parse(body);
+            const car = {
+              id: mockCars.reduce((max, c) => Math.max(max, c.id), 0) + 1,
+              model: params.model,
+              color: params.color ?? null,
+              plate: params.plate ?? null,
+            };
+            mockCars.push(car);
+            sendJson({ car }, 201);
+          });
           return;
         }
 
