@@ -49,8 +49,14 @@ try {
   };
   console.log('Data layer + API ready (PostgreSQL).');
 
-  // Issue #85: установить webhook для Telegram-бота при наличии BOT_TOKEN и PUBLIC_URL.
+  // Telegram-бот: два режима доставки апдейтов.
+  //  - webhook (issue #85): Telegram сам POST-ит на PUBLIC_URL/webhook/telegram.
+  //  - long polling (BOT_MODE=polling): сервер сам тянет getUpdates (исходящий канал).
+  // На RF-хостинге входящий webhook от Telegram режется DPI (Connection timed out),
+  // поэтому на VPS в РФ используется polling — исходящие запросы к api.telegram.org
+  // работают (при необходимости через пин IPv4 в /etc/hosts контейнера).
   const botToken = (process.env.BOT_TOKEN ?? '').trim();
+  const botMode = (process.env.BOT_MODE ?? '').trim().toLowerCase();
   const webhookSecret = (process.env.WEBHOOK_SECRET ?? '').trim();
   const publicUrl =
     (
@@ -60,7 +66,11 @@ try {
       ''
     ).trim();
 
-  if (botToken !== '' && publicUrl !== '') {
+  if (botToken === '') {
+    console.log('BOT_TOKEN отсутствует — Telegram-бот не запущен (dev mode)');
+  } else if (botMode === 'polling') {
+    await startLongPolling(telegram, botToken);
+  } else if (publicUrl !== '') {
     const webhookPath = '/webhook/telegram';
     const fullWebhookUrl = publicUrl.startsWith('http')
       ? `${publicUrl}${webhookPath}`
@@ -75,19 +85,78 @@ try {
       console.error('Не удалось установить webhook для Telegram-бота');
     }
   } else {
-    if (botToken === '') {
-      console.log('BOT_TOKEN отсутствует — webhook для Telegram-бота не установлен (dev mode)');
-    } else if (publicUrl === '') {
-      console.log(
-        'PUBLIC_URL отсутствует (WEBHOOK_URL / RAILWAY_PUBLIC_DOMAIN / RAILWAY_STATIC_URL) — webhook для Telegram-бота не установлен',
-      );
-    }
+    console.log(
+      'Ни BOT_MODE=polling, ни PUBLIC_URL (WEBHOOK_URL / RAILWAY_PUBLIC_DOMAIN) — Telegram-бот не запущен',
+    );
   }
 } catch (err) {
   console.error(
     'Data layer not initialized (build with `npm run build:server` and set DATABASE_URL):',
     err?.message ?? err,
   );
+}
+
+const TELEGRAM_API_BASE = 'https://api.telegram.org';
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Вызов метода Bot API (POST JSON). Возвращает разобранный ответ Telegram. */
+async function tgApi(token, method, payload) {
+  const res = await fetch(`${TELEGRAM_API_BASE}/bot${token}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload ?? {}),
+  });
+  return res.json();
+}
+
+/**
+ * Long polling: снимаем webhook и в фоне тянем getUpdates, скармливая каждый
+ * апдейт в тот же handleWebhookUpdate, что и webhook-роут. Цикл не блокирует
+ * app.listen и переживает сетевые сбои (пауза + повтор).
+ */
+async function startLongPolling(telegram, botToken) {
+  try {
+    // webhook и polling взаимоисключающи; очередь не сбрасываем (drop=false),
+    // чтобы уже пришедшие /start были обработаны через getUpdates.
+    await tgApi(botToken, 'deleteWebhook', { drop_pending_updates: false });
+  } catch (err) {
+    console.error('deleteWebhook перед polling не удался:', err?.message ?? err);
+  }
+  console.log('Telegram-бот: режим long polling (getUpdates).');
+
+  const miniAppUrl = process.env.MINIAPP_URL;
+  let offset = 0;
+
+  (async function loop() {
+    for (;;) {
+      try {
+        const data = await tgApi(botToken, 'getUpdates', {
+          offset,
+          timeout: 30,
+          allowed_updates: ['message', 'callback_query'],
+        });
+        if (!data || data.ok !== true) {
+          console.error('getUpdates ok=false:', data?.description ?? '');
+          await sleep(3000);
+          continue;
+        }
+        for (const update of data.result ?? []) {
+          offset = update.update_id + 1;
+          try {
+            await telegram.handleWebhookUpdate(update, miniAppUrl, botToken);
+          } catch (err) {
+            console.error('Ошибка обработки апдейта:', err?.message ?? err);
+          }
+        }
+      } catch (err) {
+        console.error('getUpdates сбой:', err?.message ?? err);
+        await sleep(3000);
+      }
+    }
+  })();
 }
 
 const app = express();
