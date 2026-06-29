@@ -5,6 +5,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const TELEGRAM_API_BASE = 'https://api.telegram.org';
+
 // Инициализация слоя данных PostgreSQL (пул + схема + сид коридора при первом старте)
 // + JSON-API обработчики (issue #10). Компилируется из src/server через `tsc -b`
 // (npm run build / build:server) в dist-server/. Импорт в try/catch: если серверный
@@ -95,8 +97,6 @@ try {
     err?.message ?? err,
   );
 }
-
-const TELEGRAM_API_BASE = 'https://api.telegram.org';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
