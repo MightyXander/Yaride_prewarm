@@ -26,9 +26,12 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
     }
   }, [onClick, show]);
 
-  // In-app fallback button рендерим ВСЕГДА при show=true (даже внутри Telegram, если нет BackButton API).
-  // Рендерится через portal в document.body для гарантированной фиксации к viewport.
-  if (!show) {
+  // In-app fallback рендерим ТОЛЬКО когда нативной кнопки «Назад» нет (вне Telegram / старые клиенты).
+  // На iOS/Android/Desktop Telegram есть системная кнопка/свайп «Назад» (её включает useEffect выше) —
+  // свою НЕ дублируем, иначе на экране две кнопки «Назад».
+  const tg = window.Telegram?.WebApp;
+  const nativeBackAvailable = !!(tg?.BackButton && tg.isVersionAtLeast?.('6.1'));
+  if (!show || nativeBackAvailable) {
     return null;
   }
 
