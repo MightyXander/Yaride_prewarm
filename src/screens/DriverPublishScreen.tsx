@@ -74,9 +74,10 @@ const SelectableChip: React.FC<SelectableChipProps> = ({ label, active, onClick 
       fontFamily: 'var(--font-sans)',
       cursor: 'pointer',
       whiteSpace: 'nowrap',
-      border: `1px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
-      background: active ? 'var(--brand)' : 'var(--secondary)',
+      border: `1px solid ${active ? 'var(--brand)' : 'var(--field-border)'}`,
+      background: active ? 'var(--brand)' : 'var(--field)',
       color: active ? 'var(--brand-foreground)' : 'var(--secondary-foreground)',
+      boxShadow: active ? '0 4px 14px -4px rgba(255, 210, 40, 0.55)' : 'var(--field-shadow)',
     }}
   >
     {label}
@@ -100,7 +101,6 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [template, setTemplate] = useState<GetMyTemplateResponse | null>(null);
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
-  const [selectedStartPointId, setSelectedStartPointId] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState<boolean>(false);
@@ -122,10 +122,6 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         setTemplate(tmpl);
         setRoutePoints(pointsResp.points);
         setSeats(tmpl.seats_total);
-
-        // Установить дефолтную точку старта: если reverse=true → end_point_id, иначе start_point_id
-        const defaultStartId = reverse ? tmpl.end_point_id : tmpl.start_point_id;
-        setSelectedStartPointId(defaultStartId);
       } catch (err) {
         const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки данных';
         setError(msg);
@@ -158,18 +154,14 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
       return;
     }
 
-    // Вычислить reverse на основе выбранной точки старта:
-    // если selectedStartPointId === template.start_point_id → reverse=false
-    // если selectedStartPointId === template.end_point_id → reverse=true
-    const actualReverse = selectedStartPointId === template.end_point_id;
-
+    // Направление зафиксировано пропом reverse — экран открыт уже в нужную сторону.
     try {
       setPublishing(true);
       const response = await publishTrip({
         templateId: template.id,
         date,
         departureTime: formatTimeToHHMM(actualTime),
-        reverse: actualReverse,
+        reverse,
       });
       onPublish(response.trip.tripId);
     } catch (err) {
@@ -180,32 +172,34 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     }
   };
 
-  // Определяем опции точки сбора в зависимости от дефолта
+  // Направление зафиксировано пропом reverse — экран открыт уже в нужную сторону.
+  // Origin/destination — конечные точки коридора из шаблона.
+  const originPointId = template ? (reverse ? template.end_point_id : template.start_point_id) : null;
+  const destPointId = template ? (reverse ? template.start_point_id : template.end_point_id) : null;
+  const originPoint = routePoints.find((p) => p.id === originPointId) ?? null;
+  const destPoint = routePoints.find((p) => p.id === destPointId) ?? null;
+  const originDistrict = originPoint?.district ?? (reverse ? 'Центр' : 'Брагино');
+  const destLabel = destPoint
+    ? `${destPoint.district}, ${destPoint.title}`
+    : reverse
+      ? 'Брагино'
+      : 'Центр, пл. Волкова';
+
+  // Единственное поле выбора — улица в районе отправления (направление уже задано,
+  // район понятен, поэтому отдельного поля «Точка сбора» больше нет).
   const pickupOptions = defaultPickup === 'volkova' ? EVENING_PICKUP_OPTIONS : DEFAULT_PICKUP_OPTIONS;
-
-  // Вычисляем коридор (2 точки из template) и отображаемые названия
-  const corridorPointIds = template ? [template.start_point_id, template.end_point_id] : [];
-  const corridorPoints = routePoints.filter((p) => corridorPointIds.includes(p.id));
-
-  const endPoint =
-    template && selectedStartPointId
-      ? routePoints.find((p) =>
-          corridorPointIds.includes(p.id) && p.id !== selectedStartPointId
-        )
-      : null;
-
-  // Опции для inline-select (2 точки коридора)
-  const routeSelectOptions: SelectOption[] = corridorPoints.map((p) => ({
-    value: String(p.id),
-    label: `${p.district}, ${p.title}`,
+  const streetOptions: SelectOption[] = pickupOptions.map((o) => ({
+    value: o.value,
+    label: `${originDistrict}, ${o.label}`,
   }));
 
   const stepBtnStyle = (enabled: boolean): React.CSSProperties => ({
     width: '44px',
     height: '44px',
     borderRadius: '12px',
-    border: '1px solid var(--border)',
-    background: 'var(--secondary)',
+    border: '1px solid var(--field-border)',
+    background: 'var(--field)',
+    boxShadow: 'var(--field-shadow)',
     color: 'var(--foreground)',
     display: 'grid',
     placeItems: 'center',
@@ -269,13 +263,13 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                       }}
                     >
                       <Select
-                        options={routeSelectOptions}
-                        value={selectedStartPointId ? String(selectedStartPointId) : undefined}
+                        options={streetOptions}
+                        value={pickup}
                         onChange={(val) => {
                           hapticSelection();
-                          setSelectedStartPointId(Number(val));
+                          setPickup(val);
                         }}
-                        aria-label="Точка старта"
+                        aria-label="Откуда забрать"
                       />
                     </div>
 
@@ -304,7 +298,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                           opacity: 0.6,
                         }}
                       />
-                      {endPoint ? `${endPoint.district}, ${endPoint.title}` : '...'}
+                      {destLabel}
                     </div>
                   </div>
                 </div>
@@ -326,8 +320,9 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
             minHeight: '48px',
             padding: '12px 16px',
             borderRadius: '16px',
-            border: '1px solid var(--border)',
-            background: 'var(--secondary)',
+            border: '1px solid var(--field-border)',
+            background: 'var(--field)',
+            boxShadow: 'var(--field-shadow)',
             color: 'var(--foreground)',
             fontSize: '15px',
             fontWeight: 600,
@@ -405,8 +400,9 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                 minHeight: '44px',
                 padding: '0 14px',
                 borderRadius: '12px',
-                border: '1px solid var(--border)',
-                background: 'var(--secondary)',
+                border: '1px solid var(--field-border)',
+                background: 'var(--field)',
+                boxShadow: 'var(--field-shadow)',
                 color: 'var(--foreground)',
                 fontSize: '15px',
                 fontFamily: 'var(--font-sans)',
@@ -461,25 +457,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         </div>
       </div>
 
-      {/* Точка сбора — Select с белым фоном */}
-              <div
-                style={{
-                  borderRadius: '16px',
-                  background: 'var(--field)',
-                  border: '1px solid var(--field-border)',
-                  boxShadow: 'var(--field-shadow)',
-                  padding: '14px',
-                }}
-              >
-                <Select
-                  options={pickupOptions}
-                  value={pickup}
-                  onChange={setPickup}
-                  label="Точка сбора"
-                />
-              </div>
-
-              <div
+      <div
                 style={{
                   display: 'flex',
                   flexDirection: 'column',

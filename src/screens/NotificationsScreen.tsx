@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
+import { Appear, AppearList } from '../components/Appear';
+import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { getNotifications, markNotificationRead } from '../lib/api';
 import type { NotificationItem, NotificationType } from '../types/api';
 
@@ -135,7 +138,8 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: '6px 16px 16px',
+        padding: '6px 16px',
+        paddingBottom: FLOATING_NAV_SCROLL_CLEARANCE,
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
@@ -143,125 +147,135 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
     >
       <Header title="Уведомления" />
 
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <NotificationSkeleton />
-          <NotificationSkeleton />
-          <NotificationSkeleton />
-        </div>
-      ) : notifications.length === 0 ? (
-        <Card style={{ padding: '32px 20px', textAlign: 'center' }}>
-          <div style={{ marginBottom: '10px' }}>
-            <Icon
-              id="i-bell"
-              style={{
-                width: '48px',
-                height: '48px',
-                margin: '0 auto',
-                color: 'var(--muted-foreground)',
-                opacity: 0.5,
-              }}
-            />
-          </div>
-          <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
-            Пока нет уведомлений
-          </div>
-        </Card>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {notifications.map((notif) => {
-            const { icon, color } = getNotificationIcon(notif.type);
-            const isUnread = !notif.read;
+      <AnimatePresence mode="wait">
+        {loading ? (
+          <Appear key="loading">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <NotificationSkeleton />
+              <NotificationSkeleton />
+              <NotificationSkeleton />
+            </div>
+          </Appear>
+        ) : notifications.length === 0 ? (
+          <Appear key="empty">
+            <Card style={{ padding: '32px 20px', textAlign: 'center' }}>
+              <div style={{ marginBottom: '10px' }}>
+                <Icon
+                  id="i-bell"
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    margin: '0 auto',
+                    color: 'var(--muted-foreground)',
+                    opacity: 0.5,
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
+                Пока нет уведомлений
+              </div>
+            </Card>
+          </Appear>
+        ) : (
+          <AppearList
+            key="list"
+            stagger={55}
+            style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+          >
+            {notifications.map((notif) => {
+              const { icon, color } = getNotificationIcon(notif.type);
+              const isUnread = !notif.read;
 
-            return (
-              <Card
-                key={notif.id}
-                role="button"
-                tabIndex={0}
-                aria-label={`${notif.title}: ${notif.body}`}
-                onClick={() => void handleNotificationClick(notif)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    void handleNotificationClick(notif);
-                  }
-                }}
-                className="focus-ring pressable"
-                style={{
-                  padding: '14px',
-                  cursor: 'pointer',
-                  background: isUnread ? 'var(--card)' : 'var(--muted)',
-                  borderLeft: isUnread ? `3px solid ${color}` : 'none',
-                }}
-              >
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                  {/* Иконка типа уведомления */}
-                  <div
-                    style={{
-                      flexShrink: 0,
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '999px',
-                      background: `color-mix(in srgb, ${color} 15%, transparent)`,
-                      display: 'grid',
-                      placeItems: 'center',
-                    }}
-                  >
-                    <Icon
-                      id={icon}
-                      fill={notif.type === 'booking_confirmed'}
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        color,
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {/* Заголовок + время */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                      <div
-                        style={{
-                          fontSize: '15px',
-                          fontWeight: isUnread ? 800 : 700,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {notif.title}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: '13px',
-                          color: 'var(--muted-foreground)',
-                          fontWeight: 600,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {formatRelativeTime(notif.created_at)}
-                      </div>
-                    </div>
-
-                    {/* Текст уведомления */}
+              return (
+                <Card
+                  key={notif.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${notif.title}: ${notif.body}`}
+                  onClick={() => void handleNotificationClick(notif)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      void handleNotificationClick(notif);
+                    }
+                  }}
+                  className="focus-ring pressable"
+                  style={{
+                    padding: '14px',
+                    cursor: 'pointer',
+                    background: isUnread ? 'var(--card)' : 'var(--muted)',
+                    borderLeft: isUnread ? `3px solid ${color}` : 'none',
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    {/* Иконка типа уведомления */}
                     <div
                       style={{
-                        fontSize: '14px',
-                        color: 'var(--foreground)',
-                        lineHeight: 1.5,
-                        opacity: isUnread ? 1 : 0.85,
+                        flexShrink: 0,
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '999px',
+                        background: `color-mix(in srgb, ${color} 15%, transparent)`,
+                        display: 'grid',
+                        placeItems: 'center',
                       }}
                     >
-                      {notif.body}
+                      <Icon
+                        id={icon}
+                        fill={notif.type === 'booking_confirmed'}
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          color,
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {/* Заголовок + время */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div
+                          style={{
+                            fontSize: '15px',
+                            fontWeight: isUnread ? 800 : 700,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {notif.title}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '13px',
+                            color: 'var(--muted-foreground)',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {formatRelativeTime(notif.created_at)}
+                        </div>
+                      </div>
+
+                      {/* Текст уведомления */}
+                      <div
+                        style={{
+                          fontSize: '14px',
+                          color: 'var(--foreground)',
+                          lineHeight: 1.5,
+                          opacity: isUnread ? 1 : 0.85,
+                        }}
+                      >
+                        {notif.body}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                </Card>
+              );
+            })}
+          </AppearList>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

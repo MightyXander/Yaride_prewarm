@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { showToast } from '../lib/toast';
 import { useProfile } from '../contexts/ProfileContext';
+import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 
 const statValueStyle: React.CSSProperties = {
   fontSize: '20px',
@@ -65,7 +66,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: '6px 16px 16px',
+        padding: '6px 16px',
+        paddingBottom: FLOATING_NAV_SCROLL_CLEARANCE,
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
