@@ -27,6 +27,7 @@ const PARENT_SCREEN: Record<Screen, Screen> = {
   'habit-home': 'profile',
   'user-profile': 'main',
   notifications: 'main',
+  'add-car': 'driver-publish',
 };
 
 export const useNavigation = (initialScreen: Screen = 'intro') => {
@@ -64,6 +65,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       'habit-home': 0,
       'user-profile': 0,
       notifications: 0,
+      'add-car': 0,
     },
   });
 

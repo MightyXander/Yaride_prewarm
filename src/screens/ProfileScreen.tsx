@@ -28,6 +28,8 @@ interface ProfileScreenProps {
   onSafety?: () => void;
   /** Открыть экран «Мои поездки» (экран 17). */
   onMyTrips?: () => void;
+  /** Открыть экран «Мои машины» / добавление машины. */
+  onMyCars?: () => void;
   /** Переключение темы (light/dark). */
   onToggleTheme?: () => void;
   /** Текущая тема. */

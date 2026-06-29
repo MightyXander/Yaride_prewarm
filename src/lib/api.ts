@@ -29,6 +29,9 @@ import type {
   GetUserReviewsResponse,
   GetNotificationsResponse,
   MarkNotificationReadResponse,
+  GetMyCarsResponse,
+  AddCarRequest,
+  AddCarResponse,
   ApiErrorResponse,
 } from '../types/api.ts';
 
@@ -183,6 +186,19 @@ export async function getRoutePoints(): Promise<GetRoutePointsResponse> {
 /** GET /api/me/template */
 export async function getMyTemplate(): Promise<GetMyTemplateResponse> {
   return apiFetch<GetMyTemplateResponse>('/me/template');
+}
+
+/** GET /api/me/cars — машины текущего водителя. */
+export async function getMyCars(): Promise<GetMyCarsResponse> {
+  return apiFetch<GetMyCarsResponse>('/me/cars');
+}
+
+/** POST /api/me/cars — добавить машину. */
+export async function addCar(params: AddCarRequest): Promise<AddCarResponse> {
+  return apiFetch<AddCarResponse>('/me/cars', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
 }
 
 /** POST /api/me/license */

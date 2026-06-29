@@ -22,6 +22,7 @@ import MyTripsScreen from './screens/MyTripsScreen';
 import RateTripScreen from './screens/RateTripScreen';
 import UserProfileScreen from './screens/UserProfileScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
+import AddCarScreen from './screens/AddCarScreen';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -438,6 +439,7 @@ function App() {
             {currentScreen === 'driver-publish' && (
               <DriverPublishScreen
                 onPublish={(tripId) => navigate('booking-confirmed', null, 'publish', tripId)}
+                onAddCar={() => navigate('add-car')}
               />
             )}
             {currentScreen === 'booking-confirmed' && (
@@ -457,6 +459,7 @@ function App() {
                 onLicenseReview={() => navigate('license-review')}
                 onSafety={() => navigate('safety')}
                 onMyTrips={() => navigate('my-trips')}
+                onMyCars={() => navigate('add-car')}
                 onToggleTheme={toggleTheme}
                 theme={theme}
                 onOpenProfile={handleOpenUserProfile}
@@ -522,6 +525,7 @@ function App() {
                 defaultPickup="volkova"
                 reverse={true}
                 onPublish={(tripId) => navigate('booking-confirmed', null, 'publish', tripId)}
+                onAddCar={() => navigate('add-car')}
               />
             )}
             {currentScreen === 'user-profile' && profileStack.length > 0 && (
@@ -533,6 +537,9 @@ function App() {
             )}
             {currentScreen === 'notifications' && (
               <NotificationsScreen onNavigate={handleNotificationNavigate} />
+            )}
+            {currentScreen === 'add-car' && (
+              <AddCarScreen onSaved={goBack} />
             )}
           </motion.div>
         </AnimatePresence>

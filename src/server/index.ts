@@ -27,6 +27,8 @@ export {
   createNotification,
   listNotifications,
   markNotificationRead,
+  listCarsByDriver,
+  createCar,
 } from './repo.ts';
 export type {
   TimeSlot,
@@ -43,6 +45,8 @@ export type {
   NotificationType,
   NotificationItem,
   CreateNotificationParams,
+  Car,
+  CreateCarParams,
 } from './repo.ts';
 
 // JSON-API обработчики (issue #10): Express-независимые, подключаются в server.js.
@@ -65,6 +69,8 @@ export {
   handleGetUserReviews,
   handleGetNotifications,
   handleMarkNotificationRead,
+  handleListMyCars,
+  handleAddCar,
 } from './api.ts';
 export type { ApiRequest, ApiResponse } from './api.ts';
 
