@@ -92,10 +92,12 @@ const getDemoData = () => {
 
 interface MyTripsScreenProps {
   onCreateTrip?: () => void;
+  /** Открыть детали поездки по клику на карточку. */
+  onOpenTrip?: (tripId: number) => void;
   onRateTrip?: (tripId: number, rateeId: number, raterRole: 'driver' | 'passenger') => void;
 }
 
-const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip }) => {
+const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip, onRateTrip }) => {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [upcomingTrips, setUpcomingTrips] = useState<UserTripItem[]>([]);
   const [pastTrips, setPastTrips] = useState<UserTripItem[]>([]);
@@ -138,7 +140,14 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
   };
 
   const handleTripClick = (trip: UserTripItem) => {
-    if (activeTab === 'past' && trip.driver_id !== null) {
+    hapticImpact('light');
+    onOpenTrip?.(trip.trip_id);
+  };
+
+  // Оценка прошлой поездки — отдельной кнопкой (stopPropagation, чтобы не открыть детали).
+  const handleRateClick = (e: React.MouseEvent | React.KeyboardEvent, trip: UserTripItem) => {
+    e.stopPropagation();
+    if (trip.driver_id !== null) {
       hapticImpact('light');
       onRateTrip?.(trip.trip_id, trip.driver_id, trip.role);
     }
@@ -282,29 +291,27 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
             {trips.map((trip) => {
               const status = getStatusLabel(trip);
               const name = trip.role === 'driver' ? 'Моя поездка' : 'Поездка';
+              const canRate = activeTab === 'past' && trip.driver_id !== null;
 
               return (
                 <Card
                   key={trip.trip_id}
-                  role={activeTab === 'past' ? 'button' : undefined}
-                  tabIndex={activeTab === 'past' ? 0 : undefined}
-                  className={activeTab === 'past' ? 'focus-ring pressable' : undefined}
+                  role="button"
+                  tabIndex={0}
+                  className="focus-ring pressable"
+                  aria-label={`Открыть детали поездки: ${trip.start_title} — ${trip.end_title}`}
                   onClick={() => handleTripClick(trip)}
-                  onKeyDown={
-                    activeTab === 'past'
-                      ? (e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleTripClick(trip);
-                          }
-                        }
-                      : undefined
-                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleTripClick(trip);
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '9px',
-                    cursor: activeTab === 'past' ? 'pointer' : 'default',
+                    cursor: 'pointer',
                   }}
                 >
                   <div
@@ -377,6 +384,38 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
                       </span>
                     </div>
                   </div>
+                  {canRate && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleRateClick(e, trip)}
+                      onKeyDown={(e) => {
+                        // Не давать Enter/Space всплыть до карточки (иначе откроются и детали)
+                        if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
+                      }}
+                      className="focus-ring pressable"
+                      style={{
+                        marginTop: '3px',
+                        minHeight: '40px',
+                        padding: '0 16px',
+                        borderRadius: '14px',
+                        border: '1px solid var(--field-border)',
+                        background: 'var(--field)',
+                        boxShadow: 'var(--field-shadow)',
+                        color: 'var(--foreground)',
+                        fontWeight: 700,
+                        fontSize: '14px',
+                        fontFamily: 'var(--font-sans)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '7px',
+                      }}
+                    >
+                      <Icon id="i-star" style={{ width: '15px', height: '15px' }} />
+                      Оценить поездку
+                    </button>
+                  )}
                 </Card>
               );
             })}

@@ -28,8 +28,9 @@ import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useAsync } from './hooks/useAsync';
 import { useStartParam } from './hooks/useStartParam';
-import { getTrips, getRoutePoints } from './lib/api';
-import { mapTripListItemToTrip } from './lib/mappers';
+import { getTrips, getRoutePoints, getTrip } from './lib/api';
+import { mapTripListItemToTrip, mapTripCardToTrip } from './lib/mappers';
+import { showToast } from './lib/toast';
 import { loadRole, saveRole, type UserRole } from './lib/role';
 import { formatSubtitle } from './lib/date';
 import { ProfileProvider } from './contexts/ProfileContext';
@@ -258,6 +259,17 @@ function App() {
       // Снимаем верхний профиль
       return prev.slice(0, -1);
     });
+  };
+
+  // Открыть детали поездки по ID (из «Моих поездок»): дозагрузка карточки + переход.
+  // Тот же путь, что у deep-link trip-<id>: getTrip → mapTripCardToTrip → trip-details.
+  const handleOpenTripById = async (tripId: number) => {
+    try {
+      const res = await getTrip(tripId);
+      navigate('trip-details', mapTripCardToTrip(res.trip));
+    } catch {
+      showToast('Не удалось открыть поездку');
+    }
   };
 
   // Обработчик навигации из уведомлений (маршрутизация по типу)
@@ -494,6 +506,7 @@ function App() {
             {currentScreen === 'my-trips' && (
               <MyTripsScreen
                 onCreateTrip={() => navigate('driver-publish')}
+                onOpenTrip={handleOpenTripById}
                 onRateTrip={(tripId, rateeId, raterRole) => navigateToRateTrip({ tripId, rateeId, raterRole })}
               />
             )}
