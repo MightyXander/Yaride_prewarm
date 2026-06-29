@@ -145,6 +145,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                 onLeaveRequest={onLeaveRequest}
                 onPublish={onPublish}
                 showPublish={userRole === 'driver'}
+                onToggleDirection={onToggleDirection}
               />
             </motion.div>
           )}
