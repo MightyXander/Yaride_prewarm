@@ -19,9 +19,11 @@ interface AppearProps {
   className?: string;
 }
 
+// При reduced-motion НЕ анимируем и opacity: иначе мгновенные переходы 0↔1
+// (skeleton → контент при загрузке) дают видимое мигание экрана. Контент всегда видим.
 const appearVariants: Variants = {
   hidden: {
-    opacity: 0,
+    opacity: prefersReducedMotion ? 1 : 0,
     y: prefersReducedMotion ? 0 : 6,
   },
   visible: {
@@ -29,7 +31,7 @@ const appearVariants: Variants = {
     y: 0,
   },
   exit: {
-    opacity: 0,
+    opacity: prefersReducedMotion ? 1 : 0,
     y: prefersReducedMotion ? 0 : 3,
   },
 };
@@ -58,7 +60,7 @@ export const Appear: React.FC<AppearProps> = ({
       variants={appearVariants}
       transition={{
         duration,
-        delay: delay / 1000, // ms → s
+        delay: prefersReducedMotion ? 0 : delay / 1000, // ms → s; при reduced-motion без stagger-задержки
         ease: [0.25, 0.1, 0.25, 1], // ease-out
       }}
       style={{ willChange: prefersReducedMotion ? 'auto' : 'opacity, transform', ...style }}
@@ -134,9 +136,9 @@ export const AppearList: React.FC<AppearListProps> = ({
       <AnimatePresence mode="wait">
         <motion.div
           key={animateKey}
-          initial={{ opacity: 0 }}
+          initial={{ opacity: prefersReducedMotion ? 1 : 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          exit={{ opacity: prefersReducedMotion ? 1 : 0 }}
           transition={{
             duration: prefersReducedMotion ? 0 : 0.15,
             ease: [0.25, 0.1, 0.25, 1],

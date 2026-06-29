@@ -59,6 +59,9 @@ const MainScreen: React.FC<MainScreenProps> = ({
   const D = prefersReduced ? 0 : 0.42;
   const DX = prefersReduced ? 0 : 0.3;
   const EASE = [0.22, 1, 0.36, 1] as const;
+  // При reduced-motion держим opacity на 1: иначе мгновенные переходы 0↔1
+  // (skeleton → контент при загрузке) дают видимое мигание экрана.
+  const fadeOpacity = prefersReduced ? 1 : 0;
 
   return (
     <div
@@ -82,7 +85,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
               key="loading-skeleton"
               initial={{ opacity: 1 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: fadeOpacity }}
               transition={{ duration: DX, ease: EASE }}
               style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
             >
@@ -92,9 +95,9 @@ const MainScreen: React.FC<MainScreenProps> = ({
           ) : error ? (
             <motion.div
               key="error-state"
-              initial={{ opacity: 0 }}
+              initial={{ opacity: fadeOpacity }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: fadeOpacity }}
               transition={{ duration: D, ease: EASE }}
             >
               <ErrorTripsState error={error} onRetry={onRetry ?? (() => {})} />
@@ -102,9 +105,9 @@ const MainScreen: React.FC<MainScreenProps> = ({
           ) : hasTrips ? (
             <motion.div
               key="trips-content"
-              initial={{ opacity: 0 }}
+              initial={{ opacity: fadeOpacity }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: fadeOpacity }}
               transition={{ duration: D, ease: EASE }}
               style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
             >
@@ -135,9 +138,9 @@ const MainScreen: React.FC<MainScreenProps> = ({
           ) : (
             <motion.div
               key="empty-state"
-              initial={{ opacity: 0 }}
+              initial={{ opacity: fadeOpacity }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: fadeOpacity }}
               transition={{ duration: D, ease: EASE }}
             >
               {/* Без Hero: по эталону в пустом состоянии показываем только карточку «Поездок пока нет». */}
