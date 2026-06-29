@@ -56,6 +56,7 @@ import {
 import {
   notifyPassengersAboutNewTrip,
   notifyDriverAboutNewBooking,
+  notifyAdminAboutLicenseRequest,
 } from './notify.ts';
 
 export interface ApiRequest {
@@ -773,6 +774,15 @@ export async function handleSubmitLicense(req: ApiRequest): Promise<ApiResponse>
       seriesNumber,
       validUntil,
     });
+
+    // Уведомить админа о заявке на модерацию (fire-and-forget, no-op без ADMIN_CHAT_ID)
+    void notifyAdminAboutLicenseRequest({
+      requestId: result.requestId,
+      driverName: telegramDisplayName(user),
+      seriesNumber,
+      validUntil,
+    });
+
     return { status: 201, body: { request: result } };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не удалось отправить заявку';
