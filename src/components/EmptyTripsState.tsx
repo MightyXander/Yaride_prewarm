@@ -1,14 +1,18 @@
 /**
- * Empty state для пустого списка поездок — по эталону (иконка-кружок + CTA «Оставить заявку»).
+ * Empty state для пустого списка поездок — по эталону.
+ * Иконка-кружок + заголовок/подзаголовок + CTA «Оставить заявку» и (для водителя) «Создать поездку».
  */
 
 import { EmptyState } from './ui/StateView';
 
 interface EmptyTripsStateProps {
   onLeaveRequest?: () => void;
+  /** Создать поездку (показывается только водителю — гейтинг публикации). */
+  onPublish?: () => void;
+  showPublish?: boolean;
 }
 
-const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ onLeaveRequest }) => (
+const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ onLeaveRequest, onPublish, showPublish }) => (
   <EmptyState
     icon={
       <svg viewBox="0 0 24 24" style={{ width: '34px', height: '34px', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
@@ -21,28 +25,59 @@ const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ onLeaveRequest }) => 
     title="Поездок пока нет"
     subtitle="На это время по маршруту никто не едет. Оставь заявку — водители увидят, что ты ищешь."
     action={
-      onLeaveRequest && (
-        <button
-          type="button"
-          onClick={onLeaveRequest}
-          className="focus-ring pressable"
-          style={{
-            minHeight: '48px',
-            padding: '0 22px',
-            borderRadius: '18px',
-            border: 'none',
-            background: 'var(--gradient-brand)',
-            color: 'var(--brand-foreground)',
-            fontWeight: 700,
-            fontSize: '15px',
-            fontFamily: 'var(--font-sans)',
-            cursor: 'pointer',
-            boxShadow: 'var(--shadow-hero)',
-          }}
-        >
-          Оставить заявку
-        </button>
-      )
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '9px' }}>
+        {onLeaveRequest && (
+          <button
+            type="button"
+            onClick={onLeaveRequest}
+            className="focus-ring pressable"
+            style={{
+              minHeight: '48px',
+              padding: '0 22px',
+              borderRadius: '18px',
+              border: 'none',
+              background: 'var(--gradient-brand)',
+              color: 'var(--brand-foreground)',
+              fontWeight: 700,
+              fontSize: '15px',
+              fontFamily: 'var(--font-sans)',
+              cursor: 'pointer',
+              boxShadow: 'var(--shadow-hero)',
+            }}
+          >
+            Оставить заявку
+          </button>
+        )}
+        {showPublish && onPublish && (
+          <button
+            type="button"
+            onClick={onPublish}
+            className="focus-ring pressable"
+            style={{
+              minHeight: '48px',
+              padding: '0 22px',
+              borderRadius: '18px',
+              border: '1px solid var(--field-border)',
+              background: 'var(--field)',
+              boxShadow: 'var(--field-shadow)',
+              color: 'var(--foreground)',
+              fontWeight: 700,
+              fontSize: '15px',
+              fontFamily: 'var(--font-sans)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '9px',
+            }}
+          >
+            <svg viewBox="0 0 24 24" style={{ width: '17px', height: '17px', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Создать поездку
+          </button>
+        )}
+      </div>
     }
   />
 );
