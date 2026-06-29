@@ -18,6 +18,18 @@ import type { RoutePoint } from '../types/api';
 const TIME_OPTIONS = ['8:00', '8:30', '9:00', 'другое'];
 const PASSENGER_COUNT_OPTIONS = ['1', '2'];
 
+// Единый фиксированный стиль полей маршрута: одна строка, одинаковая высота.
+const routeFieldStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  minHeight: '52px',
+  borderRadius: '14px',
+  background: 'var(--field)',
+  border: '1px solid var(--field-border)',
+  boxShadow: 'var(--field-shadow)',
+  padding: '0 14px',
+};
+
 interface PassengerRequestScreenProps {
   direction?: 'morning' | 'evening';
   onPublish?: () => void;
@@ -222,15 +234,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
             <div style={{ display: 'flex', gap: '12px' }}>
               <RouteConnector />
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div
-                  style={{
-                    borderRadius: '14px',
-                    background: 'var(--field)',
-                    border: '1px solid var(--field-border)',
-                    boxShadow: 'var(--field-shadow)',
-                    padding: '10px 14px',
-                  }}
-                >
+                <div style={routeFieldStyle}>
                   <Select
                     options={routePoints.map((point): SelectOption => ({
                       value: String(point.id),
@@ -246,15 +250,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
                   />
                 </div>
 
-                <div
-                  style={{
-                    borderRadius: '14px',
-                    background: 'var(--field)',
-                    border: '1px solid var(--field-border)',
-                    boxShadow: 'var(--field-shadow)',
-                    padding: '10px 14px',
-                  }}
-                >
+                <div style={routeFieldStyle}>
                   <Select
                     options={routePoints.map((point): SelectOption => ({
                       value: String(point.id),

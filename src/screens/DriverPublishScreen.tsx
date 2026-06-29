@@ -33,6 +33,18 @@ const sectionLabelStyle: React.CSSProperties = {
   marginBottom: '6px',
 };
 
+// Единый фиксированный стиль полей маршрута: одна строка, одинаковая высота.
+const routeFieldStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  minHeight: '52px',
+  borderRadius: '14px',
+  background: 'var(--field)',
+  border: '1px solid var(--field-border)',
+  boxShadow: 'var(--field-shadow)',
+  padding: '0 14px',
+};
+
 const DEFAULT_TIME_OPTIONS = ['7:30', '7:40', '7:55', '8:10', 'другое'];
 const MIN_SEATS = 1;
 const MAX_SEATS = 4;
@@ -173,25 +185,14 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   };
 
   // Направление зафиксировано пропом reverse — экран открыт уже в нужную сторону.
-  // Origin/destination — конечные точки коридора из шаблона.
-  const originPointId = template ? (reverse ? template.end_point_id : template.start_point_id) : null;
+  // Пункт назначения — противоположная точка коридора. Район НЕ подписываем
+  // (он понятен из направления) — показываем только название точки.
   const destPointId = template ? (reverse ? template.start_point_id : template.end_point_id) : null;
-  const originPoint = routePoints.find((p) => p.id === originPointId) ?? null;
   const destPoint = routePoints.find((p) => p.id === destPointId) ?? null;
-  const originDistrict = originPoint?.district ?? (reverse ? 'Центр' : 'Брагино');
-  const destLabel = destPoint
-    ? `${destPoint.district}, ${destPoint.title}`
-    : reverse
-      ? 'Брагино'
-      : 'Центр, пл. Волкова';
+  const destLabel = destPoint ? destPoint.title : reverse ? 'Брагино' : 'Центр';
 
-  // Единственное поле выбора — улица в районе отправления (направление уже задано,
-  // район понятен, поэтому отдельного поля «Точка сбора» больше нет).
+  // Единственное поле выбора — улица отправления (без подписи района).
   const pickupOptions = defaultPickup === 'volkova' ? EVENING_PICKUP_OPTIONS : DEFAULT_PICKUP_OPTIONS;
-  const streetOptions: SelectOption[] = pickupOptions.map((o) => ({
-    value: o.value,
-    label: `${originDistrict}, ${o.label}`,
-  }));
 
   const stepBtnStyle = (enabled: boolean): React.CSSProperties => ({
     width: '44px',
@@ -252,18 +253,10 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                 <div style={{ display: 'flex', gap: '12px', margin: '4px 0' }}>
                   <RouteConnector />
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {/* Первая точка — inline Select с белым фоном */}
-                    <div
-                      style={{
-                        borderRadius: '14px',
-                        background: 'var(--field)',
-                        border: '1px solid var(--field-border)',
-                        boxShadow: 'var(--field-shadow)',
-                        padding: '10px 14px',
-                      }}
-                    >
+                    {/* Первая точка — inline Select с белым фоном (только улица) */}
+                    <div style={routeFieldStyle}>
                       <Select
-                        options={streetOptions}
+                        options={pickupOptions}
                         value={pickup}
                         onChange={(val) => {
                           hapticSelection();
@@ -276,16 +269,11 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                     {/* Вторая точка — read-only с пунктирной рамкой и замком */}
                     <div
                       style={{
-                        borderRadius: '14px',
-                        background: 'var(--field)',
+                        ...routeFieldStyle,
                         border: '1.5px dashed var(--field-border)',
-                        boxShadow: 'var(--field-shadow)',
-                        padding: '14px',
+                        color: 'var(--muted-foreground)',
                         fontSize: '15px',
                         fontWeight: 600,
-                        color: 'var(--muted-foreground)',
-                        display: 'flex',
-                        alignItems: 'center',
                         gap: '10px',
                       }}
                     >
@@ -298,7 +286,16 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                           opacity: 0.6,
                         }}
                       />
-                      {destLabel}
+                      <span
+                        style={{
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {destLabel}
+                      </span>
                     </div>
                   </div>
                 </div>
