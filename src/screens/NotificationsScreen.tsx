@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
+import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import { Appear, AppearList } from '../components/Appear';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { getNotifications, markNotificationRead } from '../lib/api';
@@ -29,32 +30,25 @@ interface NotificationsScreenProps {
 const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const loadNotifications = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await getNotifications();
+      setNotifications(res.notifications);
+    } catch (err) {
+      console.error('Ошибка загрузки уведомлений:', err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function fetch() {
-      setLoading(true);
-      try {
-        const res = await getNotifications();
-        if (!cancelled) {
-          setNotifications(res.notifications);
-        }
-      } catch (err) {
-        console.error('Ошибка загрузки уведомлений:', err);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void fetch();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadNotifications();
+  }, [loadNotifications]);
 
   // Форматирование относительного времени: «только что», «5 мин назад», «2 ч назад», «вчера», «3 дня назад»
   const formatRelativeTime = (isoDate: string): string => {
@@ -156,25 +150,25 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
               <NotificationSkeleton />
             </div>
           </Appear>
+        ) : error ? (
+          <Appear key="error">
+            <LoadErrorState
+              subtitle="Не удалось загрузить уведомления. Проверь соединение и попробуй ещё раз."
+              onRetry={() => { void loadNotifications(); }}
+            />
+          </Appear>
         ) : notifications.length === 0 ? (
           <Appear key="empty">
-            <Card style={{ padding: '32px 20px', textAlign: 'center' }}>
-              <div style={{ marginBottom: '10px' }}>
-                <Icon
-                  id="i-bell"
-                  style={{
-                    width: '48px',
-                    height: '48px',
-                    margin: '0 auto',
-                    color: 'var(--muted-foreground)',
-                    opacity: 0.5,
-                  }}
-                />
-              </div>
-              <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
-                Пока нет уведомлений
-              </div>
-            </Card>
+            <EmptyState
+              icon={
+                <svg viewBox="0 0 24 24" style={{ width: '32px', height: '32px', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                </svg>
+              }
+              title="Пока нет уведомлений"
+              subtitle="Здесь появятся брони, подтверждения и напоминания оценить поездку."
+            />
           </Appear>
         ) : (
           <AppearList

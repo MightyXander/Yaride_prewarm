@@ -1,7 +1,7 @@
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
-import RouteConnector from '../components/ui/RouteConnector';
+import { RouteDot, RouteMidConnector } from '../components/ui/RouteConnector';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { showToast } from '../lib/toast';
@@ -134,25 +134,19 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
         >
           Маршрут · ~{trip.route?.duration || '22 мин'}
         </div>
-        <div style={{ display: 'flex', gap: '12px', margin: '4px 0' }}>
-          <RouteConnector />
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div
-              style={{
-                fontSize: '15px',
-                fontWeight: 600,
-              }}
-            >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', margin: '4px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '24px', fontSize: '15px', fontWeight: 600 }}>
+            <RouteDot filled />
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {trip.route?.from || `Брагино, ${trip.address}`}
-            </div>
-            <div
-              style={{
-                fontSize: '15px',
-                fontWeight: 600,
-              }}
-            >
+            </span>
+          </div>
+          <RouteMidConnector />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '24px', fontSize: '15px', fontWeight: 600 }}>
+            <RouteDot />
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {trip.route?.to || 'Центр, пл. Волкова'}
-            </div>
+            </span>
           </div>
         </div>
         <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />

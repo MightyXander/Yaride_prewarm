@@ -1,9 +1,9 @@
-import { useState, useId, useEffect } from 'react';
-import Card from '../components/ui/Card';
+import { useState, useId, useEffect, useCallback } from 'react';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import Select from '../components/ui/Select';
-import RouteConnector from '../components/ui/RouteConnector';
+import { RouteDot, RouteMidConnector } from '../components/ui/RouteConnector';
+import { LoadErrorState } from '../components/ui/StateView';
 import type { SelectOption } from '../components/ui/Select';
 import { Skeleton } from '../components/ui/Skeleton';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
@@ -83,9 +83,8 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
     setToPointId(temp);
   };
 
-  // Загрузка точек маршрута при монтировании
-  useEffect(() => {
-    const loadRoutePoints = async () => {
+  // Загрузка точек маршрута (вынесена для повторного вызова из состояния ошибки)
+  const loadRoutePoints = useCallback(async () => {
       setIsLoadingPoints(true);
       setPointsError(null);
       try {
@@ -123,10 +122,11 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
       } finally {
         setIsLoadingPoints(false);
       }
-    };
-
-    loadRoutePoints();
   }, [direction]);
+
+  useEffect(() => {
+    void loadRoutePoints();
+  }, [loadRoutePoints]);
 
   const formatTimeToHHMM = (timeStr: string): string => {
     const parts = timeStr.split(':');
@@ -226,20 +226,23 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
               boxShadow: 'var(--shadow-card)',
             }}
           >
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <RouteConnector />
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <Skeleton h={48} r={18} />
-                <Skeleton h={48} r={18} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px' }}>
+                <RouteDot filled />
+                <div style={{ flex: 1, minWidth: 0 }}><Skeleton h={48} r={18} /></div>
+              </div>
+              <RouteMidConnector />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px' }}>
+                <RouteDot />
+                <div style={{ flex: 1, minWidth: 0 }}><Skeleton h={48} r={18} /></div>
               </div>
             </div>
           </div>
         ) : pointsError ? (
-          <Card>
-            <div style={{ fontSize: '15px', color: 'var(--destructive)', padding: '8px 0' }}>
-              {pointsError}
-            </div>
-          </Card>
+          <LoadErrorState
+            subtitle="Не удалось загрузить точки маршрута. Проверь соединение и попробуй ещё раз."
+            onRetry={() => { void loadRoutePoints(); }}
+          />
         ) : (
           <div
             style={{
@@ -251,10 +254,10 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
               position: 'relative',
             }}
           >
-            <div style={{ display: 'flex', gap: '12px', paddingRight: '48px' }}>
-              <RouteConnector />
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={routeFieldStyle}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', paddingRight: '48px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px' }}>
+                <RouteDot filled />
+                <div style={{ ...routeFieldStyle, flex: 1, minWidth: 0 }}>
                   <Select
                     options={routePoints.map((point): SelectOption => ({
                       value: String(point.id),
@@ -269,8 +272,13 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
                     aria-label="Точка отправления"
                   />
                 </div>
+              </div>
 
-                <div style={routeFieldStyle}>
+              <RouteMidConnector />
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px' }}>
+                <RouteDot />
+                <div style={{ ...routeFieldStyle, flex: 1, minWidth: 0 }}>
                   <Select
                     options={routePoints.map((point): SelectOption => ({
                       value: String(point.id),
@@ -372,9 +380,9 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
               className="focus-ring"
               style={{
                 width: '100%',
-                minHeight: '44px',
-                padding: '0 14px',
-                borderRadius: '12px',
+                minHeight: '48px',
+                padding: '0 16px',
+                borderRadius: '18px',
                 border: '1px solid var(--field-border)',
                 background: 'var(--field)',
                 boxShadow: 'var(--field-shadow)',

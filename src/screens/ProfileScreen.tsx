@@ -1,27 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import Card from '../components/ui/Card';
-import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
-import { Icon } from '../components/Icons';
-import { showToast } from '../lib/toast';
 import { useProfile } from '../contexts/ProfileContext';
 import { getMyCars } from '../lib/api';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
-
-const statValueStyle: React.CSSProperties = {
-  fontSize: '20px',
-  fontWeight: 800,
-  lineHeight: 1.1,
-  letterSpacing: '-0.01em',
-};
-
-const statLabelStyle: React.CSSProperties = {
-  fontSize: '15px',
-  color: 'var(--muted-foreground)',
-  fontWeight: 600,
-  marginTop: '4px',
-};
 
 interface ProfileScreenProps {
   onBecomeDriver: () => void;
@@ -40,11 +23,84 @@ interface ProfileScreenProps {
   onOpenProfile?: (userId: number) => void;
 }
 
+// Контурная иконка строки меню (20px).
+const navIconStyle: React.CSSProperties = {
+  width: '20px',
+  height: '20px',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.9,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+};
+
+// Шеврон-вправо в конце строки меню.
+const ChevronRight = () => (
+  <svg
+    viewBox="0 0 24 24"
+    style={{ width: '18px', height: '18px', fill: 'none', stroke: 'var(--muted-foreground)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', flexShrink: 0 }}
+    aria-hidden="true"
+  >
+    <path d="M9.5 6l6 6-6 6" />
+  </svg>
+);
+
+interface MenuRowProps {
+  icon: ReactNode;
+  label: ReactNode;
+  onClick?: () => void;
+  /** Правый слот (по умолчанию шеврон). */
+  right?: ReactNode;
+  /** Последняя строка — без нижней границы. */
+  last?: boolean;
+}
+
+const MenuRow: React.FC<MenuRowProps> = ({ icon, label, onClick, right, last }) => (
+  <button
+    type="button"
+    className="focus-ring pressable"
+    onClick={() => {
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+      onClick?.();
+    }}
+    style={{
+      width: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      padding: '15px 16px',
+      background: 'transparent',
+      border: 'none',
+      borderBottom: last ? 'none' : '1px solid var(--border)',
+      color: 'var(--foreground)',
+      fontFamily: 'var(--font-sans)',
+      fontWeight: 600,
+      fontSize: '15px',
+      cursor: 'pointer',
+      textAlign: 'left',
+    }}
+  >
+    <span style={{ width: '20px', height: '20px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{icon}</span>
+    <span style={{ flex: 1, minWidth: 0 }}>{label}</span>
+    {right ?? <ChevronRight />}
+  </button>
+);
+
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onToggleTheme, theme, onOpenProfile }) => {
   const { profile, loading } = useProfile();
   const [carsCount, setCarsCount] = useState(0);
 
-  const avatar = profile ? profile.name.charAt(0).toUpperCase() : 'Н';
+  useEffect(() => {
+    getMyCars()
+      .then((r) => setCarsCount(r.cars.length))
+      .catch(() => {
+        // Не блокируем UI при ошибке — оставляем 0.
+      });
+  }, []);
+
+  const initials = profile
+    ? profile.name.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('') || 'Н'
+    : 'Н';
   const name = profile?.name ?? 'Загрузка…';
   const age = profile?.age ?? null;
   const rating = profile?.rating_avg ?? 0;
@@ -58,22 +114,32 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
   const isLicenseRejected = licenseStatus === 'rejected' || licenseStatus === 'declined';
   const driverButtonLabel = isLicenseRejected ? 'Заполнить заново' : 'Стать водителем';
 
-  // Загрузка количества машин
-  useEffect(() => {
-    getMyCars()
-      .then((r) => setCarsCount(r.cars.length))
-      .catch(() => {
-        // Не блокируем UI при ошибке, просто оставляем 0
-      });
-  }, []);
-
-  const handleAvatarClick = (e: React.MouseEvent | React.KeyboardEvent) => {
-    e.stopPropagation();
+  const openSelf = () => {
     if (userId && onOpenProfile) {
       window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
       onOpenProfile(userId);
     }
   };
+
+  // Статус ВУ в правом слоте строки (только если есть осмысленный статус).
+  const licenseRight = (licenseStatus === 'verified' || licenseStatus === 'pending') ? (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+      <span style={{ fontSize: '13px', fontWeight: 700, color: licenseVerified ? 'var(--success)' : 'var(--muted-foreground)' }}>
+        {licenseVerified ? 'Подтверждено' : 'На проверке'}
+      </span>
+      <ChevronRight />
+    </span>
+  ) : undefined;
+
+  // Переключатель темы (трек + бегунок).
+  const themeToggle = (
+    <span
+      aria-hidden="true"
+      style={{ width: '44px', height: '26px', borderRadius: '999px', background: theme === 'dark' ? 'var(--brand)' : 'var(--secondary)', position: 'relative', flexShrink: 0, transition: 'background .2s ease' }}
+    >
+      <span style={{ position: 'absolute', top: '3px', left: '3px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)', transform: theme === 'dark' ? 'translateX(18px)' : 'translateX(0)', transition: 'transform .2s cubic-bezier(.22,1,.36,1)' }} />
+    </span>
+  );
 
   return (
     <div
@@ -89,386 +155,83 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
     >
       <Header title="Профиль" />
 
+      {/* Карточка профиля */}
       {loading ? (
-        <Card style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '14px' }}>
-          {/* Аватар-плейсхолдер: точно 54px */}
-          <div
-            style={{
-              width: '54px',
-              height: '54px',
-              borderRadius: '50%',
-              background: 'var(--secondary)',
-              animation: 'pulse 1.5s ease-in-out infinite',
-              flexShrink: 0,
-            }}
-          />
-          <div style={{ minWidth: 0, flex: 1 }}>
-            {/* Имя + возраст: резервируем высоту строки (17px fontSize * 1.4 ≈ 24px) */}
-            <div
-              style={{
-                height: '24px',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <div
-                style={{
-                  height: '16px',
-                  width: '60%',
-                  borderRadius: '8px',
-                  background: 'var(--secondary)',
-                  animation: 'pulse 1.5s ease-in-out infinite',
-                }}
-              />
-            </div>
-            {/* Бейдж ВУ: резервируем высоту (marginTop: 5px + fontSize: 12px + иконка 14px ≈ 19px) */}
-            <div
-              style={{
-                height: '19px',
-                marginTop: '5px',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <div
-                style={{
-                  height: '12px',
-                  width: '40%',
-                  borderRadius: '6px',
-                  background: 'var(--secondary)',
-                  animation: 'pulse 1.5s ease-in-out infinite',
-                }}
-              />
-            </div>
+        <Card style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '18px' }}>
+          <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ height: '18px', width: '55%', borderRadius: '8px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ height: '13px', width: '40%', borderRadius: '6px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite', marginTop: '8px' }} />
           </div>
         </Card>
       ) : (
-        <>
-          <Card style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '14px' }}>
-            <div
-              role={userId && onOpenProfile ? 'button' : undefined}
-              tabIndex={userId && onOpenProfile ? 0 : undefined}
-              aria-label={userId && onOpenProfile ? `Открыть публичный профиль ${name}` : undefined}
-              onClick={userId && onOpenProfile ? handleAvatarClick : undefined}
-              onKeyDown={userId && onOpenProfile ? (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleAvatarClick(e);
-                }
-              } : undefined}
-              style={{
-                cursor: userId && onOpenProfile ? 'pointer' : 'default',
-                flexShrink: 0,
-              }}
-              className={userId && onOpenProfile ? 'focus-ring pressable' : undefined}
-            >
-              <Avatar label={avatar} rating={rating} size={54} />
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              {/* Имя + возраст: зарезервированная высота строки */}
-              <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.4 }}>
-                {name}
-                {age && (
-                  <span style={{ color: 'var(--muted-foreground)', fontWeight: 600 }}>
-                    {' '}
-                    · {age}&nbsp;лет
-                  </span>
-                )}
-              </div>
-              {/* Бейдж ВУ: фиксированная высота и отступ */}
-              {licenseVerified ? (
-                <div
-                  style={{
-                    color: 'var(--success)',
-                    fontWeight: 700,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    fontSize: '14px',
-                    marginTop: '6px',
-                    minHeight: '20px',
-                  }}
-                >
-                  <Icon id="i-check" style={{ width: '15px', height: '15px' }} />
-                  ВУ подтверждено
-                </div>
-              ) : (
-                <div
-                  style={{
-                    color: 'var(--muted-foreground)',
-                    fontWeight: 700,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    fontSize: '14px',
-                    marginTop: '6px',
-                    minHeight: '20px',
-                  }}
-                >
-                  <Icon id="i-shield" style={{ width: '15px', height: '15px' }} />
-                  ВУ на проверке
-                </div>
+        <Card
+          role={userId && onOpenProfile ? 'button' : undefined}
+          tabIndex={userId && onOpenProfile ? 0 : undefined}
+          aria-label={userId && onOpenProfile ? 'Открыть мой публичный профиль' : undefined}
+          onClick={userId && onOpenProfile ? openSelf : undefined}
+          onKeyDown={userId && onOpenProfile ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSelf(); } } : undefined}
+          className={userId && onOpenProfile ? 'focus-ring pressable' : undefined}
+          style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '18px', cursor: userId && onOpenProfile ? 'pointer' : 'default' }}
+        >
+          <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--gradient-brand)', display: 'grid', placeItems: 'center', fontWeight: 800, color: 'var(--brand-foreground)', fontSize: '22px', flexShrink: 0 }}>
+            {initials}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '18px', fontWeight: 700 }}>
+              {name}
+              {age && (
+                <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '15px' }}> · {age}&nbsp;лет</span>
               )}
             </div>
-          </Card>
-
-          <Card style={{ display: 'flex', alignItems: 'stretch', padding: 0, overflow: 'hidden' }}>
-            <div style={{ flex: 1, padding: '14px', textAlign: 'center' }}>
-              <div style={{ ...statValueStyle, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                <Icon id="i-star" fill style={{ width: '14px', height: '14px', fill: 'var(--star)' }} />
-                {rating.toFixed(1)}
-              </div>
-              <div style={statLabelStyle}>рейтинг</div>
+            <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '3px' }}>
+              <span style={{ color: 'var(--brand-dark)', fontWeight: 700 }}>★ {rating.toFixed(1)}</span> · {tripCount}&nbsp;поездок
             </div>
-            <div style={{ width: '1px', background: 'var(--border)' }} />
-            <div style={{ flex: 1, padding: '14px', textAlign: 'center' }}>
-              <div style={statValueStyle}>{tripCount}</div>
-              <div style={statLabelStyle}>поездок</div>
-            </div>
-          </Card>
-
-          <Card
-            role="button"
-            tabIndex={0}
-            aria-label="Открыть статус водительского удостоверения"
-            className="focus-ring pressable"
-            onClick={onLicenseReview}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onLicenseReview();
-              }
-            }}
-            style={{ cursor: 'pointer' }}
-          >
-            <div
-              style={{
-                fontSize: '12px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                color: 'var(--muted-foreground)',
-                fontWeight: 700,
-                marginBottom: '10px',
-              }}
-            >
-              Документы
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '13px',
-                  background: 'var(--gradient-brand)',
-                  display: 'grid',
-                  placeItems: 'center',
-                  color: 'var(--brand-foreground)',
-                  flexShrink: 0,
-                  boxShadow: '0 8px 20px -10px rgba(255, 221, 45, .6)',
-                }}
-              >
-                <Icon id="i-shield" style={{ width: '20px', height: '20px', strokeWidth: 2 }} />
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: '16px', fontWeight: 700 }}>Водительское удостоверение</div>
-                <div style={{ fontSize: '14px', color: 'var(--success)', fontWeight: 600, marginTop: '3px' }}>
-                  {licenseVerified ? 'Подтверждено' : 'На проверке'}
-                </div>
-              </div>
-              <Icon id="i-chev-r" style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }} />
-            </div>
-          </Card>
-        </>
+          </div>
+        </Card>
       )}
 
-      {/* Меню: мои машины, мои поездки (экран 17), безопасность (экран 19), переключатель темы */}
-      <Card style={{ padding: '4px 6px' }}>
-        <button
-          type="button"
-          className="focus-ring pressable"
-          onClick={() => {
-            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-            onMyCars?.();
-          }}
-          style={{
-            width: '100%',
-            minHeight: '52px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '8px 8px',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--foreground)',
-            fontFamily: 'var(--font-sans)',
-            textAlign: 'left',
-            borderRadius: '14px',
-          }}
-        >
-          <div
-            style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '11px',
-              background: 'var(--secondary)',
-              display: 'grid',
-              placeItems: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Icon id="i-car" style={{ width: '17px', height: '17px' }} />
-          </div>
-          <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>
-            Мои машины{carsCount > 0 && ` · ${carsCount}`}
-          </span>
-          <Icon
-            id="i-chev-r"
-            style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }}
-          />
-        </button>
-        <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
-        <button
-          type="button"
-          className="focus-ring pressable"
-          onClick={() => {
-            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-            onMyTrips?.();
-          }}
-          style={{
-            width: '100%',
-            minHeight: '52px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '8px 8px',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--foreground)',
-            fontFamily: 'var(--font-sans)',
-            textAlign: 'left',
-            borderRadius: '14px',
-          }}
-        >
-          <div
-            style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '11px',
-              background: 'var(--secondary)',
-              display: 'grid',
-              placeItems: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Icon id="i-receipt" style={{ width: '17px', height: '17px' }} />
-          </div>
-          <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>Мои поездки</span>
-          <Icon
-            id="i-chev-r"
-            style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }}
-          />
-        </button>
-        <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
-        <button
-          type="button"
-          className="focus-ring pressable"
-          onClick={() => {
-            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-            onSafety?.();
-          }}
-          style={{
-            width: '100%',
-            minHeight: '52px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '8px 8px',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--foreground)',
-            fontFamily: 'var(--font-sans)',
-            textAlign: 'left',
-            borderRadius: '14px',
-          }}
-        >
-          <div
-            style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '11px',
-              background: 'var(--secondary)',
-              display: 'grid',
-              placeItems: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Icon id="i-shield" style={{ width: '17px', height: '17px' }} />
-          </div>
-          <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>Безопасность и SOS</span>
-          <Icon
-            id="i-chev-r"
-            style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }}
-          />
-        </button>
-        <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
-        <button
-          type="button"
-          className="focus-ring pressable"
-          onClick={() => {
-            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-            onToggleTheme?.();
-          }}
-          style={{
-            width: '100%',
-            minHeight: '52px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '8px 8px',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--foreground)',
-            fontFamily: 'var(--font-sans)',
-            textAlign: 'left',
-            borderRadius: '14px',
-          }}
-        >
-          <div
-            style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '11px',
-              background: 'var(--secondary)',
-              display: 'grid',
-              placeItems: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Icon id={theme === 'dark' ? 'i-sun' : 'i-moon'} style={{ width: '17px', height: '17px' }} />
-          </div>
-          <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>
-            Сменить тему
-          </span>
-          <Icon
-            id="i-chev-r"
-            style={{ width: '18px', height: '18px', color: 'var(--muted-foreground)' }}
-          />
-        </button>
+      {/* Меню одной карточкой */}
+      <Card style={{ padding: 0, overflow: 'hidden' }}>
+        <MenuRow
+          onClick={onMyTrips}
+          icon={<svg viewBox="0 0 24 24" style={navIconStyle}><path d="M4 3h16v18l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3L4 21z" /><path d="M8 8h8M8 12h8M8 16h4" /></svg>}
+          label="Мои поездки"
+        />
+        <MenuRow
+          onClick={onMyCars}
+          icon={<svg viewBox="0 0 24 24" style={navIconStyle}><path d="M5 11l1.7-4.3A2 2 0 0 1 8.6 5.4h6.8a2 2 0 0 1 1.9 1.3L19 11" /><rect x="3" y="11" width="18" height="6" rx="2.2" /><circle cx="7.5" cy="17.5" r="1.4" /><circle cx="16.5" cy="17.5" r="1.4" /></svg>}
+          label={<>Мои машины{carsCount > 0 && <span style={{ color: 'var(--muted-foreground)', fontWeight: 600 }}> · {carsCount}</span>}</>}
+        />
+        <MenuRow
+          onClick={onLicenseReview}
+          icon={<svg viewBox="0 0 24 24" style={navIconStyle}><rect x="3" y="5" width="18" height="14" rx="2.5" /><circle cx="8.5" cy="11" r="2" /><path d="M13 9.5h5M13 13h4M6 15h6" /></svg>}
+          label="Водительское удостоверение"
+          right={licenseRight}
+        />
+        <MenuRow
+          onClick={onSafety}
+          icon={<svg viewBox="0 0 24 24" style={navIconStyle}><path d="M12 3l7 2.8v5.2c0 4.6-3.2 7.7-7 8.8-3.8-1.1-7-4.2-7-8.8V5.8z" /></svg>}
+          label="Безопасность и SOS"
+        />
+        <MenuRow
+          onClick={onToggleTheme}
+          icon={theme === 'dark'
+            ? <svg viewBox="0 0 24 24" style={navIconStyle}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5" /></svg>
+            : <svg viewBox="0 0 24 24" style={navIconStyle}><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>}
+          label="Сменить тему"
+          right={themeToggle}
+          last
+        />
       </Card>
 
+      {/* Стать водителем */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: 'auto', paddingTop: '6px' }}>
         {shouldShowDriverButton && (
           <Button variant="primary" icon="i-car" onClick={onBecomeDriver}>
             {driverButtonLabel}
           </Button>
         )}
-        <Button variant="ghost" icon="i-sliders" onClick={() => showToast('Настройки — скоро')}>
-          Настройки
-        </Button>
       </div>
     </div>
   );
