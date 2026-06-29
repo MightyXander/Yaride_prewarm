@@ -13,6 +13,34 @@ function mockApiPlugin() {
         { id: 1, model: 'Hyundai Solaris', color: 'белый', plate: 'Е456КХ' },
       ];
 
+      // In-memory лента уведомлений (read-флаг переживает POST /notifications/read).
+      // created_at вычисляется на лету из minutesAgo, чтобы относительное время не «протухало».
+      const mockNotifications: {
+        id: number; type: 'booking' | 'booking_confirmed' | 'cancel' | 'rate_reminder';
+        title: string; body: string; read: boolean;
+        ref_trip_id: number | null; ref_user_id: number | null; minutesAgo: number;
+      }[] = [
+        { id: 1, type: 'booking_confirmed', title: 'Бронь подтверждена', body: 'Андрей К. подтвердил вашу бронь на 07:40, Брагино → Центр.', read: false, ref_trip_id: 1, ref_user_id: 101, minutesAgo: 8 },
+        { id: 2, type: 'booking', title: 'Новая бронь', body: 'Анна С. забронировала место в вашей поездке 07:40.', read: false, ref_trip_id: 1, ref_user_id: 500, minutesAgo: 95 },
+        { id: 3, type: 'rate_reminder', title: 'Оцените поездку', body: 'Как прошла поездка с Мариной С.? Оставьте оценку.', read: true, ref_trip_id: 6, ref_user_id: 102, minutesAgo: 1500 },
+        { id: 4, type: 'cancel', title: 'Поездка отменена', body: 'Олег В. отменил поездку на 18:05. Бронь снята.', read: true, ref_trip_id: 4, ref_user_id: 103, minutesAgo: 4400 },
+      ];
+
+      // Публичные профили известных водителей (id из мок-поездок) + fallback в хендлере.
+      const mockUserProfiles: Record<number, { name: string; age: number | null; trips_count: number; rating: number; rating_count: number; joined_at: string; is_driver: boolean; license_verified: boolean }> = {
+        101: { name: 'Андрей К.', age: 34, trips_count: 37, rating: 4.9, rating_count: 15, joined_at: '2024-05-10T10:00:00Z', is_driver: true, license_verified: true },
+        102: { name: 'Марина С.', age: 29, trips_count: 12, rating: 5.0, rating_count: 8, joined_at: '2024-11-02T10:00:00Z', is_driver: true, license_verified: true },
+        103: { name: 'Олег В.', age: 35, trips_count: 43, rating: 4.8, rating_count: 20, joined_at: '2023-09-15T10:00:00Z', is_driver: true, license_verified: true },
+        500: { name: 'Анна С.', age: 27, trips_count: 18, rating: 4.9, rating_count: 11, joined_at: '2025-01-20T10:00:00Z', is_driver: false, license_verified: false },
+      };
+
+      // Отзывы (общие для мок-режима; created_at → «месяц год»).
+      const mockReviews: { author_id: number; author_name: string; stars: number; comment: string | null; tags: string | null; created_at: string }[] = [
+        { author_id: 201, author_name: 'Ирина М.', stars: 5, comment: 'Комфортная поездка, приехали вовремя. Спасибо!', tags: 'Пунктуальный,Вежливый', created_at: '2026-05-18T08:00:00Z' },
+        { author_id: 202, author_name: 'Дмитрий П.', stars: 5, comment: 'Аккуратное вождение, приятная музыка.', tags: 'Аккуратный', created_at: '2026-04-02T08:00:00Z' },
+        { author_id: 203, author_name: 'Сергей Т.', stars: 4, comment: null, tags: null, created_at: '2026-02-11T08:00:00Z' },
+      ];
+
       server.middlewares.use('/api', (req, res, next) => {
         // Если backend запущен — пропустить к proxy
         if (process.env.USE_REAL_API === 'true') {
@@ -355,6 +383,65 @@ function mockApiPlugin() {
             };
             mockCars.push(car);
             sendJson({ car }, 201);
+          });
+          return;
+        }
+
+        // GET /api/notifications — лента уведомлений (mock_empty=true → пусто)
+        if (method === 'GET' && pathname === '/notifications') {
+          const items = forceEmpty
+            ? []
+            : mockNotifications.map((n) => ({
+                id: n.id,
+                type: n.type,
+                title: n.title,
+                body: n.body,
+                read: n.read,
+                ref_trip_id: n.ref_trip_id,
+                ref_user_id: n.ref_user_id,
+                created_at: new Date(Date.now() - n.minutesAgo * 60000).toISOString(),
+              }));
+          sendJson({ notifications: items });
+          return;
+        }
+
+        // POST /api/notifications/read — пометить прочитанным (in-memory)
+        if (method === 'POST' && pathname === '/notifications/read') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', () => {
+            const params = JSON.parse(body);
+            const item = mockNotifications.find((n) => n.id === params.notificationId);
+            if (item) item.read = true;
+            sendJson({ success: true });
+          });
+          return;
+        }
+
+        // GET /api/users/:id/profile — публичный профиль (известные водители + fallback)
+        const userProfileMatch = pathname.match(/^\/users\/(\d+)\/profile$/);
+        if (method === 'GET' && userProfileMatch) {
+          const id = parseInt(userProfileMatch[1]);
+          const known = mockUserProfiles[id];
+          const profile = known
+            ? { id, ...known }
+            : { id, name: 'Пользователь', age: null, trips_count: 0, rating: 0, rating_count: 0, joined_at: new Date().toISOString(), is_driver: false, license_verified: false };
+          sendJson({ profile });
+          return;
+        }
+
+        // GET /api/users/:id/reviews — отзывы (mock_empty=true → пусто)
+        if (method === 'GET' && pathname.match(/^\/users\/\d+\/reviews$/)) {
+          sendJson({ reviews: forceEmpty ? [] : mockReviews });
+          return;
+        }
+
+        // POST /api/me/license — отправка ВУ на модерацию
+        if (method === 'POST' && pathname === '/me/license') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', () => {
+            sendJson({ request: { requestId: Math.floor(Math.random() * 1000), status: 'pending' } }, 201);
           });
           return;
         }
