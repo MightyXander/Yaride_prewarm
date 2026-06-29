@@ -504,7 +504,10 @@ export async function handleWebhookUpdate(
   if (text.startsWith('/start')) {
     const appUrl = (miniAppUrl ?? process.env.MINIAPP_URL ?? '').trim();
     const greeting =
-      'Привет! Это бот Yaride — попутчики из Екатеринбурга в Пермь (и обратно).';
+      '👋 Привет! Это ЯРайд — попутчики по Ярославлю.\n\n' +
+      'Находите попутку по городу или подвозите по пути: дешевле такси и удобнее, ' +
+      'чем ждать маршрутку. Брагино, Заволга, центр — добираемся вместе 🚗\n\n' +
+      'Откройте приложение кнопкой ниже — найдите поездку или предложите свои места.';
 
     const opts: SendMessageOptions = {};
 
