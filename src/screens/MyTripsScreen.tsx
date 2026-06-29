@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import RouteConnector from '../components/ui/RouteConnector';
+import { RouteDot, RouteMidConnector } from '../components/ui/RouteConnector';
+import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -99,44 +100,35 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
   const [upcomingTrips, setUpcomingTrips] = useState<UserTripItem[]>([]);
   const [pastTrips, setPastTrips] = useState<UserTripItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const loadTrips = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const [upcomingRes, pastRes] = await Promise.all([
+        getMyTrips({ status: 'upcoming' }),
+        getMyTrips({ status: 'past' }),
+      ]);
+      setUpcomingTrips(upcomingRes.trips);
+      setPastTrips(pastRes.trips);
+    } catch (err) {
+      // 401 (браузер без Telegram) — graceful демо-фолбэк; иначе — состояние ошибки.
+      if (err instanceof ApiException && err.status === 401) {
+        const { upcomingTrips: demoUp, pastTrips: demoPast } = getDemoData();
+        setUpcomingTrips(demoUp);
+        setPastTrips(demoPast);
+      } else {
+        setError(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let mounted = true;
-
-    const loadTrips = async () => {
-      setLoading(true);
-      try {
-        const [upcomingRes, pastRes] = await Promise.all([
-          getMyTrips({ status: 'upcoming' }),
-          getMyTrips({ status: 'past' }),
-        ]);
-        if (mounted) {
-          setUpcomingTrips(upcomingRes.trips);
-          setPastTrips(pastRes.trips);
-          setLoading(false);
-        }
-      } catch (err) {
-        if (err instanceof ApiException && err.status === 401) {
-          if (mounted) {
-            const { upcomingTrips: demoUp, pastTrips: demoPast } = getDemoData();
-            setUpcomingTrips(demoUp);
-            setPastTrips(demoPast);
-            setLoading(false);
-          }
-        } else {
-          if (mounted) {
-            const { upcomingTrips: demoUp, pastTrips: demoPast } = getDemoData();
-            setUpcomingTrips(demoUp);
-            setPastTrips(demoPast);
-            setLoading(false);
-          }
-        }
-      }
-    };
-
-    loadTrips();
-    return () => { mounted = false; };
-  }, []);
+    void loadTrips();
+  }, [loadTrips]);
 
   const trips = activeTab === 'upcoming' ? upcomingTrips : pastTrips;
 
@@ -266,23 +258,24 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
               ))}
             </>
           </Appear>
+        ) : error ? (
+          <Appear key="error" animateKey="error">
+            <LoadErrorState onRetry={() => { void loadTrips(); }} />
+          </Appear>
         ) : trips.length === 0 ? (
           <Appear key={`empty-${activeTab}`} animateKey={`empty-${activeTab}`}>
-            <Card style={{ textAlign: 'center', padding: '32px 16px' }}>
-              <Icon
-                id="i-receipt"
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  color: 'var(--muted-foreground)',
-                  margin: '0 auto 12px',
-                  display: 'block',
-                }}
-              />
-              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--muted-foreground)' }}>
-                {activeTab === 'upcoming' ? 'Нет предстоящих поездок' : 'Нет прошлых поездок'}
-              </div>
-            </Card>
+            <EmptyState
+              icon={
+                <svg viewBox="0 0 24 24" style={{ width: '32px', height: '32px', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
+                  <path d="M4 3h16v18l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3L4 21z" />
+                  <path d="M8 8h8M8 12h8M8 16h4" />
+                </svg>
+              }
+              title={activeTab === 'upcoming' ? 'Нет предстоящих поездок' : 'Нет прошлых поездок'}
+              subtitle={activeTab === 'upcoming'
+                ? 'Забронируй поездку или создай свою — она появится здесь.'
+                : 'Завершённые поездки появятся здесь.'}
+            />
           </Appear>
         ) : (
           <AppearList key={`trips-${activeTab}`} animateKey={`trips-${activeTab}`} stagger={40} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -369,25 +362,19 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onRateTrip 
                   >
                     {formatTime(trip.trip_date, trip.departure_time)}
                   </div>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <RouteConnector />
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div
-                        style={{
-                          fontSize: '15px',
-                          fontWeight: 600,
-                        }}
-                      >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '24px', fontSize: '15px', fontWeight: 600 }}>
+                      <RouteDot filled />
+                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {trip.start_title}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: '15px',
-                          fontWeight: 600,
-                        }}
-                      >
+                      </span>
+                    </div>
+                    <RouteMidConnector />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '24px', fontSize: '15px', fontWeight: 600 }}>
+                      <RouteDot />
+                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {trip.end_title}
-                      </div>
+                      </span>
                     </div>
                   </div>
                 </Card>

@@ -3,8 +3,8 @@
   --brand-foreground: #18170f;
   --brand-dark: #d4b400;
   --gradient-brand: linear-gradient(135deg, #ffe14a 0%, #ffd000 100%);
-  --radius: 18px;
-  --radius-xl: 24px;
+  --radius: 20px;
+  --radius-xl: 28px;
   --radius-3xl: 38px;
   --font-sans: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
   --rev: 420ms;

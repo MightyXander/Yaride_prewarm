@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import Chip from '../components/ui/Chip';
 import { Skeleton } from '../components/ui/Skeleton';
+import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import { getUserProfile, getUserReviews } from '../lib/api';
 import type { PublicUserProfile, UserReview } from '../types/api';
 
@@ -35,49 +36,34 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
   const [reviews, setReviews] = useState<UserReview[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [profileError, setProfileError] = useState(false);
+
+  const loadData = useCallback(async () => {
+    setProfileError(false);
+    setLoadingProfile(true);
+    setLoadingReviews(true);
+
+    const pProfile = getUserProfile(userId)
+      .then((res) => setProfile(res.profile))
+      .catch((err) => {
+        console.error('Ошибка загрузки профиля:', err);
+        setProfileError(true);
+      })
+      .finally(() => setLoadingProfile(false));
+
+    const pReviews = getUserReviews(userId)
+      .then((res) => setReviews(res.reviews))
+      .catch((err) => {
+        console.error('Ошибка загрузки отзывов:', err);
+      })
+      .finally(() => setLoadingReviews(false));
+
+    await Promise.all([pProfile, pReviews]);
+  }, [userId]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function fetchProfile() {
-      setLoadingProfile(true);
-      try {
-        const res = await getUserProfile(userId);
-        if (!cancelled) {
-          setProfile(res.profile);
-        }
-      } catch (err) {
-        console.error('Ошибка загрузки профиля:', err);
-      } finally {
-        if (!cancelled) {
-          setLoadingProfile(false);
-        }
-      }
-    }
-
-    async function fetchReviews() {
-      setLoadingReviews(true);
-      try {
-        const res = await getUserReviews(userId);
-        if (!cancelled) {
-          setReviews(res.reviews);
-        }
-      } catch (err) {
-        console.error('Ошибка загрузки отзывов:', err);
-      } finally {
-        if (!cancelled) {
-          setLoadingReviews(false);
-        }
-      }
-    }
-
-    void fetchProfile();
-    void fetchReviews();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
+    void loadData();
+  }, [loadData]);
 
   // Форматирование даты отзыва: «месяц год» (например, «январь 2026»)
   const formatReviewDate = (isoDate: string): string => {
@@ -171,6 +157,11 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
           <Skeleton w="50%" h={20} r={10} />
           <Skeleton w="70%" h={16} r={8} />
         </Card>
+      ) : profileError ? (
+        <LoadErrorState
+          subtitle="Не удалось загрузить профиль. Проверь соединение и попробуй ещё раз."
+          onRetry={() => { void loadData(); }}
+        />
       ) : (
         <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 14px', gap: '12px' }}>
           <Avatar label={avatar} rating={rating} size={80} />
@@ -228,7 +219,8 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
         </Card>
       )}
 
-      {/* Отзывы */}
+      {/* Отзывы (скрыты при ошибке загрузки профиля) */}
+      {!profileError && (
       <div style={{ marginTop: '4px' }}>
         <div
           style={{
@@ -251,11 +243,15 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
             <ReviewSkeleton />
           </div>
         ) : reviews.length === 0 ? (
-          <Card style={{ padding: '32px 20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
-              Пока нет отзывов
-            </div>
-          </Card>
+          <EmptyState
+            icon={
+              <svg viewBox="0 0 24 24" style={{ width: '32px', height: '32px', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+              </svg>
+            }
+            title="Пока нет отзывов"
+            subtitle="После поездок здесь появятся оценки и комментарии."
+          />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {reviews.map((review, idx) => (
@@ -384,6 +380,7 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

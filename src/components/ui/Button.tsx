@@ -24,7 +24,7 @@ const Button: React.FC<ButtonProps> = ({
   const baseStyle: React.CSSProperties = {
     minHeight: '48px',
     padding: '10px 18px',
-    borderRadius: '16px',
+    borderRadius: '18px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

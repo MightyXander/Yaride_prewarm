@@ -1,10 +1,12 @@
-import { useId, useState, useEffect, useRef } from 'react';
+import { useId, useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Select from '../components/ui/Select';
 import Calendar from '../components/ui/Calendar';
-import RouteConnector from '../components/ui/RouteConnector';
+import { RouteDot, RouteMidConnector } from '../components/ui/RouteConnector';
+import { Skeleton } from '../components/ui/Skeleton';
+import { LoadErrorState } from '../components/ui/StateView';
 import { Icon } from '../components/Icons';
 import Header from '../components/Header';
 import { hapticSelection } from '../lib/haptics';
@@ -132,35 +134,35 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const customTimeLabelId = useId();
   const dateLabelId = useId();
 
-  // Загрузить шаблон, route points и машины при монтировании
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const [tmpl, pointsResp, carsResp] = await Promise.all([
-          getMyTemplate(),
-          getRoutePoints(),
-          getMyCars(),
-        ]);
-        setTemplate(tmpl);
-        setRoutePoints(pointsResp.points);
-        setSeats(tmpl.seats_total);
-        setCars(carsResp.cars);
-        // Выбрать первую машину по умолчанию, если есть
-        if (carsResp.cars.length > 0) {
-          setSelectedCarId(carsResp.cars[0].id);
-        }
-      } catch (err) {
-        const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки данных';
-        setError(msg);
-        showToast(msg);
-      } finally {
-        setLoading(false);
+  // Загрузить шаблон, route points и машины (вынесено для «Повторить» из состояния ошибки)
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [tmpl, pointsResp, carsResp] = await Promise.all([
+        getMyTemplate(),
+        getRoutePoints(),
+        getMyCars(),
+      ]);
+      setTemplate(tmpl);
+      setRoutePoints(pointsResp.points);
+      setSeats(tmpl.seats_total);
+      setCars(carsResp.cars);
+      // Выбрать первую машину по умолчанию, если есть
+      if (carsResp.cars.length > 0) {
+        setSelectedCarId(carsResp.cars[0].id);
       }
-    };
+    } catch (err) {
+      const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки данных';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
     void loadData();
-  }, [reverse]);
+  }, [loadData, reverse]);
 
   // Закрыть выпадающий список машин при клике вне его
   useEffect(() => {
@@ -276,22 +278,29 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
           <Appear key="loading" instant>
             <div
               style={{
-                fontSize: '15px',
-                color: 'var(--muted-foreground)',
-                textAlign: 'center',
-                padding: '20px',
+                background: 'var(--elevated)',
+                borderRadius: 'var(--radius-xl)',
+                padding: '16px',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--shadow-card)',
               }}
             >
-              Загрузка шаблона...
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px' }}>
+                  <RouteDot filled />
+                  <div style={{ flex: 1, minWidth: 0 }}><Skeleton h={48} r={18} /></div>
+                </div>
+                <RouteMidConnector />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px' }}>
+                  <RouteDot />
+                  <div style={{ flex: 1, minWidth: 0 }}><Skeleton h={48} r={18} /></div>
+                </div>
+              </div>
             </div>
           </Appear>
         ) : error ? (
           <Appear key="error" animateKey="error">
-            <Card variant="accent" style={{ borderColor: 'var(--destructive)', background: 'var(--destructive-background, var(--secondary))' }}>
-              <div style={{ fontSize: '15px', lineHeight: 1.5, color: 'var(--destructive)' }}>
-                {error}
-              </div>
-            </Card>
+            <LoadErrorState onRetry={() => { void loadData(); }} />
           </Appear>
         ) : (
           <Appear key="content" animateKey="content">
@@ -308,24 +317,11 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                 }}
               >
                 <div style={sectionLabelStyle}>{routeLabel}</div>
-                <div style={{ display: 'flex', gap: '12px', margin: '4px 0', paddingRight: '48px' }}>
-                  <RouteConnector />
-                  <div
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
-                    {/* Первая точка — inline Select с белым фоном r18 (только улица) */}
-                    <div
-                      style={{
-                        ...routeFieldStyle,
-                        order: isReversed ? 1 : 0,
-                      }}
-                    >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', margin: '4px 0', paddingRight: '48px' }}>
+                  {/* Первая точка — редактируемый Select (только улица); сверху, пока не reversed */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px', order: isReversed ? 3 : 1 }}>
+                    <RouteDot filled={!isReversed} />
+                    <div style={{ ...routeFieldStyle, flex: 1, minWidth: 0 }}>
                       <Select
                         options={pickupOptions}
                         value={pickup}
@@ -336,18 +332,24 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                         aria-label="Откуда забрать"
                       />
                     </div>
+                  </div>
 
-                    {/* Вторая точка — read-only с пунктирной рамкой r18 и замком */}
+                  <RouteMidConnector order={2} />
+
+                  {/* Вторая точка — read-only с пунктирной рамкой r18 и замком */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '48px', order: isReversed ? 1 : 3 }}>
+                    <RouteDot filled={isReversed} />
                     <div
                       style={{
                         ...routeFieldStyle,
+                        flex: 1,
+                        minWidth: 0,
                         border: '1px dashed var(--border)',
                         background: 'color-mix(in srgb, var(--secondary) 42%, transparent)',
                         color: 'var(--muted-foreground)',
                         fontSize: '15px',
                         fontWeight: 600,
                         gap: '10px',
-                        order: isReversed ? 0 : 1,
                       }}
                     >
                       <Icon
@@ -504,9 +506,9 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
               className="focus-ring"
               style={{
                 width: '100%',
-                minHeight: '44px',
-                padding: '0 14px',
-                borderRadius: '12px',
+                minHeight: '48px',
+                padding: '0 16px',
+                borderRadius: '18px',
                 border: '1px solid var(--field-border)',
                 background: 'var(--field)',
                 boxShadow: 'var(--field-shadow)',

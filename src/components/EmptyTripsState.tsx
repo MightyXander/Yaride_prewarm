@@ -1,75 +1,50 @@
 /**
- * Empty state для пустого списка поездок (inline вариант).
+ * Empty state для пустого списка поездок — по эталону (иконка-кружок + CTA «Оставить заявку»).
  */
+
+import { EmptyState } from './ui/StateView';
 
 interface EmptyTripsStateProps {
   onLeaveRequest?: () => void;
 }
 
-const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ onLeaveRequest }) => {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '48px 24px',
-        gap: '20px',
-        textAlign: 'center',
-        color: 'var(--muted-foreground)',
-      }}
-    >
-      <svg
-        width="64"
-        height="64"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{ opacity: 0.5 }}
-      >
-        <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
-        <circle cx="7" cy="17" r="2" />
-        <path d="M9 17h6" />
-        <circle cx="17" cy="17" r="2" />
+const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ onLeaveRequest }) => (
+  <EmptyState
+    icon={
+      <svg viewBox="0 0 24 24" style={{ width: '34px', height: '34px', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
+        <path d="M5 11l1.7-4.3A2 2 0 0 1 8.6 5.4h6.8a2 2 0 0 1 1.9 1.3L19 11" />
+        <rect x="3" y="11" width="18" height="6" rx="2.2" />
+        <circle cx="7.5" cy="17.5" r="1.4" />
+        <circle cx="16.5" cy="17.5" r="1.4" />
       </svg>
-      <div style={{ fontSize: '14px' }}>
-        Попробуй другое время или опубликуй свою
-      </div>
-      {onLeaveRequest && (
+    }
+    title="Поездок пока нет"
+    subtitle="На это время по маршруту никто не едет. Оставь заявку — водители увидят, что ты ищешь."
+    action={
+      onLeaveRequest && (
         <button
+          type="button"
           onClick={onLeaveRequest}
+          className="focus-ring pressable"
           style={{
-            marginTop: '8px',
-            padding: '14px 28px',
-            fontSize: '16px',
-            fontWeight: 500,
-            color: 'var(--background)',
-            background: 'var(--primary)',
-            border: 'none',
-            borderRadius: '12px',
-            cursor: 'pointer',
             minHeight: '48px',
-            transition: 'opacity 0.15s ease',
-          }}
-          onPointerDown={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.opacity = '0.8';
-          }}
-          onPointerUp={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.opacity = '1';
-          }}
-          onPointerLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+            padding: '0 22px',
+            borderRadius: '18px',
+            border: 'none',
+            background: 'var(--gradient-brand)',
+            color: 'var(--brand-foreground)',
+            fontWeight: 700,
+            fontSize: '15px',
+            fontFamily: 'var(--font-sans)',
+            cursor: 'pointer',
+            boxShadow: 'var(--shadow-hero)',
           }}
         >
           Оставить заявку
         </button>
-      )}
-    </div>
-  );
-};
+      )
+    }
+  />
+);
 
 export default EmptyTripsState;
