@@ -33,11 +33,12 @@ import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useAsync } from './hooks/useAsync';
 import { useStartParam } from './hooks/useStartParam';
-import { getTrips, getRoutePoints, getTrip, cancelTrip, ApiException } from './lib/api';
+import { getTrips, getRoutePoints, getTrip, cancelTrip, getMe, loginUser, registerUser, logoutUser, ApiException } from './lib/api';
 import { mapTripListItemToTrip, mapTripCardToTrip } from './lib/mappers';
 import { showToast } from './lib/toast';
 import { loadRole, saveRole, type UserRole } from './lib/role';
-import { isTelegramContext, hasAuthSession, setAuthSession } from './lib/auth';
+import { isTelegramContext, shouldGateBrowserAuth } from './lib/auth';
+import { POLICY_VERSION } from './lib/policy';
 import type { RegisterPayload } from './screens/RegisterScreen';
 import { formatSubtitle } from './lib/date';
 import { ProfileProvider } from './contexts/ProfileContext';
@@ -60,7 +61,10 @@ function App() {
     // Ручной выбор темы (кнопка на главной) имеет приоритет над авто-определением.
     const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('yaride-theme') : null;
     if (stored === 'light' || stored === 'dark') return stored;
-    if (window.Telegram?.WebApp) {
+    // Баг ревью #5: тему из Telegram берём только в реальном Telegram-контексте.
+    // В браузере (где window.Telegram.WebApp существует, но platform='unknown')
+    // используем prefers-color-scheme, иначе тема залипает на дефолте Telegram.
+    if (isTelegramContext() && window.Telegram?.WebApp) {
       return window.Telegram.WebApp.colorScheme;
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -82,12 +86,19 @@ function App() {
   // Роль пользователя: пассажир или водитель (персистится в localStorage)
   const [userRole, setUserRole] = useState<UserRole | null>(() => loadRole());
 
-  // Гейтинг входа для браузерных пользователей БЕЗ Telegram:
-  // если приложение открыто не в Telegram И нет мок-сессии — стартуем с экрана выбора входа.
-  // Telegram-пользователи и уже «вошедшие» в браузере идут привычным путём (intro/main).
-  const needsAuthGate = !isTelegramContext() && !hasAuthSession();
+  // Браузерная авторизация (#242): реальная серверная сессия (httpOnly-cookie + /me).
+  // Гейт показываем ТОЛЬКО в уверенном браузере (fail-safe, shouldGateBrowserAuth)
+  // и пока сессия не подтверждена бэкендом. Telegram-флоу не затрагивается.
+  const gateContext = shouldGateBrowserAuth();
+  const [authed, setAuthed] = useState(false);
+  // meChecked — дёрнули ли уже GET /api/auth/me. В Telegram/неуверенном контексте
+  // проверка не нужна → сразу true (splash не ждёт).
+  const [meChecked, setMeChecked] = useState(!gateContext);
 
-  // Определяем начальный экран: гейт → если нужен; иначе роль выбрана — main, нет — intro.
+  const needsAuthGate = gateContext && !authed;
+
+  // Начальный экран: нужен гейт → auth-gate (скорректируем, если /me вернёт сессию);
+  // иначе роль выбрана — main, нет — intro.
   const initialScreen: Screen = needsAuthGate ? 'auth-gate' : userRole ? 'main' : 'intro';
 
   // Splash-состояние: показываем при старте, скрываем когда данные готовы или прошло время
@@ -119,32 +130,83 @@ function App() {
     navigate('become-driver');
   };
 
-  // --- Авторизация (мок-сессия, без backend) ---
-  // Куда вести после успешного «входа»: роль есть → main, нет → intro (как при обычном старте).
+  // --- Авторизация (#242): реальная серверная сессия ---
+  // Куда вести после успешного входа: роль есть → main, нет → intro (как обычный старт).
   const afterAuth = () => {
-    setAuthSession();
     navigate(userRole ? 'main' : 'intro');
   };
 
-  // Мок-сабмит входа по email: ставим сессию и идём дальше (валидация — внутри LoginScreen).
-  const handleAuthLogin = (_email: string, _password: string) => {
+  // Вход по email: реальный вызов API. Ошибки/loading обрабатывает LoginScreen
+  // (контракт onSubmit — async; экран await'ит и на ошибке сбрасывает loading).
+  const handleAuthLogin = async (email: string, password: string) => {
+    await loginUser({ email, password });
+    setAuthed(true);
     afterAuth();
   };
 
-  // Мок-сабмит регистрации: ставим сессию и идём дальше (валидация/согласие — внутри RegisterScreen).
-  const handleAuthRegister = (_payload: RegisterPayload) => {
+  // Регистрация: реальный вызов API. Версия политики — единый источник POLICY_VERSION.
+  // marketingConsent пишем только если пользователь отметил «новости и акции».
+  const handleAuthRegister = async (payload: RegisterPayload) => {
+    await registerUser({
+      email: payload.email,
+      password: payload.password,
+      username: payload.username,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      pdnConsent: true,
+      pdnConsentVersion: POLICY_VERSION,
+      marketingConsent: payload.news,
+      marketingConsentVersion: payload.news ? POLICY_VERSION : undefined,
+    });
+    setAuthed(true);
     afterAuth();
   };
 
-  // «Войти через Telegram» — пока заглушка: ставим мок-сессию и идём дальше.
-  // TODO: реальная привязка Telegram-аккаунта (Login Widget / initData) — отдельная задача.
+  // «Войти через Telegram» из браузерного гейта — пока заглушка (привязка TG к
+  // браузерной карточке вне MVP, см. issue #242). Просто уводим со страницы гейта.
   const handleAuthTelegram = () => {
     afterAuth();
   };
 
+  // Выход: рвём серверную сессию, сбрасываем флаг, возвращаемся на гейт.
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch {
+      /* даже при ошибке сети уводим пользователя на гейт */
+    }
+    setAuthed(false);
+    navigate('auth-gate');
+  };
+
+  // При старте в браузере проверяем серверную сессию (GET /api/auth/me).
+  // Успех → считаем вошедшим и уводим с гейта; 401 → остаёмся на гейте.
+  useEffect(() => {
+    if (!gateContext) return;
+    let cancelled = false;
+    getMe()
+      .then(() => {
+        if (cancelled) return;
+        setAuthed(true);
+        navigate(userRole ? 'main' : 'intro');
+      })
+      .catch(() => {
+        /* нет сессии — гейт остаётся */
+      })
+      .finally(() => {
+        if (!cancelled) setMeChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Один раз при маунте: проверка восстановления сессии.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Deep-link обработка: при старте Mini App с start_param (например, 'trip-123')
-  // открываем соответствующий экран вместо intro.
-  useStartParam(navigate);
+  // открываем экран поездки. Баг ревью #2: deep-link НЕ должен обходить гейт —
+  // включаем только когда гейт снят (!needsAuthGate).
+  useStartParam(navigate, undefined, !needsAuthGate);
 
   // Применяем тема-класс к <html> для глобальной доступности CSS-переменных
   // (portaled-элементы ThemeToggle/BackButton/FloatingNav/ToastHost тоже их видят).
@@ -162,8 +224,10 @@ function App() {
         return false;
       }
     };
+    // Баг ревью #5: ветку выбора темы определяем по реальному Telegram-контексту,
+    // а не по простому наличию window.Telegram.WebApp (которое есть и в браузере).
     const tg = window.Telegram?.WebApp;
-    if (tg) {
+    if (isTelegramContext() && tg) {
       tg.ready();
       tg.expand();
       if (!hasManual()) setTheme(tg.colorScheme);
@@ -225,8 +289,10 @@ function App() {
   useEffect(() => {
     if (!splashVisible) return;
 
-    // Готовность данных: ни один источник не в loading/idle.
+    // Готовность данных: ни один источник не в loading/idle И проверена сессия
+    // (meChecked) — чтобы первый кадр после splash не мигал гейтом до ответа /me.
     const dataReady =
+      meChecked &&
       routePointsState.status !== 'loading' &&
       routePointsState.status !== 'idle' &&
       morningTripsState.status !== 'loading' &&
@@ -250,6 +316,7 @@ function App() {
     morningTripsState.status,
     eveningTripsState.status,
     splashVisible,
+    meChecked,
   ]);
 
   // Текущая бронь (для передачи из booking-profile в booking-confirmed)
@@ -552,6 +619,7 @@ function App() {
                 onToggleTheme={toggleTheme}
                 theme={theme}
                 onOpenProfile={handleOpenUserProfile}
+                onLogout={gateContext ? handleLogout : undefined}
               />
             )}
             {currentScreen === 'driver-bookings' && (

@@ -11,12 +11,20 @@ import { mapTripCardToTrip } from '../lib/mappers';
  */
 export const useStartParam = (
   navigate: (screen: Screen, trip?: Trip | null, confirmKind?: ConfirmKind, publishedTripId?: number) => void,
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
+  /**
+   * Включён ли deep-link (баг ревью #2): пока показан гейт авторизации, start_param
+   * обрабатывать НЕЛЬЗЯ — иначе deep-link обошёл бы гейт. Когда гейт снят (enabled=true),
+   * эффект перезапустится и обработает start_param один раз.
+   */
+  enabled = true
 ) => {
   const processed = useRef(false);
 
   useEffect(() => {
-    // Обрабатываем start_param только один раз при маунте
+    // Пока deep-link выключен (показан гейт) — ничего не делаем, ждём enabled.
+    if (!enabled) return;
+    // Обрабатываем start_param только один раз
     if (processed.current) return;
     processed.current = true;
 
@@ -77,5 +85,5 @@ export const useStartParam = (
     };
 
     handleStartParam(startParam);
-  }, [navigate, onError]);
+  }, [navigate, onError, enabled]);
 };

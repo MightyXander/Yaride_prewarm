@@ -21,6 +21,8 @@ interface ProfileScreenProps {
   theme?: 'light' | 'dark';
   /** Открыть публичный профиль пользователя. */
   onOpenProfile?: (userId: number) => void;
+  /** Выйти из браузерной сессии (показывается только для браузерных аккаунтов). */
+  onLogout?: () => void;
 }
 
 // Контурная иконка строки меню (20px).
@@ -86,7 +88,7 @@ const MenuRow: React.FC<MenuRowProps> = ({ icon, label, onClick, right, last }) 
   </button>
 );
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onToggleTheme, theme, onOpenProfile }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onToggleTheme, theme, onOpenProfile, onLogout }) => {
   const { profile, loading } = useProfile();
   const [carsCount, setCarsCount] = useState(0);
 
@@ -230,6 +232,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
         {shouldShowDriverButton && (
           <Button variant="primary" icon="i-car" onClick={onBecomeDriver}>
             {driverButtonLabel}
+          </Button>
+        )}
+        {onLogout && (
+          <Button variant="ghost" onClick={onLogout}>
+            Выйти
           </Button>
         )}
       </div>

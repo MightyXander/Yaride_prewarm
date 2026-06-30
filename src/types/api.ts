@@ -358,8 +358,41 @@ export interface CancelTripResponse {
   };
 }
 
+// Авторизация (issue #242)
+export interface AuthUser {
+  id: number;
+  name: string;
+  email: string | null;
+  username: string | null;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  pdnConsent: boolean;
+  pdnConsentVersion: string;
+  marketingConsent: boolean;
+  marketingConsentVersion?: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+}
+
 // Ошибки
 export interface ApiErrorResponse {
   error: string;
+  /** Машинно-различимый код (напр. email_taken, username_taken, invalid_credentials). */
+  code?: string;
   [key: string]: unknown;
 }

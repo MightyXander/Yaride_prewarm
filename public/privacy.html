@@ -29,6 +29,8 @@
     -->
     <script id="policy-meta">
       // ▼▼▼ МЕНЯТЬ ВЕРСИЮ ПОЛИТИКИ ТОЛЬКО ЗДЕСЬ ▼▼▼
+      // ВАЖНО: версия должна совпадать с POLICY_VERSION в src/lib/policy.ts —
+      // именно её регистрация шлёт в pdn_consent_version (единый источник на фронте).
       window.POLICY_VERSION = 'v1';
       window.POLICY_EFFECTIVE_DATE = '2026-06-30';
       // ▲▲▲ значения должны совпадать с тем, что пишется в согласие при регистрации

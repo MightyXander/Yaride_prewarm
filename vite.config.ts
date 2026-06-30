@@ -70,6 +70,30 @@ function mockApiPlugin() {
         { author_id: 203, author_name: 'Сергей Т.', stars: 4, comment: null, tags: null, created_at: '2026-02-11T08:00:00Z' },
       ];
 
+      // In-memory браузерная авторизация (#242) для dev/QA без backend.
+      // Cookie yaride_session ставится так же, как реальный сервер (httpOnly).
+      const mockAuthUsers: {
+        id: number; email: string; password: string; username: string;
+        firstName: string; lastName: string; name: string;
+      }[] = [];
+      const mockSessions = new Map<string, number>(); // token → userId
+      let mockUserSeq = 1000;
+
+      const parseCookieHeader = (header: string | undefined): Record<string, string> => {
+        const out: Record<string, string> = {};
+        if (!header) return out;
+        for (const part of header.split(';')) {
+          const i = part.indexOf('=');
+          if (i < 0) continue;
+          out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+        }
+        return out;
+      };
+      const mockUserPublic = (u: typeof mockAuthUsers[number]) => ({
+        id: u.id, name: u.name, email: u.email, username: u.username,
+        first_name: u.firstName, last_name: u.lastName,
+      });
+
       server.middlewares.use('/api', (req, res, next) => {
         // Если backend запущен — пропустить к proxy
         if (process.env.USE_REAL_API === 'true') {
@@ -245,6 +269,86 @@ function mockApiPlugin() {
 
           const trips = forceEmpty ? [] : (window === 'evening' ? eveningTrips : morningTrips);
           sendJson({ trips });
+          return;
+        }
+
+        // ----- Авторизация (#242) -----
+        const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const USERNAME_RE = /^[a-zA-Z0-9_]+$/;
+        const setSessionCookie = (token: string) => {
+          res.setHeader(
+            'Set-Cookie',
+            `yaride_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}`,
+          );
+        };
+
+        // POST /api/auth/register
+        if (method === 'POST' && pathname === '/auth/register') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            const p = JSON.parse(body || '{}');
+            const email = String(p.email ?? '').trim();
+            const username = String(p.username ?? '').trim();
+            if (!EMAIL_RE.test(email)) { sendJson({ error: 'Введите корректный email', field: 'email' }, 400); return; }
+            if (String(p.password ?? '').length < 8) { sendJson({ error: 'Пароль должен быть не короче 8 символов', field: 'password' }, 400); return; }
+            if (!USERNAME_RE.test(username)) { sendJson({ error: 'Ник: только латиница, цифры и _', field: 'username' }, 400); return; }
+            if (!p.pdnConsent) { sendJson({ error: 'Требуется согласие на обработку персональных данных', field: 'pdnConsent' }, 400); return; }
+            if (mockAuthUsers.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
+              sendJson({ error: 'Такой email уже зарегистрирован', code: 'email_taken' }, 409); return;
+            }
+            if (mockAuthUsers.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
+              sendJson({ error: 'Этот ник уже занят', code: 'username_taken' }, 409); return;
+            }
+            const firstName = String(p.firstName ?? '').trim();
+            const lastName = String(p.lastName ?? '').trim();
+            const user = {
+              id: ++mockUserSeq, email, password: String(p.password ?? ''), username,
+              firstName, lastName, name: [firstName, lastName].filter(Boolean).join(' ') || username,
+            };
+            mockAuthUsers.push(user);
+            const token = `mock-${user.id}-${Date.now()}`;
+            mockSessions.set(token, user.id);
+            setSessionCookie(token);
+            sendJson({ user: mockUserPublic(user) }, 201);
+          });
+          return;
+        }
+
+        // POST /api/auth/login
+        if (method === 'POST' && pathname === '/auth/login') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            const p = JSON.parse(body || '{}');
+            const email = String(p.email ?? '').trim();
+            const password = String(p.password ?? '');
+            const user = mockAuthUsers.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+            if (!user) { sendJson({ error: 'Неверный email или пароль', code: 'invalid_credentials' }, 401); return; }
+            const token = `mock-${user.id}-${Date.now()}`;
+            mockSessions.set(token, user.id);
+            setSessionCookie(token);
+            sendJson({ user: mockUserPublic(user) });
+          });
+          return;
+        }
+
+        // POST /api/auth/logout
+        if (method === 'POST' && pathname === '/auth/logout') {
+          const token = parseCookieHeader(req.headers.cookie)['yaride_session'];
+          if (token) mockSessions.delete(token);
+          res.setHeader('Set-Cookie', 'yaride_session=; Path=/; Max-Age=0');
+          sendJson({ ok: true });
+          return;
+        }
+
+        // GET /api/auth/me
+        if (method === 'GET' && pathname === '/auth/me') {
+          const token = parseCookieHeader(req.headers.cookie)['yaride_session'];
+          const userId = token ? mockSessions.get(token) : undefined;
+          const user = userId ? mockAuthUsers.find((u) => u.id === userId) : undefined;
+          if (!user) { sendJson({ error: 'Не авторизован', code: 'unauthorized' }, 401); return; }
+          sendJson({ user: mockUserPublic(user) });
           return;
         }
 

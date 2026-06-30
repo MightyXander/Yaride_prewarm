@@ -33,6 +33,9 @@ import type {
   AddCarRequest,
   AddCarResponse,
   CancelTripResponse,
+  RegisterRequest,
+  LoginRequest,
+  AuthResponse,
   ApiErrorResponse,
 } from '../types/api.ts';
 
@@ -73,6 +76,8 @@ async function apiFetch<T>(
   const res = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
+    // Cookie сессии (httpOnly) ходит сам на том же origin; явно включаем для ясности.
+    credentials: 'same-origin',
   });
 
   const contentType = res.headers.get('Content-Type') ?? '';
@@ -239,4 +244,35 @@ export async function markNotificationRead(notificationId: number): Promise<Mark
     method: 'POST',
     body: JSON.stringify({ notificationId }),
   });
+}
+
+/* ------------------------------ Авторизация (#242) ------------------------------ */
+
+/** POST /api/auth/register — регистрация по email/паролю. Ставит cookie сессии. */
+export async function registerUser(params: RegisterRequest): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+/** POST /api/auth/login — вход по email+пароль. Ставит cookie сессии. */
+export async function loginUser(params: LoginRequest): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+/** POST /api/auth/logout — удалить сессию и очистить cookie. */
+export async function logoutUser(): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>('/auth/logout', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+/** GET /api/auth/me — текущий пользователь по cookie-сессии (или ApiException 401). */
+export async function getMe(): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/me');
 }

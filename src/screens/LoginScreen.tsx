@@ -6,15 +6,18 @@ import {
   PasswordField,
   TelegramButton,
   ButtonSpinner,
+  AuthError,
 } from '../components/AuthKit';
 import { hapticImpact } from '../lib/haptics';
+import { ApiException } from '../lib/api';
 
 /**
  * LoginScreen — вход по email для браузерных пользователей (без Telegram).
- * Презентационный: реальная авторизация замокана через props.onSubmit.
+ * onSubmit — async: экран await'ит реальный вызов авторизации, на ошибке
+ * показывает сообщение и СБРАСЫВАЕТ loading (кнопка не залипает «Входим…»).
  */
 interface LoginScreenProps {
-  onSubmit: (email: string, password: string) => void;
+  onSubmit: (email: string, password: string) => Promise<void>;
   onTelegram: () => void;
   onRegister: () => void;
 }
@@ -26,12 +29,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSubmit, onTelegram, onRegis
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState<string | undefined>();
   const [passwordError, setPasswordError] = useState<string | undefined>();
+  const [formError, setFormError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (loading) return;
+    setFormError(undefined);
 
-    // Локальная валидация (без backend).
+    // Локальная валидация.
     let valid = true;
     if (!EMAIL_RE.test(email.trim())) {
       setEmailError('Введите корректный email');
@@ -49,11 +54,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSubmit, onTelegram, onRegis
 
     hapticImpact('light');
     setLoading(true);
-    // МОК: имитируем сетевую задержку, чтобы показать состояние загрузки кнопки.
-    // TODO: заменить на реальный вызов авторизации, когда подключим backend.
-    setTimeout(() => {
-      onSubmit(email.trim(), password);
-    }, 600);
+    try {
+      await onSubmit(email.trim(), password);
+      // Успех — App уводит на следующий экран (компонент размонтируется).
+    } catch (e) {
+      // Ошибка backend: показываем сообщение и СБРАСЫВАЕМ loading.
+      const message =
+        e instanceof ApiException ? e.message : 'Не удалось войти. Попробуйте ещё раз.';
+      setFormError(message);
+      setLoading(false);
+    }
   };
 
   return (
@@ -105,11 +115,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSubmit, onTelegram, onRegis
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {formError && <AuthError>{formError}</AuthError>}
         <Button
           variant="primary"
           haptic="none"
           disabled={loading}
-          onClick={handleSubmit}
+          onClick={() => void handleSubmit()}
           style={{ height: '54px', borderRadius: '16px', fontSize: '16px', fontWeight: 700 }}
         >
           {loading ? (

@@ -12,6 +12,186 @@ import type { PoolClient } from 'pg';
 import { ensureReady, getPool, withTransaction } from './db.ts';
 import { todayISO } from './seed.ts';
 
+// ============================================================================
+// Браузерная авторизация (issue #242): email/пароль, сессии, согласия 152-ФЗ.
+// ============================================================================
+
+/** Публичный срез браузерного пользователя (без password_hash). */
+export interface WebUserRecord {
+  id: number;
+  name: string;
+  email: string | null;
+  username: string | null;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+/** Конфликт уникальности при регистрации (машинно-различимый код для 409). */
+export class UserConflictError extends Error {
+  public readonly code: 'email_taken' | 'username_taken';
+  constructor(code: 'email_taken' | 'username_taken') {
+    super(code);
+    this.name = 'UserConflictError';
+    this.code = code;
+  }
+}
+
+export interface CreateWebUserParams {
+  email: string;
+  username: string;
+  /** Уже посчитанный scrypt-хеш (репозиторий пароль в открытом виде не видит). */
+  passwordHash: string;
+  firstName: string;
+  lastName: string;
+  pdnConsentVersion: string;
+  marketingConsent: boolean;
+  marketingConsentVersion?: string | null;
+}
+
+/** Занят ли email (регистронезависимо). */
+export async function isEmailTaken(email: string): Promise<boolean> {
+  await ensureReady();
+  const res = await getPool().query(
+    'SELECT 1 FROM users WHERE lower(email) = lower($1) LIMIT 1',
+    [email],
+  );
+  return (res.rowCount ?? 0) > 0;
+}
+
+/** Занят ли username (регистронезависимо). */
+export async function isUsernameTaken(username: string): Promise<boolean> {
+  await ensureReady();
+  const res = await getPool().query(
+    'SELECT 1 FROM users WHERE lower(username) = lower($1) LIMIT 1',
+    [username],
+  );
+  return (res.rowCount ?? 0) > 0;
+}
+
+/**
+ * Создать браузерного пользователя (email/пароль + согласия 152-ФЗ).
+ *
+ * Инвариант «способ входа» гарантируется на уровне БД (CHECK users_login_method_check)
+ * и здесь: всегда записываем email + password_hash. name — склейка first+last
+ * (совместимость со всеми запросами поездок/броней, тянущими u.name).
+ * Уникальность проверяется явно (для кодов email_taken/username_taken) и
+ * дублируется уникальными индексами (catch 23505 как защита от гонок).
+ */
+export async function createWebUser(params: CreateWebUserParams): Promise<WebUserRecord> {
+  await ensureReady();
+  const email = params.email.trim();
+  const username = params.username.trim();
+  const firstName = params.firstName.trim();
+  const lastName = params.lastName.trim();
+  const name = [firstName, lastName].filter((p) => p.length > 0).join(' ') || username;
+
+  const marketingAt = params.marketingConsent ? new Date() : null;
+  const marketingVer = params.marketingConsent
+    ? params.marketingConsentVersion?.trim() || params.pdnConsentVersion
+    : null;
+
+  return withTransaction(async (client): Promise<WebUserRecord> => {
+    const emailRes = await client.query(
+      'SELECT 1 FROM users WHERE lower(email) = lower($1) LIMIT 1',
+      [email],
+    );
+    if ((emailRes.rowCount ?? 0) > 0) {
+      throw new UserConflictError('email_taken');
+    }
+    const unameRes = await client.query(
+      'SELECT 1 FROM users WHERE lower(username) = lower($1) LIMIT 1',
+      [username],
+    );
+    if ((unameRes.rowCount ?? 0) > 0) {
+      throw new UserConflictError('username_taken');
+    }
+
+    try {
+      const ins = await client.query<WebUserRecord>(
+        `INSERT INTO users(name, email, username, password_hash, first_name, last_name,
+                           pdn_consent_at, pdn_consent_version,
+                           marketing_consent_at, marketing_consent_version)
+         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, $7, $8, $9)
+         RETURNING id, name, email, username, first_name, last_name`,
+        [
+          name,
+          email,
+          username,
+          params.passwordHash,
+          firstName,
+          lastName,
+          params.pdnConsentVersion,
+          marketingAt,
+          marketingVer,
+        ],
+      );
+      return ins.rows[0];
+    } catch (e) {
+      // Гонка: уникальный индекс сработал между проверкой и вставкой.
+      const constraint = (e as { code?: string; constraint?: string });
+      if (constraint.code === '23505') {
+        if (constraint.constraint === 'uq_users_username_lower') {
+          throw new UserConflictError('username_taken');
+        }
+        throw new UserConflictError('email_taken');
+      }
+      throw e;
+    }
+  });
+}
+
+/** Пользователь с хешем пароля по email (регистронезависимо) — для проверки входа. */
+export async function findUserByEmail(
+  email: string,
+): Promise<(WebUserRecord & { password_hash: string }) | null> {
+  await ensureReady();
+  const res = await getPool().query<WebUserRecord & { password_hash: string | null }>(
+    `SELECT id, name, email, username, first_name, last_name, password_hash
+     FROM users
+     WHERE lower(email) = lower($1) AND password_hash IS NOT NULL
+     LIMIT 1`,
+    [email],
+  );
+  const row = res.rows[0];
+  if (!row || row.password_hash === null) {
+    return null;
+  }
+  return { ...row, password_hash: row.password_hash };
+}
+
+/** Создать сессию (хранится только sha256-хеш opaque-токена). */
+export async function createSession(
+  userId: number,
+  tokenHash: string,
+  expiresAt: Date,
+): Promise<void> {
+  await ensureReady();
+  await getPool().query(
+    'INSERT INTO sessions(token_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+    [tokenHash, userId, expiresAt],
+  );
+}
+
+/** Пользователь активной (непросроченной) сессии по хешу токена, или null. */
+export async function getSessionUser(tokenHash: string): Promise<WebUserRecord | null> {
+  await ensureReady();
+  const res = await getPool().query<WebUserRecord>(
+    `SELECT u.id, u.name, u.email, u.username, u.first_name, u.last_name
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = $1 AND s.expires_at > CURRENT_TIMESTAMP
+     LIMIT 1`,
+    [tokenHash],
+  );
+  return res.rows[0] ?? null;
+}
+
+/** Удалить сессию по хешу токена (logout). Идемпотентно. */
+export async function deleteSession(tokenHash: string): Promise<void> {
+  await ensureReady();
+  await getPool().query('DELETE FROM sessions WHERE token_hash = $1', [tokenHash]);
+}
+
 export type TimeSlot = 'morning' | 'evening';
 
 export interface TripListItem {

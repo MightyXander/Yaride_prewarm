@@ -68,11 +68,29 @@ export interface ApiRequest {
   params: Record<string, string | undefined>;
   body: unknown;
   headers: Record<string, string | undefined>;
+  /** IP клиента (req.ip из Express) — для троттлинга входа. */
+  ip?: string;
+}
+
+/** Инструкция выставить/очистить cookie (применяется тонкой обёрткой в server.js). */
+export interface SetCookieInstruction {
+  name: string;
+  /** null/undefined → очистить cookie (res.clearCookie). */
+  value: string | null;
+  options?: {
+    maxAge?: number;
+    httpOnly?: boolean;
+    sameSite?: 'lax' | 'strict' | 'none';
+    secure?: boolean;
+    path?: string;
+  };
 }
 
 export interface ApiResponse {
   status: number;
   body: unknown;
+  /** Cookies для Set-Cookie/clear (опц.) — авторизация. */
+  cookies?: SetCookieInstruction[];
 }
 
 /** Стандартный JSON-ответ ошибки. */
