@@ -125,7 +125,7 @@ const HabitHomeScreen: React.FC<HabitHomeScreenProps> = ({
               textOverflow: 'ellipsis',
             }}
           >
-            по пути · {regularDriver.car} · ≈{regularDriver.price} ₽
+            по пути{regularDriver.car ? ` · ${regularDriver.car}` : ''} · ≈{regularDriver.price} ₽
           </div>
         </div>
 

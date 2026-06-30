@@ -42,7 +42,8 @@ export interface Trip {
     memberSince?: string;
   };
   address: string;
-  car: string;
+  /** Модель машины. null — модель не указана (плейсхолдер не показываем). */
+  car: string | null;
   price: string;
   time: string;
   seats: number;

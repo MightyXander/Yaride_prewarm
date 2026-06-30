@@ -182,7 +182,7 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
               lineHeight: 1.4,
             }}
           >
-            с {trip.driver.name} · {trip.car} · {trip.address}
+            с {trip.driver.name}{trip.car ? ` · ${trip.car}` : ''} · {trip.address}
           </div>
         </div>
         </Card>
