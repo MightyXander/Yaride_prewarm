@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -278,6 +278,31 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
       ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
       ALTER TABLE notifications ADD CONSTRAINT notifications_type_check
         CHECK (type IN ('booking', 'booking_confirmed', 'cancel', 'rate_reminder', 'trip_new'));
+    `);
+    return;
+  }
+  if (fromV === 7 && toV === 8) {
+    // Бэкафилл денормализованных счётчиков профиля из источников (#243).
+    // Существующие пользователи имели trips_driver_count/trips_passenger_count = 0,
+    // хотя в trips/bookings были реальные поездки/брони. Пересчитываем разом.
+    // rating_avg/rating_count тоже пересчитываем из ratings для консистентности
+    // исторических данных. Идемпотентно (чистый пересчёт из источников).
+    await pool.query(`
+      UPDATE users u SET
+        trips_driver_count = (
+          SELECT COUNT(*) FROM trips t
+          WHERE t.driver_id = u.id AND t.status <> 'cancelled'
+        ),
+        trips_passenger_count = (
+          SELECT COUNT(*) FROM bookings b
+          WHERE b.passenger_id = u.id AND b.status = 'active'
+        ),
+        rating_avg = (
+          SELECT COALESCE(AVG(r.stars), 0.0) FROM ratings r WHERE r.ratee_id = u.id
+        ),
+        rating_count = (
+          SELECT COUNT(*) FROM ratings r WHERE r.ratee_id = u.id
+        );
     `);
     return;
   }
