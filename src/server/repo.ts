@@ -1519,6 +1519,56 @@ export async function submitLicenseRequest(
   });
 }
 
+export interface PendingLicenseRequest {
+  requestId: number;
+  driverTgUserId: number;
+  driverName: string;
+  driverUsername: string | null;
+  seriesNumber: string;
+  validUntil: string;
+  createdAt: string;
+}
+
+/**
+ * Список всех заявок на проверку ВУ в статусе pending (для админ-очереди в боте).
+ * Джойнит данные водителя (имя, username, telegram-id). Сортировка — старые сверху,
+ * чтобы админ обрабатывал в порядке поступления. created_at форматируется в SQL,
+ * чтобы не зависеть от таймзоны/локали Node.
+ */
+export async function listPendingLicenseRequests(): Promise<PendingLicenseRequest[]> {
+  await ensureReady();
+  const res = await getPool().query<{
+    request_id: number;
+    tg_user_id: number;
+    name: string;
+    username: string | null;
+    series_number: string;
+    valid_until: string;
+    created_at: string;
+  }>(
+    `SELECT lr.id AS request_id,
+            u.tg_user_id,
+            u.name,
+            u.username,
+            lr.series_number,
+            lr.valid_until,
+            to_char(lr.created_at, 'DD.MM.YYYY HH24:MI') AS created_at
+     FROM license_requests lr
+     JOIN users u ON u.id = lr.driver_id
+     WHERE lr.status = 'pending'
+     ORDER BY lr.created_at ASC`,
+  );
+  return res.rows.map((r) => ({
+    requestId: r.request_id,
+    driverTgUserId: r.tg_user_id,
+    driverName: r.name,
+    driverUsername: r.username,
+    seriesNumber: r.series_number,
+    validUntil: r.valid_until,
+    createdAt: r.created_at,
+  }));
+}
+
 export interface LicenseDecisionResult {
   driverTgUserId: number;
   driverName: string;
