@@ -63,6 +63,7 @@ export {
   handleSaveMyPhone,
   handleGetMyCredentials,
   handleAddMyCredentials,
+  handleSavePushToken,
   handleGetMyTrips,
   handleGetMyTemplate,
   handleCreateRating,
