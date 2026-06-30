@@ -5,7 +5,7 @@ import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { hapticNotify } from '../lib/haptics';
 import { showToast } from '../lib/toast';
-import type { Trip, ConfirmKind } from '../types/navigation';
+import type { Trip, ConfirmKind, PublishedTripSummary } from '../types/navigation';
 import type { BookingResult } from '../types/api';
 
 interface BookingConfirmedScreenProps {
@@ -13,6 +13,8 @@ interface BookingConfirmedScreenProps {
   trip: Trip | null;
   booking?: BookingResult | null;
   publishedTripId?: number;
+  /** Реальные данные только что опубликованной поездки (kind==='publish'). */
+  publishedTrip?: PublishedTripSummary | null;
   onDone: () => void;
   /** Только для publish: открыть список броней пассажиров на свой рейс. */
   onViewBookings?: () => void;
@@ -29,11 +31,35 @@ const sectionLabelStyle: React.CSSProperties = {
   marginBottom: '6px',
 };
 
+const seatsWord = (n: number): string => {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'место';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'места';
+  return 'мест';
+};
+
+// «Сегодня/Завтра/<дата>, выезд HH:MM» из даты поездки и времени выезда.
+const formatWhen = (tripDate: string, departureTime: string): string => {
+  const date = new Date(`${tripDate}T${departureTime}`);
+  if (Number.isNaN(date.getTime())) return '';
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const time = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  let day: string;
+  if (date.toDateString() === today.toDateString()) day = 'Сегодня';
+  else if (date.toDateString() === tomorrow.toDateString()) day = 'Завтра';
+  else day = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'short' });
+  return `${day} · выезд ${time}`;
+};
+
 const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
   kind,
   trip,
   booking,
   publishedTripId,
+  publishedTrip,
   onDone,
   onViewBookings,
   onStartTrip,
@@ -46,8 +72,11 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
   const isPublish = kind === 'publish';
   const title = isPublish ? 'Поездка' : 'Бронь';
   const headline = isPublish ? 'Поездка опубликована!' : 'Ты в поездке!';
+  const publishWhen = publishedTrip
+    ? formatWhen(publishedTrip.tripDate, publishedTrip.departureTime)
+    : '';
   const sub = isPublish
-    ? 'Завтра, среда · выезд 7:40'
+    ? publishWhen || 'Поездка создана'
     : trip
       ? `Завтра, среда · выезд ${trip.time}`
       : 'Завтра, среда';
@@ -173,7 +202,7 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
                   flexShrink: 0,
                 }}
               />
-              Брагино, ул. Урицкого, 12
+              {publishedTrip?.startTitle || 'Маршрут из шаблона'}
             </div>
             <div
               style={{
@@ -201,12 +230,22 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
                   flexShrink: 0,
                 }}
               />
-              Центр, пл. Волкова
+              {publishedTrip?.endTitle || ''}
             </div>
           </div>
           <div style={{ height: '1px', background: 'var(--border)', margin: '6px 0' }} />
           <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '6px' }}>
-            Выезд <b style={{ color: 'var(--foreground)' }}>7:40</b> · 2 места
+            {publishedTrip ? (
+              <>
+                Выезд{' '}
+                <b style={{ color: 'var(--foreground)' }}>
+                  {publishedTrip.departureTime.slice(0, 5)}
+                </b>{' '}
+                · {publishedTrip.seatsTotal} {seatsWord(publishedTrip.seatsTotal)} · {publishedTrip.priceRub} ₽
+              </>
+            ) : (
+              'Детали поездки сохранены'
+            )}
           </div>
         </Card>
       )}
