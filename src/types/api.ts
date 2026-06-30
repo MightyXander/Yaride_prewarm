@@ -57,6 +57,10 @@ export interface TripCard extends TripListItem {
   driver_created_at: string;
   /** true — у поездки есть госномер, но он скрыт (нет брони). UI показывает цензуру. */
   plate_locked?: boolean;
+  /** Телефон водителя — приходит пассажиру с активной бронью (тот же контур, что и plate), иначе null. */
+  driver_phone?: string | null;
+  /** true — у водителя есть телефон, но он скрыт (нет активной брони). UI показывает locked-подпись. */
+  driver_phone_locked?: boolean;
 }
 
 export interface GetTripResponse {
@@ -218,6 +222,8 @@ export interface BookingDetail {
   seats: number;
   status: string;
   created_at: string;
+  /** Телефон пассажира — приходит водителю поездки только для активной брони, иначе null. */
+  passenger_phone?: string | null;
 }
 
 export interface GetTripBookingsResponse {

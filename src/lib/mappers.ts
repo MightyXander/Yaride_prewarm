@@ -64,10 +64,13 @@ export function mapTripListItemToTrip(item: TripListItem): Trip {
 export function mapTripCardToTrip(card: TripCard): Trip {
   const base = mapTripListItemToTrip(card);
 
-  // plate (детальная карточка) уже замаскирован на бэке: реальный номер приходит
-  // только водителю/забронировавшему, иначе null + plate_locked=true → цензура в UI.
+  // plate и driver_phone (детальная карточка) уже замаскированы на бэке: реальные
+  // значения приходят только водителю/забронировавшему, иначе null + *_locked=true →
+  // цензура номера и мягкая подпись для телефона в UI.
   return {
     ...base,
     plateLocked: card.plate_locked ?? false,
+    driverPhone: card.driver_phone ?? null,
+    driverPhoneLocked: card.driver_phone_locked ?? false,
   };
 }

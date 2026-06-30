@@ -674,11 +674,12 @@ export async function handleCreateRating(req: ApiRequest): Promise<ApiResponse> 
   }
 }
 
-/** GET /api/trips/:id/bookings — список броней для поездки (для водителя). */
+/** GET /api/trips/:id/bookings — список броней для поездки (ТОЛЬКО водитель поездки). */
 export async function handleGetTripBookings(req: ApiRequest): Promise<ApiResponse> {
-  const auth = authenticate(req, req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  // Резолвим внутренний id (cookie-сессия ИЛИ Telegram) — нужен для проверки владения.
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
 
   const tripId = toPositiveInt(req.params.id);
@@ -686,8 +687,15 @@ export async function handleGetTripBookings(req: ApiRequest): Promise<ApiRespons
     return err(400, 'Некорректный id поездки');
   }
 
-  const bookings = await getTripBookings(tripId);
-  return { status: 200, body: { bookings } };
+  // Скоуп на владельца: брони (и телефоны пассажиров) видит только водитель поездки.
+  const result = await getTripBookings(tripId, userId);
+  if (!result.ok) {
+    if (result.reason === 'not_found') {
+      return err(404, 'Поездка не найдена');
+    }
+    return err(403, 'Доступ к броням только у водителя поездки');
+  }
+  return { status: 200, body: { bookings: result.bookings } };
 }
 
 /** PATCH /api/bookings/:id — отменить бронь водителем. */

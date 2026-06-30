@@ -65,6 +65,10 @@ export interface Trip {
   plate: string | null;
   /** true — номер есть, но скрыт до брони (UI показывает цензуру вместо номера). */
   plateLocked?: boolean;
+  /** Телефон водителя — приходит пассажиру с активной бронью (контур, что и plate), иначе null. */
+  driverPhone?: string | null;
+  /** true — телефон водителя есть, но скрыт до подтверждения брони (UI показывает мягкую подпись). */
+  driverPhoneLocked?: boolean;
 }
 
 export interface RatingContext {

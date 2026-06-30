@@ -5,6 +5,7 @@ import Button from '../components/ui/Button';
 import { RouteDot, RouteMidConnector } from '../components/ui/RouteConnector';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import PhoneLink from '../components/PhoneLink';
 import { showToast } from '../lib/toast';
 import { Appear } from '../components/Appear';
 import type { Trip } from '../types/navigation';
@@ -237,6 +238,19 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
                     &nbsp;&nbsp;откроется после бронирования
                   </span>
                 </>
+              )}
+              <br />
+            </>
+          )}
+          {(trip.driverPhone || trip.driverPhoneLocked) && (
+            <>
+              Телефон&nbsp;&nbsp;
+              {trip.driverPhone ? (
+                <PhoneLink phone={trip.driverPhone} name={trip.driver.name} />
+              ) : (
+                <span style={{ color: 'var(--muted-foreground)', fontSize: '11px' }}>
+                  станет виден после подтверждения брони
+                </span>
               )}
               <br />
             </>

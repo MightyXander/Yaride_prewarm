@@ -264,6 +264,10 @@ export interface TripCard extends TripListItem {
   driver_username: string | null;
   driver_created_at: string;
   driver_tg_user_id: number;
+  /** Телефон водителя — раскрывается пассажиру с активной бронью (тот же accessCond, что и plate), иначе NULL. */
+  driver_phone: string | null;
+  /** true — у водителя есть телефон, но он скрыт (нет активной брони). UI показывает locked-подпись. */
+  driver_phone_locked?: boolean;
 }
 
 export interface BookingResult {
@@ -395,6 +399,11 @@ export async function getTripCard(tripId: number, currentUserId?: number): Promi
       t.car_color,
       CASE WHEN ${accessCond} THEN t.plate ELSE NULL END AS plate,
       (t.plate IS NOT NULL AND NOT ${accessCond}) AS plate_locked,
+      -- Телефон водителя — тот же «доверенный контур», что и госномер: реальный
+      -- номер виден водителю поездки ИЛИ пассажиру с активной бронью; остальным
+      -- NULL + флаг driver_phone_locked для мягкой подписи в UI.
+      CASE WHEN ${accessCond} THEN u.phone ELSE NULL END AS driver_phone,
+      (u.phone IS NOT NULL AND NOT ${accessCond}) AS driver_phone_locked,
       t.start_point_id,
       t.end_point_id,
       sp.title AS start_title,
@@ -1292,24 +1301,50 @@ export interface BookingDetail {
   seats: number;
   status: string;
   created_at: string;
+  /** Телефон пассажира — отдаётся ТОЛЬКО водителю поездки и ТОЛЬКО для активной брони, иначе NULL. */
+  passenger_phone: string | null;
 }
+
+/** Результат запроса броней поездки: либо список, либо причина отказа (нет поездки / не владелец). */
+export type TripBookingsResult =
+  | { ok: true; bookings: BookingDetail[] }
+  | { ok: false; reason: 'not_found' | 'forbidden' };
 
 /**
  * Список броней для поездки (для водителя, GET /api/trips/:id/bookings).
- * Возвращает все брони независимо от статуса.
+ * СКОУП НА ВЛАДЕЛЬЦА: брони отдаются только водителю поездки (requesterUserId);
+ * любому другому — { ok:false, reason:'forbidden' } (закрывает IDOR на чтение броней).
+ * passenger_phone раскрывается только для активных броней.
  */
-export async function getTripBookings(tripId: number): Promise<BookingDetail[]> {
+export async function getTripBookings(
+  tripId: number,
+  requesterUserId: number,
+): Promise<TripBookingsResult> {
   await ensureReady();
+  // Владение поездкой: проверяем, что запрашивающий — её водитель.
+  const ownerRes = await getPool().query<{ driver_id: number }>(
+    'SELECT driver_id FROM trips WHERE id = $1',
+    [tripId],
+  );
+  const owner = ownerRes.rows[0];
+  if (!owner) {
+    return { ok: false, reason: 'not_found' };
+  }
+  if (owner.driver_id !== requesterUserId) {
+    return { ok: false, reason: 'forbidden' };
+  }
+
   const res = await getPool().query<BookingDetail>(
     `SELECT b.id AS booking_id, b.passenger_id, u.name AS passenger_name,
-            u.username AS passenger_username, b.seats, b.status, b.created_at
+            u.username AS passenger_username, b.seats, b.status, b.created_at,
+            CASE WHEN b.status = 'active' THEN u.phone ELSE NULL END AS passenger_phone
      FROM bookings b
      JOIN users u ON u.id = b.passenger_id
      WHERE b.trip_id = $1
      ORDER BY b.created_at ASC`,
     [tripId],
   );
-  return res.rows;
+  return { ok: true, bookings: res.rows };
 }
 
 export interface CancelBookingResult {
