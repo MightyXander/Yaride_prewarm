@@ -41,6 +41,7 @@ import {
   listUserReviews,
   getUserPhoneById,
   updateUserPhone,
+  upsertPushToken,
   getUserProfileById,
   getUserTripsById,
   createBookingById,
@@ -708,6 +709,27 @@ export async function handleAddMyCredentials(req: ApiRequest): Promise<ApiRespon
     }
     throw e;
   }
+}
+
+/** POST /api/me/push-token — сохранить FCM-токен устройства (issue #265). */
+export async function handleSavePushToken(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const body = asRecord(req.body);
+  const token = typeof body.token === 'string' ? body.token.trim() : '';
+  if (token === '') {
+    return err(400, 'token обязателен');
+  }
+  const platform =
+    typeof body.platform === 'string' && body.platform.trim() !== ''
+      ? body.platform.trim()
+      : 'android';
+
+  await upsertPushToken(userId, token, platform);
+  return { status: 200, body: { ok: true } };
 }
 
 /** GET /api/me/trips?status=upcoming|past — поездки текущего пользователя. */

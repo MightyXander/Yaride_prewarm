@@ -11,7 +11,8 @@
 
 import { getPool } from './db.ts';
 import { sendMessage } from './telegram.ts';
-import { createNotification } from './repo.ts';
+import { createNotification, internalUserIdByTg } from './repo.ts';
+import { sendPushToUser } from './fcm.ts';
 
 /**
  * Создать in-app уведомление (запись в notifications) безопасно: ошибки логируются,
@@ -190,6 +191,13 @@ export async function notifyDriverAboutNewBooking(params: {
       refTripId: params.tripId,
     });
 
+    // FCM-пуш водителю (нативное приложение)
+    void sendPushToUser(params.driverId, {
+      title: 'Новая бронь',
+      body: text,
+      data: { tripId: String(params.tripId) },
+    });
+
     const buttons: Array<Array<{ text: string; url?: string; callback_data?: string }>> = [];
 
     if (miniAppUrl !== '') {
@@ -296,6 +304,15 @@ export async function notifyDriverAboutLicenseDecision(params: {
       : 'Заявка водителя отклонена. Проверь данные ВУ и подай заявку заново через профиль.';
 
     await sendMessage(params.driverTgUserId, text);
+
+    // FCM-пуш водителю (нативное приложение)
+    const driverId = await internalUserIdByTg(params.driverTgUserId);
+    if (driverId !== null) {
+      void sendPushToUser(driverId, {
+        title: params.approved ? 'ВУ одобрено' : 'ВУ отклонено',
+        body: text,
+      });
+    }
   } catch (err) {
     // Не ломаем обработку callback при ошибке уведомления — только логируем
     console.error('[notifyDriverAboutLicenseDecision] Ошибка уведомления водителя:', err);
@@ -329,6 +346,13 @@ export async function notifyPassengerAboutBookingDecision(params: {
       title: params.confirmed ? 'Бронь подтверждена' : 'Бронь отменена',
       body,
       refTripId: params.tripId,
+    });
+
+    // FCM-пуш пассажиру (нативное приложение)
+    void sendPushToUser(params.passengerId, {
+      title: params.confirmed ? 'Бронь подтверждена' : 'Бронь отменена',
+      body,
+      data: { tripId: String(params.tripId) },
     });
 
     const miniAppUrl = (process.env.MINIAPP_URL ?? '').trim();
