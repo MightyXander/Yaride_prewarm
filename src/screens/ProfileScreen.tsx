@@ -3,7 +3,6 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { useProfile } from '../contexts/ProfileContext';
-import { EmptyState } from '../components/ui/StateView';
 import { getMyCars } from '../lib/api';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 
@@ -142,37 +141,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
     </span>
   );
 
-  // Вне Telegram / без авторизации (401) и без засиженного профиля — честное
-  // состояние «Откройте в Telegram», а не выдуманные данные (#244).
-  if (!loading && !profile) {
-    return (
-      <div
-        style={{
-          flex: 1,
-          overflow: 'auto',
-          padding: '6px 16px',
-          paddingBottom: FLOATING_NAV_SCROLL_CLEARANCE,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-        }}
-      >
-        <Header title="Профиль" />
-        <EmptyState
-          icon={
-            <svg viewBox="0 0 24 24" style={{ width: '32px', height: '32px', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
-              <path d="M21 5 2 12l7 2 2 7 3-5 5 4z" />
-            </svg>
-          }
-          title="Откройте в Telegram"
-          subtitle={needsTelegram
-            ? 'Профиль доступен после входа через Telegram. Откройте приложение в боте @Yaride_bot.'
-            : 'Не удалось загрузить профиль. Откройте приложение в боте @Yaride_bot.'}
-        />
-      </div>
-    );
-  }
-
   return (
     <div
       style={{
@@ -194,6 +162,24 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ height: '18px', width: '55%', borderRadius: '8px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite' }} />
             <div style={{ height: '13px', width: '40%', borderRadius: '6px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite', marginTop: '8px' }} />
+          </div>
+        </Card>
+      ) : !profile ? (
+        // Вне Telegram / 401 без засиженного профиля — честная карточка-баннер
+        // вместо выдуманных данных (#244). Меню навигации ниже остаётся видимым.
+        <Card style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '18px' }}>
+          <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--secondary)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <svg viewBox="0 0 24 24" style={{ width: '28px', height: '28px', fill: 'none', stroke: 'var(--muted-foreground)', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
+              <path d="M21 5 2 12l7 2 2 7 3-5 5 4z" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '16px', fontWeight: 700 }}>Откройте в Telegram</div>
+            <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '3px', lineHeight: 1.4 }}>
+              {needsTelegram
+                ? 'Профиль доступен после входа через Telegram. Откройте приложение в боте @Yaride_bot.'
+                : 'Не удалось загрузить профиль. Откройте приложение в боте @Yaride_bot.'}
+            </div>
           </div>
         </Card>
       ) : (
