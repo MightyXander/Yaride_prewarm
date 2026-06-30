@@ -185,7 +185,6 @@ const EmailLoginSection: React.FC = () => {
         label="Ник"
         autoComplete="username"
         placeholder="username"
-        prefix="@"
         hint="Латиница, цифры и _"
         value={username}
         onChange={(v) => {

@@ -401,8 +401,14 @@ function App() {
   ) => {
     switch (type) {
       case 'booking':
-        // бронь твоей поездки → DriverBookings («Мои поездки»)
-        navigate('driver-bookings');
+        // бронь твоей поездки → DriverBookings («Мои поездки» по этой поездке).
+        // refTripId прокидываем в слот publishedTripId — DriverBookings читает tripId оттуда;
+        // без него экран показал бы «ID поездки не передан».
+        if (refTripId) {
+          navigate('driver-bookings', null, undefined, refTripId);
+        } else {
+          navigate('my-trips');
+        }
         break;
       case 'booking_confirmed':
         // твою бронь подтвердили → TripDetails
