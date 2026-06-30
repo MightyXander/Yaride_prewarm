@@ -76,6 +76,13 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
       return;
     }
 
+    if (trip.booked) {
+      setError('Вы уже забронировали эту поездку');
+      showToast('Вы уже забронировали эту поездку');
+      hapticNotify('error');
+      return;
+    }
+
     setIsCreating(true);
     setError(null);
 

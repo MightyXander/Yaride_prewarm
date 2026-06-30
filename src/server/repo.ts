@@ -386,6 +386,7 @@ export interface TripListItem {
   driver_trips_count: number;
   driver_license_status: string;
   is_own: boolean;
+  already_booked: boolean;
   car_model: string | null;
   car_color: string | null;
   plate: string | null;
@@ -428,6 +429,15 @@ function buildTripListSelect(currentUserId?: number): string {
     ? `(t.driver_id = ${currentUserId}) AS is_own`
     : `false AS is_own`;
 
+  // Активная бронь текущего пользователя на эту поездку — для блокировки
+  // повторного бронирования в UI (по аналогии с is_own).
+  const alreadyBookedExpr = currentUserId !== undefined
+    ? `EXISTS (
+         SELECT 1 FROM bookings b
+         WHERE b.trip_id = t.id AND b.passenger_id = ${currentUserId} AND b.status = 'active'
+       ) AS already_booked`
+    : `false AS already_booked`;
+
   return `
   SELECT
     t.id,
@@ -455,7 +465,8 @@ function buildTripListSelect(currentUserId?: number): string {
     -- Госномер в фиде НЕ раскрываем: «доверенный контур» — номер виден только
     -- после подтверждения брони (в деталях поездки). Здесь всегда NULL.
     NULL AS plate,
-    ${isOwnExpr}
+    ${isOwnExpr},
+    ${alreadyBookedExpr}
   FROM trips t
   JOIN route_points sp ON sp.id = t.start_point_id
   JOIN route_points ep ON ep.id = t.end_point_id
@@ -514,6 +525,15 @@ export async function getTripCard(tripId: number, currentUserId?: number): Promi
     ? `(t.driver_id = ${currentUserId}) AS is_own`
     : `false AS is_own`;
 
+  // Активная бронь текущего пользователя на эту поездку — для блокировки
+  // повторного бронирования в UI (по аналогии с is_own).
+  const alreadyBookedExpr = currentUserId !== undefined
+    ? `EXISTS (
+         SELECT 1 FROM bookings b
+         WHERE b.trip_id = t.id AND b.passenger_id = ${currentUserId} AND b.status = 'active'
+       ) AS already_booked`
+    : `false AS already_booked`;
+
   // «Доверенный контур»: реальный госномер виден только водителю поездки ИЛИ
   // пассажиру с активной бронью. Остальным — NULL + флаг plate_locked, чтобы UI
   // показал бэйдж с серой цензурой («откроется после бронирования»), а не пустоту.
@@ -563,7 +583,8 @@ export async function getTripCard(tripId: number, currentUserId?: number): Promi
       u.license_status AS driver_license_status,
       u.created_at AS driver_created_at,
       u.tg_user_id AS driver_tg_user_id,
-      ${isOwnExpr}
+      ${isOwnExpr},
+      ${alreadyBookedExpr}
     FROM trips t
     JOIN route_points sp ON sp.id = t.start_point_id
     JOIN route_points ep ON ep.id = t.end_point_id

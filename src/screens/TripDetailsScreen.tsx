@@ -79,6 +79,10 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
       showToast('Нельзя забронировать свою поездку');
       return;
     }
+    if (trip.booked) {
+      showToast('Вы уже забронировали эту поездку');
+      return;
+    }
     onBook();
   };
 
@@ -332,7 +336,18 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
           )
         ) : (
           <>
-            <Button variant="primary" onClick={handleBook}>
+            <Button
+              variant="primary"
+              onClick={handleBook}
+              style={{
+                ...(trip.booked && {
+                  opacity: 0.5,
+                  background: 'var(--muted)',
+                  color: 'var(--muted-foreground)',
+                  cursor: 'not-allowed',
+                }),
+              }}
+            >
               Забронировать место
             </Button>
             <Button variant="ghost" icon="i-share" style={{ minHeight: '44px' }}>

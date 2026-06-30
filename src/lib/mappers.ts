@@ -52,6 +52,7 @@ export function mapTripListItemToTrip(item: TripListItem): Trip {
       duration: undefined, // API не возвращает duration в списке
     },
     isOwn: item.is_own,
+    booked: item.already_booked,
     carColor: item.car_color,
     plate: item.plate,
   };

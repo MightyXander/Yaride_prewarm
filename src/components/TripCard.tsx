@@ -27,6 +27,7 @@ interface TripCardProps {
   onToggle: () => void;
   onBook: () => void;
   isOwn: boolean;
+  booked: boolean;
   carColor: string | null;
   plate: string | null;
   onOpenProfile?: (userId: number) => void;
@@ -35,7 +36,7 @@ interface TripCardProps {
 }
 
 const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
-  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook, isOwn, carColor, plate, onOpenProfile, isNext = false }, ref) => {
+  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook, isOwn, booked, carColor, plate, onOpenProfile, isNext = false }, ref) => {
     const [pressed, setPressed] = useState(false);
 
     const seatsLabel = seats === 1 ? 'место' : seats < 5 ? 'места' : 'мест';
@@ -50,6 +51,10 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
       e.stopPropagation();
       if (isOwn) {
         showToast('Нельзя забронировать свою поездку');
+        return;
+      }
+      if (booked) {
+        showToast('Вы уже забронировали эту поездку');
         return;
       }
       onBook();
@@ -388,7 +393,7 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                   onClick={handleBook}
                   style={{
                     marginTop: '2px',
-                    ...(isOwn && {
+                    ...((isOwn || booked) && {
                       opacity: 0.5,
                       background: 'var(--muted)',
                       color: 'var(--muted-foreground)',
