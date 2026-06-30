@@ -467,7 +467,7 @@ interface TelegramUpdate {
 /**
  * Обработать входящий update от Telegram webhook.
  * Обрабатывает:
- * - Команды: /start, /myalerts, /mytrips, /help
+ * - Команды: /start, /myalerts, /mytrips, /help, /zayavki (админ-очередь ВУ)
  * - callback_query: bk:cfm:<bookingId>, bk:dec:<bookingId>, al:cxl:<alertId>
  *
  * @param update Объект update от Telegram
@@ -522,8 +522,10 @@ export async function handleWebhookUpdate(
     return sent;
   }
 
+  const actor = { id: tgUserId, username: message.from?.username };
+
   if (text.startsWith('/help')) {
-    return await handleHelpCommand(chatId, miniAppUrl, token);
+    return await handleHelpCommand(chatId, miniAppUrl, token, isAdminActor(actor));
   }
 
   if (text.startsWith('/myalerts')) {
@@ -532,6 +534,11 @@ export async function handleWebhookUpdate(
 
   if (text.startsWith('/mytrips')) {
     return await handleMyTripsCommand(chatId, tgUserId, token);
+  }
+
+  // Админ-очередь модерации ВУ. /zayavki — основная, /vu — короткий алиас.
+  if (text.startsWith('/zayavki') || text.startsWith('/vu')) {
+    return await handleLicenseQueueCommand(chatId, actor, token);
   }
 
   return true;
@@ -759,6 +766,7 @@ async function handleHelpCommand(
   chatId: number,
   miniAppUrl: string | undefined,
   botToken: string,
+  isAdmin = false,
 ): Promise<boolean> {
   const appUrl = (miniAppUrl ?? process.env.MINIAPP_URL ?? '').trim();
   let text = `Доступные команды:
@@ -767,6 +775,10 @@ async function handleHelpCommand(
 /myalerts — активные заявки на поездки
 /mytrips — мои поездки (водитель и пассажир)
 /help — эта справка`;
+
+  if (isAdmin) {
+    text += `\n\nАдмин:\n/zayavki — очередь заявок на проверку ВУ`;
+  }
 
   if (appUrl !== '') {
     text += `\n\nОткрыть приложение: нажмите кнопку ниже или используйте /start`;
@@ -780,6 +792,74 @@ async function handleHelpCommand(
   }
 
   return await sendMessage(chatId, text, opts, botToken);
+}
+
+/**
+ * Команда /zayavki (алиас /vu) — админ-очередь модерации ВУ.
+ *
+ * Push-уведомление о новой заявке (notifyAdminAboutLicenseRequest) приходит разово
+ * в момент подачи. Эта команда позволяет в любой момент вытащить все pending-заявки
+ * и промодерировать каждую теми же кнопками — callback lic:ok / lic:no обрабатывается
+ * общим handleCallbackQuery (он же редактирует карточку с итогом ✅/❌).
+ *
+ * Доступ — только админ (isAdminActor). Карточек может быть несколько: по одной на
+ * заявку, чтобы каждая редактировалась независимо после решения.
+ */
+async function handleLicenseQueueCommand(
+  chatId: number,
+  from: { id: number; username?: string },
+  botToken: string,
+): Promise<boolean> {
+  if (!isAdminActor(from)) {
+    return await sendMessage(
+      chatId,
+      'Эта команда доступна только администратору.',
+      {},
+      botToken,
+    );
+  }
+
+  const { listPendingLicenseRequests } = await import('./repo.ts');
+  const requests = await listPendingLicenseRequests();
+
+  if (requests.length === 0) {
+    return await sendMessage(chatId, '✅ Заявок на проверку ВУ нет.', {}, botToken);
+  }
+
+  await sendMessage(
+    chatId,
+    `🪪 Заявки на проверку ВУ: ${requests.length}\n\n` +
+      `Ниже карточки — подтвердите или отклоните каждую.`,
+    {},
+    botToken,
+  );
+
+  for (const r of requests) {
+    const handle = r.driverUsername ? `@${r.driverUsername}` : 'без username';
+    const text =
+      `🪪 Заявка на проверку ВУ #${r.requestId}\n\n` +
+      `👤 Водитель: ${r.driverName}\n` +
+      `🔗 ${handle}\n` +
+      `🆔 Telegram ID: ${r.driverTgUserId}\n` +
+      `📄 Серия/номер: ${r.seriesNumber}\n` +
+      `📅 Действует до: ${r.validUntil}\n` +
+      `🕒 Подана: ${r.createdAt}`;
+
+    const opts: SendMessageOptions = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✅ Подтвердить ВУ', callback_data: `lic:ok:${r.requestId}` },
+            { text: '❌ Отклонить', callback_data: `lic:no:${r.requestId}` },
+          ],
+        ],
+      },
+    };
+
+    await sendMessage(chatId, text, opts, botToken);
+  }
+
+  return true;
 }
 
 /**
