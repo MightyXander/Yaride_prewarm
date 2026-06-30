@@ -9,6 +9,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { LoadErrorState } from '../components/ui/StateView';
 import { Icon } from '../components/Icons';
 import Header from '../components/Header';
+import PhoneField from '../components/PhoneField';
 import { hapticSelection } from '../lib/haptics';
 import { getMyTemplate, publishTrip, ApiException, getRoutePoints, getMyCars } from '../lib/api';
 import { showToast } from '../lib/toast';
@@ -99,6 +100,9 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const [publishing, setPublishing] = useState<boolean>(false);
   const [cars, setCars] = useState<Car[]>([]);
   const [selectedCarId, setSelectedCarId] = useState<number | null>(null);
+  // Телефон собирается «по требованию» (issue #267): публикация недоступна,
+  // пока номер не задан в профиле (phoneReady).
+  const [phoneReady, setPhoneReady] = useState<boolean>(false);
   const [showCarDropdown, setShowCarDropdown] = useState<boolean>(false);
   const carDropdownRef = useRef<HTMLDivElement>(null);
   const timeLabelId = useId();
@@ -176,6 +180,12 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     // Точки отправления и назначения должны отличаться
     if (fromPointId === toPointId) {
       showToast('Точки отправления и назначения должны отличаться');
+      return;
+    }
+
+    // Телефон обязателен перед публикацией (issue #267).
+    if (!phoneReady) {
+      showToast('Сначала укажите телефон для связи');
       return;
     }
 
@@ -703,6 +713,13 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         )}
       </div>
 
+      {/* Телефон · сбор «по требованию» (issue #267) — обязателен перед публикацией */}
+      <PhoneField
+        label="Телефон для связи"
+        hint="Нужен, чтобы пассажиры могли связаться с тобой по этой поездке."
+        onReadyChange={setPhoneReady}
+      />
+
       <div
                 style={{
                   display: 'flex',
@@ -716,7 +733,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                   variant="primary"
                   icon="i-car"
                   onClick={handlePublish}
-                  disabled={publishing}
+                  disabled={publishing || !phoneReady}
                 >
                   {publishing ? 'Публикация...' : 'Опубликовать поездку'}
                 </Button>

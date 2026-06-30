@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useId } from 'react';
+import { useState, useId } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
-import { hapticSelection, hapticNotify } from '../lib/haptics';
+import PhoneField from '../components/PhoneField';
+import { hapticNotify } from '../lib/haptics';
 import { showToast } from '../lib/toast';
 import { createBooking } from '../lib/api';
 import { Appear } from '../components/Appear';
@@ -50,65 +51,15 @@ const fieldStyle: React.CSSProperties = {
 const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onConfirm }) => {
   const telegramName = getTelegramName();
   const [name, setName] = useState<string>(telegramName);
-  // Телефон: 'idle' → 'otp' (ввод кода) → 'checking' (проверяем…) → 'confirmed'
-  const [phoneStep, setPhoneStep] = useState<'idle' | 'otp' | 'checking' | 'confirmed'>('idle');
-  const [code, setCode] = useState<string[]>(['', '', '', '']);
+  // Телефон собирается «по требованию» (issue #267): реальный ввод + сохранение
+  // в users.phone. Бронь доступна только когда номер задан (phoneReady).
+  const [phoneReady, setPhoneReady] = useState<boolean>(false);
   // Состояния создания брони
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const nameInputId = useId();
-  const otpLegendId = useId();
 
-  const phone = '+7 905 ··· 44 12';
-  const codeComplete = code.every((d) => d.length === 1);
-  const canConfirm = name.trim().length > 0 && phoneStep === 'confirmed';
-
-  useEffect(() => {
-    if (phoneStep === 'otp') {
-      otpRefs.current[0]?.focus();
-    }
-  }, [phoneStep]);
-
-  // Когда код введён полностью — показываем «проверяем…», затем подтверждаем
-  useEffect(() => {
-    if (phoneStep === 'otp' && codeComplete) {
-      setPhoneStep('checking');
-    }
-  }, [phoneStep, codeComplete]);
-
-  useEffect(() => {
-    if (phoneStep === 'checking') {
-      const t = setTimeout(() => setPhoneStep('confirmed'), 350);
-      return () => clearTimeout(t);
-    }
-  }, [phoneStep]);
-
-  // Телефон подтверждён — тактильный успех.
-  useEffect(() => {
-    if (phoneStep === 'confirmed') {
-      hapticNotify('success');
-    }
-  }, [phoneStep]);
-
-  const handleCodeChange = (index: number, value: string) => {
-    const digit = value.replace(/\D/g, '').slice(-1);
-    if (digit) hapticSelection();
-    setCode((prev) => {
-      const next = [...prev];
-      next[index] = digit;
-      return next;
-    });
-    if (digit && index < 3) {
-      otpRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleCodeKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !code[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus();
-    }
-  };
+  const canConfirm = name.trim().length > 0 && phoneReady;
 
   const handleConfirmBooking = async () => {
     if (trip.isOwn) {
@@ -225,84 +176,13 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
         </div>
       </Appear>
 
-      {/* Телефон · подтверждение OTP-заглушкой */}
+      {/* Телефон · сбор «по требованию» (issue #267) — реальный ввод + сохранение */}
       <Appear delay={100}>
-        <div>
-        <div style={sectionLabelStyle}>Телефон · подтверждение</div>
-        {phoneStep === 'confirmed' ? (
-          <div style={fieldStyle}>
-            <span>{phone}</span>
-            <span
-              style={{
-                marginLeft: 'auto',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                color: 'var(--success)',
-                fontWeight: 700,
-                fontSize: '12px',
-              }}
-            >
-              <Icon id="i-check" style={{ width: '14px', height: '14px' }} />
-              подтверждён
-            </span>
-          </div>
-        ) : phoneStep === 'otp' || phoneStep === 'checking' ? (
-          <Card style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <fieldset
-              style={{ border: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}
-              disabled={phoneStep === 'checking'}
-            >
-              <legend id={otpLegendId} style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: 1.4, padding: 0 }}>
-                Отправили код из SMS на <b style={{ color: 'var(--foreground)' }}>{phone}</b>
-              </legend>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                {code.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={(el) => {
-                      otpRefs.current[i] = el;
-                    }}
-                    value={digit}
-                    onChange={(e) => handleCodeChange(i, e.target.value)}
-                    onKeyDown={(e) => handleCodeKeyDown(i, e)}
-                    inputMode="numeric"
-                    maxLength={1}
-                    aria-label={`Цифра кода ${i + 1}`}
-                    className="focus-ring"
-                    style={{
-                      width: '100%',
-                      height: '52px',
-                      textAlign: 'center',
-                      fontSize: '20px',
-                      fontWeight: 800,
-                      borderRadius: '14px',
-                      border: `1px solid ${digit ? 'var(--brand)' : 'var(--border)'}`,
-                      background: 'var(--secondary)',
-                      color: 'var(--foreground)',
-                      fontFamily: 'var(--font-sans)',
-                    }}
-                  />
-                ))}
-              </div>
-              <div
-                aria-live="polite"
-                style={{
-                  fontSize: '12px',
-                  color: phoneStep === 'checking' ? 'var(--foreground)' : 'var(--muted-foreground)',
-                  fontWeight: phoneStep === 'checking' ? 700 : 400,
-                }}
-              >
-                {phoneStep === 'checking' ? 'Проверяем…' : 'Это демо — введите любые 4 цифры'}
-              </div>
-            </fieldset>
-          </Card>
-        ) : (
-          <Button variant="secondary" icon="i-phone" onClick={() => setPhoneStep('otp')}>
-            Подтвердить телефон
-          </Button>
-        )}
-        </div>
+        <PhoneField
+          label="Телефон для связи"
+          hint="Нужен, чтобы водитель мог связаться с тобой по этой поездке."
+          onReadyChange={setPhoneReady}
+        />
       </Appear>
 
       {/* Инфо про SOS */}

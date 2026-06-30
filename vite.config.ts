@@ -79,6 +79,20 @@ function mockApiPlugin() {
       const mockSessions = new Map<string, number>(); // token → userId
       let mockUserSeq = 1000;
 
+      // In-memory телефон текущего пользователя (#267). Префилл и сохранение
+      // переживают между запросами в dev/QA без backend. Нормализация повторяет
+      // серверную: 8/+7/7 + 10 цифр (оператор «9») → +7XXXXXXXXXX, иначе null.
+      let mockPhone: string | null = null;
+      const normalizeRuPhoneMock = (raw: string): string | null => {
+        const digits = String(raw).replace(/\D/g, '');
+        let national: string;
+        if (digits.length === 11 && (digits[0] === '8' || digits[0] === '7')) national = digits.slice(1);
+        else if (digits.length === 10) national = digits;
+        else return null;
+        if (national.length !== 10 || national[0] !== '9') return null;
+        return `+7${national}`;
+      };
+
       const parseCookieHeader = (header: string | undefined): Record<string, string> => {
         const out: Record<string, string> = {};
         if (!header) return out;
@@ -438,6 +452,29 @@ function mockApiPlugin() {
             license_status: 'verified',
           };
           sendJson({ profile });
+          return;
+        }
+
+        // GET /api/me/phone — телефон для префилла (#267)
+        if (method === 'GET' && pathname === '/me/phone') {
+          sendJson({ phone: mockPhone });
+          return;
+        }
+
+        // PUT /api/me/phone — сохранить телефон (#267)
+        if (method === 'PUT' && pathname === '/me/phone') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            const p = JSON.parse(body || '{}');
+            const phone = normalizeRuPhoneMock(p.phone ?? '');
+            if (phone === null) {
+              sendJson({ error: 'Введите корректный российский номер телефона', field: 'phone' }, 400);
+              return;
+            }
+            mockPhone = phone;
+            sendJson({ phone });
+          });
           return;
         }
 

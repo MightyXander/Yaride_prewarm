@@ -517,6 +517,22 @@ export async function handleLogout(req: ApiRequest): Promise<ApiResponse> {
   };
 }
 
+/**
+ * Резолв текущего браузерного пользователя по cookie-сессии (для эндпоинтов,
+ * которые должны работать и для веб-аккаунтов, и для Telegram). Возвращает
+ * WebUserRecord (с внутренним users.id) или null, если валидной сессии нет.
+ * Переиспользует ту же логику, что и handleMe (cookie → sha256 → getSessionUser).
+ */
+export async function getSessionUserFromRequest(
+  req: ApiRequest,
+): Promise<WebUserRecord | null> {
+  const token = readSessionToken(req);
+  if (token === null) {
+    return null;
+  }
+  return getSessionUser(hashToken(token));
+}
+
 /** GET /api/auth/me — текущий пользователь по cookie-сессии, либо 401. */
 export async function handleMe(req: ApiRequest): Promise<ApiResponse> {
   const token = readSessionToken(req);

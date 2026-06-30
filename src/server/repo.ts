@@ -912,6 +912,37 @@ export async function getUserProfile(tgUserId: number): Promise<UserProfile | nu
 }
 
 /**
+ * Телефон пользователя по внутреннему id (для префилла на экранах брони/публикации).
+ * Возвращает нормализованный номер или null, если он ещё не задан.
+ */
+export async function getUserPhoneById(userId: number): Promise<string | null> {
+  await ensureReady();
+  const res = await getPool().query<{ phone: string | null }>(
+    'SELECT phone FROM users WHERE id = $1',
+    [userId],
+  );
+  const row = res.rows[0];
+  if (!row) {
+    return null;
+  }
+  return row.phone ?? null;
+}
+
+/**
+ * Сохранить/обновить телефон пользователя (сбор «по требованию», issue #267).
+ * Номер ожидается уже нормализованным (+7XXXXXXXXXX). Возвращает false, если
+ * пользователь не найден.
+ */
+export async function updateUserPhone(userId: number, phone: string): Promise<boolean> {
+  await ensureReady();
+  const res = await getPool().query(
+    'UPDATE users SET phone = $2 WHERE id = $1',
+    [userId, phone],
+  );
+  return (res.rowCount ?? 0) > 0;
+}
+
+/**
  * Последняя заявка ВУ водителя (для статусного экрана «Заявка водителя»).
  * Возвращает серию/номер и срок действия из license_requests; null — заявок нет.
  */
