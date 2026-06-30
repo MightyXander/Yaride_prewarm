@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import Header from '../components/Header';
 import Button from '../components/ui/Button';
+import Select from '../components/ui/Select';
+import type { SelectOption } from '../components/ui/Select';
 import { addCar, ApiException } from '../lib/api';
 import { showToast } from '../lib/toast';
 import { hapticSelection } from '../lib/haptics';
@@ -36,7 +38,7 @@ const fieldStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 };
 
-// Список цветов для чипов
+// Список цветов
 const COLOR_OPTIONS = [
   'белый',
   'чёрный',
@@ -47,6 +49,11 @@ const COLOR_OPTIONS = [
   'зелёный',
   'коричневый',
 ];
+
+const COLOR_SELECT_OPTIONS: SelectOption[] = COLOR_OPTIONS.map((label) => ({
+  value: label,
+  label,
+}));
 
 // Допустимые буквы для российских номеров (кириллица)
 const ALLOWED_LETTERS = 'АВЕКМНОРСТУХ';
@@ -82,7 +89,7 @@ function formatPlate(raw: string): string {
 
 /**
  * AddCarScreen — добавить машину водителя (модель/цвет/номер).
- * Функциональный минимум: воркер доводит до эталона (цвет — чипы, автоформат номера, layout).
+ * Функциональный минимум: воркер доводит до эталона (автоформат номера, layout).
  */
 const AddCarScreen: React.FC<AddCarScreenProps> = ({ onSaved }) => {
   const [model, setModel] = useState('');
@@ -137,51 +144,17 @@ const AddCarScreen: React.FC<AddCarScreenProps> = ({ onSaved }) => {
 
       <div>
         <div style={labelStyle}>Цвет</div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {COLOR_OPTIONS.map((label) => {
-            const isSelected = color === label;
-            const shouldReduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-            return (
-              <button
-                key={label}
-                type="button"
-                aria-pressed={isSelected}
-                className="focus-ring pressable"
-                onClick={() => {
-                  setColor(label);
-                  hapticSelection();
-                }}
-                style={{
-                  minHeight: '42px',
-                  padding: '6px 15px',
-                  borderRadius: '999px',
-                  fontSize: '14.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  fontFamily: 'var(--font-sans)',
-                  transition: shouldReduceMotion ? 'none' : 'all 0.15s ease-in-out',
-                  ...(isSelected
-                    ? {
-                        border: 'none',
-                        background: 'var(--gradient-brand)',
-                        color: 'var(--brand-foreground)',
-                        boxShadow: 'var(--shadow-hero)',
-                      }
-                    : {
-                        border: '1px solid var(--field-border)',
-                        background: 'var(--field)',
-                        color: 'var(--secondary-foreground)',
-                        boxShadow: 'var(--field-shadow)',
-                      }),
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+        <Select
+          variant="field"
+          options={COLOR_SELECT_OPTIONS}
+          value={color}
+          onChange={(value) => {
+            setColor(value);
+            hapticSelection();
+          }}
+          placeholder="Выбрать цвет"
+          aria-label="Цвет"
+        />
       </div>
 
       <div>
