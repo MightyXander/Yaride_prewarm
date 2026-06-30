@@ -26,16 +26,15 @@
  */
 
 import {
-  createRouteAlert,
+  createRouteAlertById,
   ensureUser,
   findOpenTrips,
   getTripCard,
   getLatestLicenseRequest,
-  createRating,
+  createRatingById,
   getTripBookings,
   cancelBookingByDriver,
   cancelTripByDriver,
-  ensureRateReminders,
   listRoutePoints,
   getPublicUserProfile,
   listUserReviews,
@@ -385,11 +384,10 @@ export async function handleCreateBooking(req: ApiRequest): Promise<ApiResponse>
 export async function handleCreateAlert(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
 
-  const auth = authenticate(req, body.initData);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const fromPointId = toPositiveInt(body.fromPointId);
   const toPointId = toPositiveInt(body.toPointId);
@@ -410,15 +408,8 @@ export async function handleCreateAlert(req: ApiRequest): Promise<ApiResponse> {
     desiredTime = body.time.trim();
   }
 
-  await ensureUser({
-    tgUserId: user.id,
-    name: telegramDisplayName(user),
-    username: user.username ?? null,
-  });
-
   try {
-    const alert = await createRouteAlert({
-      tgPassengerId: user.id,
+    const alert = await createRouteAlertById(userId, {
       fromPointId,
       toPointId,
       desiredDate: rawDate,
@@ -753,11 +744,10 @@ export async function handleGetMyTrips(req: ApiRequest): Promise<ApiResponse> {
 export async function handleCreateRating(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
 
-  const auth = authenticate(req, body.initData);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const tripId = toPositiveInt(body.tripId);
   if (tripId === undefined) {
@@ -777,21 +767,8 @@ export async function handleCreateRating(req: ApiRequest): Promise<ApiResponse> 
   const tags = typeof body.tags === 'string' ? body.tags.trim() : null;
   const comment = typeof body.comment === 'string' ? body.comment.trim() : null;
 
-  await ensureUser({
-    tgUserId: user.id,
-    name: telegramDisplayName(user),
-    username: user.username ?? null,
-  });
-
   try {
-    const result = await createRating({
-      tgRaterId: user.id,
-      tripId,
-      rateeId,
-      stars,
-      tags,
-      comment,
-    });
+    const result = await createRatingById(userId, { tripId, rateeId, stars, tags, comment });
     return { status: 201, body: { rating: result } };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не удалось создать рейтинг';
@@ -1105,23 +1082,23 @@ export async function handleGetUserReviews(req: ApiRequest): Promise<ApiResponse
  * Требует initData-auth (как остальные эндпоинты Mini App).
  */
 export async function handleGetNotifications(req: ApiRequest): Promise<ApiResponse> {
-  const auth = authenticate(req, req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   // Лениво до-генерировать напоминания «оставьте отзыв» по завершённым поездкам (крона нет).
   // Best-effort: ошибка не должна ломать выдачу ленты.
   try {
     const today = new Date().toISOString().slice(0, 10);
-    await ensureRateReminders(user.id, today);
+    const { ensureRateRemindersById } = await import('./repo.ts');
+    await ensureRateRemindersById(userId, today);
   } catch (e) {
     console.error('[handleGetNotifications] ensureRateReminders:', e);
   }
 
-  const { listNotifications } = await import('./repo.ts');
-  const notifications = await listNotifications(user.id);
+  const { listNotificationsById } = await import('./repo.ts');
+  const notifications = await listNotificationsById(userId);
   return { status: 200, body: { notifications } };
 }
 
@@ -1130,11 +1107,10 @@ export async function handleGetNotifications(req: ApiRequest): Promise<ApiRespon
  * Body: { notificationId: number }
  */
 export async function handleMarkNotificationRead(req: ApiRequest): Promise<ApiResponse> {
-  const auth = authenticate(req, req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const body = asRecord(req.body);
   const notificationId = toPositiveInt(body.notificationId);
@@ -1142,8 +1118,8 @@ export async function handleMarkNotificationRead(req: ApiRequest): Promise<ApiRe
     return err(400, 'Обязательно поле notificationId (целое положительное число)');
   }
 
-  const { markNotificationRead } = await import('./repo.ts');
-  const success = await markNotificationRead(notificationId, user.id);
+  const { markNotificationReadById } = await import('./repo.ts');
+  const success = await markNotificationReadById(notificationId, userId);
   if (!success) {
     return err(404, 'Уведомление не найдено или не принадлежит пользователю');
   }
