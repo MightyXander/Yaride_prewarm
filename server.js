@@ -28,6 +28,8 @@ try {
     createAlert: mod.handleCreateAlert,
     publishTrip: mod.handlePublishTrip,
     getMyProfile: mod.handleGetMyProfile,
+    getMyPhone: mod.handleGetMyPhone,
+    saveMyPhone: mod.handleSaveMyPhone,
     getMyTrips: mod.handleGetMyTrips,
     getMyTemplate: mod.handleGetMyTemplate,
     createRating: mod.handleCreateRating,
@@ -238,6 +240,9 @@ app.post('/api/alerts', wrap(api?.createAlert));
 
 // Issue #42: новые эндпоинты для профиля, поездок пользователя, рейтингов, броней водителя.
 app.get('/api/me/profile', wrap(api?.getMyProfile));
+// Issue #267: сбор телефона «по требованию» (чтение для префилла + сохранение).
+app.get('/api/me/phone', wrap(api?.getMyPhone));
+app.put('/api/me/phone', wrap(api?.saveMyPhone));
 app.get('/api/me/trips', wrap(api?.getMyTrips));
 app.get('/api/me/template', wrap(api?.getMyTemplate));
 app.get('/api/me/cars', wrap(api?.listMyCars));

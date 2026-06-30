@@ -14,6 +14,9 @@ import type {
   PublishTripRequest,
   PublishTripResponse,
   GetMyProfileResponse,
+  GetMyPhoneResponse,
+  SaveMyPhoneRequest,
+  SaveMyPhoneResponse,
   GetMyTripsRequest,
   GetMyTripsResponse,
   CreateRatingRequest,
@@ -157,6 +160,19 @@ export async function cancelTrip(tripId: number): Promise<CancelTripResponse> {
 /** GET /api/me/profile */
 export async function getMyProfile(): Promise<GetMyProfileResponse> {
   return apiFetch<GetMyProfileResponse>('/me/profile');
+}
+
+/** GET /api/me/phone — телефон текущего пользователя (для префилла). */
+export async function getMyPhone(): Promise<GetMyPhoneResponse> {
+  return apiFetch<GetMyPhoneResponse>('/me/phone');
+}
+
+/** PUT /api/me/phone — сохранить телефон текущего пользователя (issue #267). */
+export async function saveMyPhone(params: SaveMyPhoneRequest): Promise<SaveMyPhoneResponse> {
+  return apiFetch<SaveMyPhoneResponse>('/me/phone', {
+    method: 'PUT',
+    body: JSON.stringify(params),
+  });
 }
 
 /** GET /api/me/trips */

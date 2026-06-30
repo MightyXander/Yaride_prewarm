@@ -59,6 +59,8 @@ export {
   handleCreateAlert,
   handlePublishTrip,
   handleGetMyProfile,
+  handleGetMyPhone,
+  handleSaveMyPhone,
   handleGetMyTrips,
   handleGetMyTemplate,
   handleCreateRating,

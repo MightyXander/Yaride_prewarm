@@ -143,6 +143,21 @@ export interface GetMyProfileResponse {
   profile: UserProfile;
 }
 
+// GET /api/me/phone — телефон текущего пользователя (null, если ещё не задан).
+export interface GetMyPhoneResponse {
+  phone: string | null;
+}
+
+// PUT /api/me/phone — сохранить телефон (сбор «по требованию», issue #267).
+export interface SaveMyPhoneRequest {
+  phone: string;
+}
+
+export interface SaveMyPhoneResponse {
+  /** Нормализованный сервером номер в форме +7XXXXXXXXXX. */
+  phone: string;
+}
+
 // GET /api/me/trips
 export interface UserTripItem {
   trip_id: number;

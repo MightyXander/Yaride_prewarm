@@ -47,10 +47,13 @@ import {
   listUserReviews,
   listCarsByDriver,
   createCar,
+  getUserPhoneById,
+  updateUserPhone,
   type FindTripsParams,
   type TimeSlot,
   type TripStatusFilter,
 } from './repo.ts';
+import { getSessionUserFromRequest } from './auth.ts';
 import {
   telegramDisplayName,
   verifyInitData,
@@ -173,6 +176,55 @@ function authenticate(
     });
   }
   return { user: result.user, devBypass: result.devBypass };
+}
+
+/**
+ * Резолв ВНУТРЕННЕГО users.id текущего пользователя для эндпоинтов, общих для
+ * браузерных и Telegram-аккаунтов (issue #267). Приоритет — cookie-сессия
+ * браузерной авторизации; при её отсутствии — Telegram initData (JIT-профиль).
+ * Возвращает внутренний id либо ApiResponse-ошибку 401.
+ */
+async function resolveCurrentUserId(req: ApiRequest): Promise<number | ApiResponse> {
+  // 1) Браузерный аккаунт по cookie-сессии — getSessionUser отдаёт внутренний id.
+  const webUser = await getSessionUserFromRequest(req);
+  if (webUser !== null) {
+    return webUser.id;
+  }
+
+  // 2) Telegram-контекст: проверяем initData и JIT-резолвим профиль во внутренний id.
+  const auth = authenticate(req, req.headers['x-telegram-init-data']);
+  if ('status' in auth) {
+    return auth;
+  }
+  const profile = await ensureUser({
+    tgUserId: auth.user.id,
+    name: telegramDisplayName(auth.user),
+    username: auth.user.username ?? null,
+  });
+  return profile.id;
+}
+
+/**
+ * Нормализация и валидация РФ-номера телефона (issue #267).
+ * Принимает 8XXXXXXXXXX, +7XXXXXXXXXX, 7XXXXXXXXXX и любые разделители
+ * (пробелы, скобки, дефисы). Возвращает E.164-форму +7XXXXXXXXXX либо null,
+ * если номер не похож на российский мобильный (10 цифр после кода, оператор «9»).
+ */
+function normalizeRuPhone(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '');
+  let national: string;
+  if (digits.length === 11 && (digits[0] === '8' || digits[0] === '7')) {
+    national = digits.slice(1);
+  } else if (digits.length === 10) {
+    national = digits;
+  } else {
+    return null;
+  }
+  // Российский мобильный: 10 цифр, код оператора начинается с 9.
+  if (national.length !== 10 || national[0] !== '9') {
+    return null;
+  }
+  return `+7${national}`;
 }
 
 /** GET /api/trips — список открытых поездок по коридору/окну/дате. */
@@ -547,6 +599,47 @@ export async function handleGetMyProfile(req: ApiRequest): Promise<ApiResponse> 
       },
     },
   };
+}
+
+/**
+ * GET /api/me/phone — телефон текущего пользователя для префилла (issue #267).
+ * Работает и для браузерных, и для Telegram-аккаунтов (см. resolveCurrentUserId).
+ */
+export async function handleGetMyPhone(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const phone = await getUserPhoneById(userId);
+  return { status: 200, body: { phone } };
+}
+
+/**
+ * PUT /api/me/phone — сохранить телефон текущего пользователя (issue #267).
+ * Body: { phone }. Номер нормализуется/валидируется (РФ, +7XXXXXXXXXX) и пишется
+ * в users.phone. Верификация по SMS не выполняется (отложена). Возвращает
+ * нормализованный номер.
+ */
+export async function handleSaveMyPhone(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const body = asRecord(req.body);
+  const rawPhone = typeof body.phone === 'string' ? body.phone : '';
+  const phone = normalizeRuPhone(rawPhone);
+  if (phone === null) {
+    return err(400, 'Введите корректный российский номер телефона', { field: 'phone' });
+  }
+
+  const ok = await updateUserPhone(userId, phone);
+  if (!ok) {
+    return err(404, 'Профиль не найден');
+  }
+
+  return { status: 200, body: { phone } };
 }
 
 /** GET /api/me/trips?status=upcoming|past — поездки текущего пользователя. */
