@@ -26,29 +26,29 @@
  */
 
 import {
-  createBooking,
   createRouteAlert,
-  createTripFromTemplate,
   ensureUser,
   findOpenTrips,
   getTripCard,
-  getUserProfile,
   getLatestLicenseRequest,
-  getUserTrips,
   createRating,
   getTripBookings,
   cancelBookingByDriver,
   cancelTripByDriver,
   ensureRateReminders,
   listRoutePoints,
-  getOrCreateDriverTemplate,
-  submitLicenseRequest,
   getPublicUserProfile,
   listUserReviews,
-  listCarsByDriver,
-  createCar,
   getUserPhoneById,
   updateUserPhone,
+  getUserProfileById,
+  getUserTripsById,
+  createBookingById,
+  listCarsByDriverId,
+  createCarById,
+  getOrCreateDriverTemplateById,
+  submitLicenseRequestById,
+  createTripFromTemplateById,
   type FindTripsParams,
   type TimeSlot,
   type TripStatusFilter,
@@ -311,11 +311,10 @@ export async function handleGetTrip(req: ApiRequest): Promise<ApiResponse> {
 export async function handleCreateBooking(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
 
-  const auth = authenticate(req, body.initData);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const tripId = toPositiveInt(body.tripId);
   if (tripId === undefined) {
@@ -331,16 +330,12 @@ export async function handleCreateBooking(req: ApiRequest): Promise<ApiResponse>
     seats = s;
   }
 
-  // JIT-профиль: имя из Telegram initData.
-  const passengerName = telegramDisplayName(user);
-  await ensureUser({
-    tgUserId: user.id,
-    name: passengerName,
-    username: user.username ?? null,
-  });
+  // Имя пассажира для уведомления — из профиля (работает для tg и браузерной сессии).
+  const passengerProfile = await getUserProfileById(userId);
+  const passengerName = passengerProfile?.name ?? 'Пассажир';
 
   try {
-    const result = await createBooking(user.id, tripId, seats);
+    const result = await createBookingById(userId, tripId, seats);
 
     // Fire-and-forget уведомление водителю о новой брони (не блокируем ответ)
     // Загружаем данные поездки для уведомления
@@ -428,11 +423,10 @@ export async function handleCreateAlert(req: ApiRequest): Promise<ApiResponse> {
 export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
 
-  const auth = authenticate(req, body.initData);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const templateId = toPositiveInt(body.templateId);
   if (templateId === undefined) {
@@ -455,16 +449,8 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
   // Опциональная выбранная машина: её модель/цвет/номер попадут в поездку.
   const carId = toPositiveInt(body.carId);
 
-  // Водитель должен иметь профиль; JIT создаёт, шаблон проверит принадлежность.
-  await ensureUser({
-    tgUserId: user.id,
-    name: telegramDisplayName(user),
-    username: user.username ?? null,
-  });
-
   try {
-    const trip = await createTripFromTemplate({
-      tgDriverId: user.id,
+    const trip = await createTripFromTemplateById(userId, {
       templateId,
       tripDate: rawDate,
       departureTime: rawTime,
@@ -508,19 +494,12 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
 
 /** GET /api/me/cars — машины текущего водителя. */
 export async function handleListMyCars(req: ApiRequest): Promise<ApiResponse> {
-  const auth = authenticate(req, req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
-  await ensureUser({
-    tgUserId: user.id,
-    name: telegramDisplayName(user),
-    username: user.username ?? null,
-  });
-
-  const cars = await listCarsByDriver(user.id);
+  const cars = await listCarsByDriverId(userId);
   return { status: 200, body: { cars } };
 }
 
@@ -528,11 +507,10 @@ export async function handleListMyCars(req: ApiRequest): Promise<ApiResponse> {
 export async function handleAddCar(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
 
-  const auth = authenticate(req, body.initData);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const model = typeof body.model === 'string' ? body.model.trim() : '';
   if (model === '') {
@@ -543,14 +521,8 @@ export async function handleAddCar(req: ApiRequest): Promise<ApiResponse> {
   const plate =
     typeof body.plate === 'string' && body.plate.trim() !== '' ? body.plate.trim() : null;
 
-  await ensureUser({
-    tgUserId: user.id,
-    name: telegramDisplayName(user),
-    username: user.username ?? null,
-  });
-
   try {
-    const car = await createCar({ tgDriverId: user.id, model, color, plate });
+    const car = await createCarById(userId, { model, color, plate });
     return { status: 201, body: { car } };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не удалось добавить машину';
@@ -561,20 +533,12 @@ export async function handleAddCar(req: ApiRequest): Promise<ApiResponse> {
 
 /** GET /api/me/profile — профиль текущего пользователя по initData. */
 export async function handleGetMyProfile(req: ApiRequest): Promise<ApiResponse> {
-  const auth = authenticate(req, req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
-  // JIT-профиль при первом обращении
-  await ensureUser({
-    tgUserId: user.id,
-    name: telegramDisplayName(user),
-    username: user.username ?? null,
-  });
-
-  const profile = await getUserProfile(user.id);
+  const profile = await getUserProfileById(userId);
   if (profile === null) {
     return err(404, 'Профиль не найден');
   }
@@ -644,11 +608,10 @@ export async function handleSaveMyPhone(req: ApiRequest): Promise<ApiResponse> {
 
 /** GET /api/me/trips?status=upcoming|past — поездки текущего пользователя. */
 export async function handleGetMyTrips(req: ApiRequest): Promise<ApiResponse> {
-  const auth = authenticate(req, req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const statusParam = req.query.status ?? 'upcoming';
   if (statusParam !== 'upcoming' && statusParam !== 'past') {
@@ -656,7 +619,7 @@ export async function handleGetMyTrips(req: ApiRequest): Promise<ApiResponse> {
   }
   const statusFilter = statusParam as TripStatusFilter;
 
-  const trips = await getUserTrips(user.id, statusFilter);
+  const trips = await getUserTripsById(userId, statusFilter);
   return { status: 200, body: { trips } };
 }
 
@@ -829,21 +792,13 @@ export async function handleCancelTrip(req: ApiRequest): Promise<ApiResponse> {
  * в заголовке X-Telegram-Init-Data с dev-bypass без BOT_TOKEN.
  */
 export async function handleGetMyTemplate(req: ApiRequest): Promise<ApiResponse> {
-  const auth = authenticate(req, req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
-
-  // JIT-профиль при первом обращении
-  await ensureUser({
-    tgUserId: user.id,
-    name: telegramDisplayName(user),
-    username: user.username ?? null,
-  });
 
   try {
-    const template = await getOrCreateDriverTemplate(user.id);
+    const template = await getOrCreateDriverTemplateById(userId);
     return {
       status: 200,
       body: {
@@ -929,11 +884,10 @@ function validateValidUntil(raw: string): string | null {
 export async function handleSubmitLicense(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
 
-  const auth = authenticate(req, req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const rawSeries = typeof body.seriesNumber === 'string' ? body.seriesNumber : '';
   const rawValid = typeof body.validUntil === 'string' ? body.validUntil : '';
@@ -948,24 +902,16 @@ export async function handleSubmitLicense(req: ApiRequest): Promise<ApiResponse>
     return err(400, 'Неверный формат или истёкший срок действия ВУ. Ожидается: MM/YYYY (не истёк)');
   }
 
-  // JIT-профиль
-  await ensureUser({
-    tgUserId: user.id,
-    name: telegramDisplayName(user),
-    username: user.username ?? null,
-  });
+  const driverProfile = await getUserProfileById(userId);
+  const driverName = driverProfile?.name ?? 'Водитель';
 
   try {
-    const result = await submitLicenseRequest({
-      tgDriverId: user.id,
-      seriesNumber,
-      validUntil,
-    });
+    const result = await submitLicenseRequestById(userId, seriesNumber, validUntil);
 
     // Уведомить админа о заявке на модерацию (fire-and-forget, no-op без ADMIN_CHAT_ID)
     void notifyAdminAboutLicenseRequest({
       requestId: result.requestId,
-      driverName: telegramDisplayName(user),
+      driverName,
       seriesNumber,
       validUntil,
     });

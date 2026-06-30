@@ -465,6 +465,19 @@ async function getInternalUserId(
 }
 
 /**
+ * Публичный (pool-level) резолвер внутреннего users.id по tg_user_id.
+ * Используется auth-границей api.ts для моста сессионного клиента (issue #258).
+ */
+export async function internalUserIdByTg(tgUserId: number): Promise<number | null> {
+  await ensureReady();
+  const res = await getPool().query<{ id: number }>(
+    'SELECT id FROM users WHERE tg_user_id = $1',
+    [tgUserId],
+  );
+  return res.rows[0]?.id ?? null;
+}
+
+/**
  * Пересчитать денормализованные счётчики поездок пользователя из источников.
  * Recompute-on-write (без дрейфа): trips_driver_count — число неотменённых
  * поездок, где он водитель; trips_passenger_count — число активных броней.
@@ -661,14 +674,21 @@ export interface PublishTripResult {
 export async function createTripFromTemplate(
   params: PublishTripParams,
 ): Promise<PublishTripResult> {
+  const driverId = await internalUserIdByTg(params.tgDriverId);
+  if (driverId === null) {
+    throw new Error('Профиль водителя не найден.');
+  }
+  return createTripFromTemplateById(driverId, params);
+}
+
+/** Публикация поездки по внутреннему users.id водителя (мост сессии, issue #258). */
+export async function createTripFromTemplateById(
+  driverId: number,
+  params: Omit<PublishTripParams, 'tgDriverId'>,
+): Promise<PublishTripResult> {
   await ensureReady();
 
   return withTransaction(async (client): Promise<PublishTripResult> => {
-    const driverId = await getInternalUserId(client, params.tgDriverId);
-    if (driverId === null) {
-      throw new Error('Профиль водителя не найден.');
-    }
-
     const tplRes = await client.query<TripTemplate>(
       `SELECT id, driver_id, start_point_id, end_point_id, time_slot,
               price_rub, seats_total, comment, car_color, plate
@@ -756,14 +776,19 @@ export interface Car {
 
 /** Машины водителя (по telegram-id), новые сверху. Пусто, если профиля/машин нет. */
 export async function listCarsByDriver(tgDriverId: number): Promise<Car[]> {
+  const id = await internalUserIdByTg(tgDriverId);
+  return id === null ? [] : listCarsByDriverId(id);
+}
+
+/** Авто водителя по внутреннему users.id (мост сессии, issue #258). */
+export async function listCarsByDriverId(driverId: number): Promise<Car[]> {
   await ensureReady();
   const res = await getPool().query<Car>(
     `SELECT c.id, c.model, c.color, c.plate
      FROM cars c
-     JOIN users u ON u.id = c.driver_id
-     WHERE u.tg_user_id = $1
+     WHERE c.driver_id = $1
      ORDER BY c.id DESC`,
-    [tgDriverId],
+    [driverId],
   );
   return res.rows;
 }
@@ -777,12 +802,20 @@ export interface CreateCarParams {
 
 /** Добавить машину водителю (по telegram-id). Профиль создаётся JIT в API до вызова. */
 export async function createCar(params: CreateCarParams): Promise<Car> {
+  const driverId = await internalUserIdByTg(params.tgDriverId);
+  if (driverId === null) {
+    throw new Error('Профиль водителя не найден.');
+  }
+  return createCarById(driverId, params);
+}
+
+/** Добавить машину по внутреннему users.id водителя (мост сессии, issue #258). */
+export async function createCarById(
+  driverId: number,
+  params: { model: string; color?: string | null; plate?: string | null },
+): Promise<Car> {
   await ensureReady();
   return withTransaction(async (client): Promise<Car> => {
-    const driverId = await getInternalUserId(client, params.tgDriverId);
-    if (driverId === null) {
-      throw new Error('Профиль водителя не найден.');
-    }
     const ins = await client.query<Car>(
       `INSERT INTO cars(driver_id, model, color, plate)
        VALUES ($1, $2, $3, $4)
@@ -811,14 +844,22 @@ export async function createBooking(
   tripId: number,
   seats = 1,
 ): Promise<BookingResult> {
+  const passengerId = await internalUserIdByTg(tgPassengerId);
+  if (passengerId === null) {
+    throw new Error('Профиль пассажира не найден.');
+  }
+  return createBookingById(passengerId, tripId, seats);
+}
+
+/** Бронь по внутреннему users.id пассажира (мост сессии, issue #258). */
+export async function createBookingById(
+  passengerId: number,
+  tripId: number,
+  seats = 1,
+): Promise<BookingResult> {
   await ensureReady();
 
   return withTransaction(async (client): Promise<BookingResult> => {
-    const passengerId = await getInternalUserId(client, tgPassengerId);
-    if (passengerId === null) {
-      throw new Error('Профиль пассажира не найден.');
-    }
-
     const tripRes = await client.query<{
       id: number;
       status: string;
@@ -841,7 +882,7 @@ export async function createBooking(
     if (trip.status !== 'open') {
       throw new Error('Поездка недоступна.');
     }
-    if (Number(trip.driver_tg_user_id) === tgPassengerId) {
+    if (trip.driver_id === passengerId) {
       throw new Error('Нельзя бронировать свою поездку.');
     }
 
@@ -914,12 +955,18 @@ export interface UserProfile {
  * Возвращает null если пользователь не найден.
  */
 export async function getUserProfile(tgUserId: number): Promise<UserProfile | null> {
+  const id = await internalUserIdByTg(tgUserId);
+  return id === null ? null : getUserProfileById(id);
+}
+
+/** Профиль по внутреннему users.id (мост сессионного клиента, issue #258). */
+export async function getUserProfileById(internalId: number): Promise<UserProfile | null> {
   await ensureReady();
   const res = await getPool().query<UserProfile>(
     `SELECT id, tg_user_id, name, username, age, rating_avg, rating_count,
             trips_driver_count, trips_passenger_count, license_status
-     FROM users WHERE tg_user_id = $1`,
-    [tgUserId],
+     FROM users WHERE id = $1`,
+    [internalId],
   );
   return res.rows[0] ?? null;
 }
@@ -1078,16 +1125,16 @@ export async function getUserTrips(
   tgUserId: number,
   statusFilter: TripStatusFilter,
 ): Promise<UserTripItem[]> {
-  await ensureReady();
+  const internalId = await internalUserIdByTg(tgUserId);
+  return internalId === null ? [] : getUserTripsById(internalId, statusFilter);
+}
 
-  const userId = await getPool().query<{ id: number }>(
-    'SELECT id FROM users WHERE tg_user_id = $1',
-    [tgUserId],
-  );
-  const internalId = userId.rows[0]?.id;
-  if (internalId === undefined) {
-    return [];
-  }
+/** Поездки пользователя по внутреннему users.id (мост сессии, issue #258). */
+export async function getUserTripsById(
+  internalId: number,
+  statusFilter: TripStatusFilter,
+): Promise<UserTripItem[]> {
+  await ensureReady();
 
   const today = todayISO();
 
@@ -1678,14 +1725,20 @@ export async function getDebugCounts(): Promise<{
 export async function getOrCreateDriverTemplate(
   tgDriverId: number,
 ): Promise<TripTemplate> {
+  const driverId = await internalUserIdByTg(tgDriverId);
+  if (driverId === null) {
+    throw new Error('Профиль водителя не найден.');
+  }
+  return getOrCreateDriverTemplateById(driverId);
+}
+
+/** Шаблон поездки по внутреннему users.id (мост сессии, issue #258). */
+export async function getOrCreateDriverTemplateById(
+  driverId: number,
+): Promise<TripTemplate> {
   await ensureReady();
 
   return withTransaction(async (client): Promise<TripTemplate> => {
-    const driverId = await getInternalUserId(client, tgDriverId);
-    if (driverId === null) {
-      throw new Error('Профиль водителя не найден.');
-    }
-
     // Получить точки коридора Брагино↔Центр
     const pointsRes = await client.query<{ id: number; title: string }>(
       `SELECT id, title FROM route_points
@@ -1749,14 +1802,22 @@ export interface SubmitLicenseResult {
 export async function submitLicenseRequest(
   params: SubmitLicenseParams,
 ): Promise<SubmitLicenseResult> {
+  const driverId = await internalUserIdByTg(params.tgDriverId);
+  if (driverId === null) {
+    throw new Error('Профиль водителя не найден.');
+  }
+  return submitLicenseRequestById(driverId, params.seriesNumber, params.validUntil);
+}
+
+/** Заявка на ВУ по внутреннему users.id (мост сессии, issue #258). */
+export async function submitLicenseRequestById(
+  driverId: number,
+  seriesNumber: string,
+  validUntil: string,
+): Promise<SubmitLicenseResult> {
   await ensureReady();
 
   return withTransaction(async (client): Promise<SubmitLicenseResult> => {
-    const driverId = await getInternalUserId(client, params.tgDriverId);
-    if (driverId === null) {
-      throw new Error('Профиль водителя не найден.');
-    }
-
     // Проверить существующую pending-заявку
     const existingRes = await client.query<{ id: number; status: string }>(
       'SELECT id, status FROM license_requests WHERE driver_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
@@ -1772,7 +1833,7 @@ export async function submitLicenseRequest(
          SET series_number = $1, valid_until = $2, created_at = CURRENT_TIMESTAMP
          WHERE id = $3
          RETURNING id`,
-        [params.seriesNumber, params.validUntil, existingRes.rows[0].id],
+        [seriesNumber, validUntil, existingRes.rows[0].id],
       );
       requestId = upd.rows[0].id;
     } else {
@@ -1781,7 +1842,7 @@ export async function submitLicenseRequest(
         `INSERT INTO license_requests(driver_id, series_number, valid_until, status)
          VALUES ($1, $2, $3, 'pending')
          RETURNING id`,
-        [driverId, params.seriesNumber, params.validUntil],
+        [driverId, seriesNumber, validUntil],
       );
       requestId = ins.rows[0].id;
     }
