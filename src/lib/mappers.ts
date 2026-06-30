@@ -43,6 +43,8 @@ export function mapTripListItemToTrip(item: TripListItem): Trip {
     car: item.car_model, // модель машины (null, если не указана) — без плейсхолдера
     price: String(item.price_rub),
     time: item.departure_time.slice(0, 5), // "HH:MM:SS" → "HH:MM"
+    tripDate: item.trip_date,
+    status: item.status,
     seats: item.seats_available,
     route: {
       from: item.start_title,

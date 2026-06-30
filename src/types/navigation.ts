@@ -49,6 +49,10 @@ export interface Trip {
   car: string | null;
   price: string;
   time: string;
+  /** Дата поездки YYYY-MM-DD (для дня недели и определения прошедшей). */
+  tripDate?: string;
+  /** Статус поездки: open | cancelled | completed. */
+  status?: string;
   seats: number;
   route?: {
     from: string;

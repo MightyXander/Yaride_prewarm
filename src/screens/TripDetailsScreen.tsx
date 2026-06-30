@@ -24,6 +24,15 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
+  // Дата+время выезда (для дня недели и определения прошедшей поездки).
+  const departedAt = trip.tripDate ? new Date(`${trip.tripDate}T${trip.time}:00`) : null;
+  const weekday = departedAt ? departedAt.toLocaleDateString('ru-RU', { weekday: 'long' }) : null;
+  // Поездка завершена/отменена либо время выезда уже прошло — отменять нельзя.
+  const isPast =
+    trip.status === 'completed' ||
+    trip.status === 'cancelled' ||
+    (departedAt ? departedAt.getTime() < Date.now() : false);
+
   const handleBook = () => {
     if (trip.isOwn) {
       showToast('Нельзя забронировать свою поездку');
@@ -168,7 +177,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
             lineHeight: 1.5,
           }}
         >
-          Выезд&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>среда, {trip.time}</b>
+          Выезд&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>{weekday ? `${weekday}, ` : ''}{trip.time}</b>
           <br />
           {trip.car && (
             <>
@@ -224,7 +233,8 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
         }}
       >
         {trip.isOwn ? (
-          confirmingCancel ? (
+          // Прошедшую/завершённую поездку отменять нельзя — действие скрыто.
+          isPast ? null : confirmingCancel ? (
             <>
               <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', lineHeight: 1.5 }}>
                 Отменить поездку? Все брони будут сняты, пассажиры получат уведомление.
