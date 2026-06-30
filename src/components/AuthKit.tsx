@@ -5,14 +5,14 @@ import { Icon } from './Icons';
  * AuthKit — общие строительные блоки экранов авторизации (gate / login / register).
  * Только inline-стили + токены тем (свет/тьма переключаются сами). Без новых зависимостей.
  *
- * Сигнатурный элемент бренда — глиф маршрута: две точки, соединённые линией
- * («по одному маршруту — вместе»). Он же логотип Yaride.
+ * Сигнатурный элемент бренда — знак-иконка Yaride (метка с авто), бренд-ассет из
+ * public/brand/. Он же логотип Yaride.
  */
 
-/* ----------------------------- Логотип / глиф ----------------------------- */
+/* ----------------------------- Логотип / знак ----------------------------- */
 
 interface BrandLogoProps {
-  /** Размер жёлтого квадрата со глифом. По умолчанию 40 (login/register). */
+  /** Размер бренд-знака (квадратного бейджа). По умолчанию 40 (login/register). */
   size?: number;
   /** Размер слова «Yaride». По умолчанию 19. */
   wordSize?: number;
@@ -20,7 +20,7 @@ interface BrandLogoProps {
   center?: boolean;
 }
 
-/** Жёлтый бейдж с глифом маршрута + словесный знак «Yaride». */
+/** Бренд-знак Yaride (app-icon из бренд-бука) + словесный знак «Yaride». */
 export const BrandLogo: React.FC<BrandLogoProps> = ({ size = 40, wordSize = 19, center = false }) => (
   <div
     style={{
@@ -30,31 +30,27 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({ size = 40, wordSize = 19, 
       justifyContent: center ? 'center' : 'flex-start',
     }}
   >
-    <span
+    {/*
+      Знак-иконка уже содержит собственный жёлтый фон и скругление — рисуем её
+      напрямую, без квадрата-обёртки. Берём ассет 512px с запасом для ретины,
+      одинаков в обеих темах (это нормально для растрового бренд-знака).
+    */}
+    <img
+      src="/brand/icon-512.png"
+      alt=""
       aria-hidden
+      width={size}
+      height={size}
       style={{
         width: `${size}px`,
         height: `${size}px`,
         borderRadius: `${Math.round(size * 0.3)}px`,
-        background: 'var(--brand)',
-        display: 'grid',
-        placeItems: 'center',
         flexShrink: 0,
         boxShadow: 'var(--shadow-hero)',
+        display: 'block',
+        objectFit: 'cover',
       }}
-    >
-      <svg
-        width={Math.round(size * 0.56)}
-        height={Math.round(size * 0.56)}
-        viewBox="0 0 24 24"
-        fill="none"
-        style={{ display: 'block' }}
-      >
-        <circle cx="6" cy="17" r="2.6" fill="var(--brand-foreground)" />
-        <circle cx="18" cy="7" r="2.6" fill="var(--brand-foreground)" />
-        <path d="M7.6 15.4 16.4 8.6" stroke="var(--brand-foreground)" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-    </span>
+    />
     <span style={{ fontWeight: 800, fontSize: `${wordSize}px`, letterSpacing: '-0.02em', color: 'var(--foreground)' }}>
       Yaride
     </span>
