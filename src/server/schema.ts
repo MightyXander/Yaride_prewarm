@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 10;
+export const CURRENT_SCHEMA_VERSION = 11;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -213,7 +213,7 @@ const BOOTSTRAP_SQL = `
   CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id),
-    type TEXT NOT NULL CHECK (type IN ('booking', 'booking_confirmed', 'cancel', 'rate_reminder', 'trip_new')),
+    type TEXT NOT NULL CHECK (type IN ('booking', 'booking_confirmed', 'cancel', 'rate_reminder', 'trip_new', 'license_approved', 'license_rejected')),
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     read BOOLEAN NOT NULL DEFAULT FALSE,
@@ -239,6 +239,9 @@ const BOOTSTRAP_SQL = `
  * v8→v9: браузерная авторизация (issue #242) — tg_user_id NULLABLE, поля email/пароль/
  *        имя/согласия в users, уникальные индексы lower(email)/lower(username),
  *        CHECK «способ входа», таблица sessions. Безопасно для прод-БД (только ADD/ALTER).
+ * v9→v10: FCM push-токены (issue #265) — таблица push_tokens.
+ * v10→v11: расширение notifications.type — типы решения модерации ВУ
+ *        ('license_approved' / 'license_rejected'), чтобы водитель видел вердикт в ленте.
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -405,6 +408,17 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
 
       CREATE UNIQUE INDEX IF NOT EXISTS uq_sessions_token_hash ON sessions(token_hash);
       CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+    `);
+    return;
+  }
+  if (fromV === 10 && toV === 11) {
+    // Расширяем CHECK notifications.type типами решения по ВУ
+    // ('license_approved' / 'license_rejected') — водитель видит решение модерации
+    // в ленте уведомлений. Идемпотентно (DROP IF EXISTS + ADD), как v6→v7.
+    await pool.query(`
+      ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+      ALTER TABLE notifications ADD CONSTRAINT notifications_type_check
+        CHECK (type IN ('booking', 'booking_confirmed', 'cancel', 'rate_reminder', 'trip_new', 'license_approved', 'license_rejected'));
     `);
     return;
   }
