@@ -14,7 +14,7 @@ interface TripCardProps {
     id?: number;
   };
   address: string;
-  car: string;
+  car: string | null;
   price: string;
   time: string;
   seats: number;
@@ -189,7 +189,7 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                     minWidth: 0,
                   }}
                 >
-                  {car}
+                  {car ?? 'Модель не указана'}
                   {carColor ? ` · ${carColor}` : ''}
                 </span>
                 {plate && (

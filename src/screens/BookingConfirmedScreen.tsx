@@ -121,7 +121,7 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '15px', fontWeight: 700 }}>{trip.driver.name}</div>
               <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '2px' }}>
-                {trip.car}, белая · <b style={{ color: 'var(--foreground)' }}>123</b>
+                {trip.car ? `${trip.car}${trip.carColor ? `, ${trip.carColor}` : ''}` : 'Машина не указана'}
               </div>
             </div>
           </div>

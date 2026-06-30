@@ -170,8 +170,12 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
         >
           Выезд&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>среда, {trip.time}</b>
           <br />
-          Машина&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>{trip.car}, белая</b>
-          <br />
+          {trip.car && (
+            <>
+              Машина&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>{trip.car}{trip.carColor ? `, ${trip.carColor}` : ''}</b>
+              <br />
+            </>
+          )}
           Бензин&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>≈ {trip.price} ₽</b>{' '}
           <span style={{ color: 'var(--muted-foreground)' }}>(пополам · не оплата)</span>
         </div>
