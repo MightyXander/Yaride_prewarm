@@ -4,6 +4,7 @@ import { Icons } from './components/Icons';
 import BackButton from './components/BackButton';
 import { ToastHost } from './components/ToastHost';
 import Splash from './components/Splash';
+import ErrorBoundary from './components/ErrorBoundary';
 import IntroScreen from './screens/IntroScreen';
 import MainScreen from './screens/MainScreen';
 // Не-стартовые экраны грузим лениво (code-splitting) — режет initial-бандл и TTI.
@@ -553,6 +554,7 @@ function App() {
               paddingBottom: navVisible ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
             }}
           >
+            <ErrorBoundary resetKey={currentScreen}>
             <Suspense fallback={null}>
             {currentScreen === 'auth-gate' && (
               <AuthGateScreen
@@ -754,6 +756,7 @@ function App() {
               <AddCarScreen onSaved={goBack} />
             )}
             </Suspense>
+            </ErrorBoundary>
           </motion.div>
         </AnimatePresence>
         </div>
