@@ -328,7 +328,14 @@ export interface GetUserReviewsResponse {
 }
 
 // GET /api/notifications
-export type NotificationType = 'booking' | 'booking_confirmed' | 'cancel' | 'rate_reminder' | 'trip_new';
+export type NotificationType =
+  | 'booking'
+  | 'booking_confirmed'
+  | 'cancel'
+  | 'rate_reminder'
+  | 'trip_new'
+  | 'license_approved'
+  | 'license_rejected';
 
 export interface NotificationItem {
   id: number;

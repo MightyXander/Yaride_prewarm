@@ -88,6 +88,10 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
         return { icon: 'i-star', color: 'var(--star)' };
       case 'trip_new':
         return { icon: 'i-car', color: 'var(--brand)' };
+      case 'license_approved':
+        return { icon: 'i-check', color: 'var(--success)' };
+      case 'license_rejected':
+        return { icon: 'i-x', color: 'var(--destructive)' };
       default:
         return { icon: 'i-bell', color: 'var(--muted-foreground)' };
     }
@@ -218,7 +222,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
                     >
                       <Icon
                         id={icon}
-                        fill={notif.type === 'booking_confirmed'}
+                        fill={notif.type === 'booking_confirmed' || notif.type === 'license_approved'}
                         style={{
                           width: '20px',
                           height: '20px',

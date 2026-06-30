@@ -20,7 +20,14 @@ import { sendPushToUser } from './fcm.ts';
  */
 async function safeInApp(params: {
   userId: number;
-  type: 'booking' | 'booking_confirmed' | 'cancel' | 'rate_reminder' | 'trip_new';
+  type:
+    | 'booking'
+    | 'booking_confirmed'
+    | 'cancel'
+    | 'rate_reminder'
+    | 'trip_new'
+    | 'license_approved'
+    | 'license_rejected';
   title: string;
   body: string;
   refTripId?: number | null;
@@ -305,9 +312,15 @@ export async function notifyDriverAboutLicenseDecision(params: {
 
     await sendMessage(params.driverTgUserId, text);
 
-    // FCM-пуш водителю (нативное приложение)
+    // In-app уведомление в ленту + FCM-пуш водителю (нативное приложение / mini-app).
     const driverId = await internalUserIdByTg(params.driverTgUserId);
     if (driverId !== null) {
+      await safeInApp({
+        userId: driverId,
+        type: params.approved ? 'license_approved' : 'license_rejected',
+        title: params.approved ? 'ВУ одобрено' : 'ВУ отклонено',
+        body: text,
+      });
       void sendPushToUser(driverId, {
         title: params.approved ? 'ВУ одобрено' : 'ВУ отклонено',
         body: text,

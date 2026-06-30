@@ -1037,12 +1037,13 @@ export async function handleSubmitLicense(req: ApiRequest): Promise<ApiResponse>
 
 /**
  * GET /api/users/:id/profile — публичный профиль пользователя по внутреннему id.
- * Требует initData-auth (как остальные эндпоинты Mini App).
+ * Доступ для любого аутентифицированного принципала (cookie-сессия ИЛИ initData) —
+ * через мост сессии, чтобы работало и в нативном приложении, и в Mini App.
  */
 export async function handleGetUserProfile(req: ApiRequest): Promise<ApiResponse> {
-  const auth = authenticate(req, req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  const principal = await resolveCurrentUserId(req);
+  if (typeof principal !== 'number') {
+    return principal;
   }
 
   const userId = toPositiveInt(req.params.id);
@@ -1060,12 +1061,13 @@ export async function handleGetUserProfile(req: ApiRequest): Promise<ApiResponse
 
 /**
  * GET /api/users/:id/reviews — отзывы о пользователе по внутреннему id.
- * Требует initData-auth (как остальные эндпоинты Mini App).
+ * Доступ для любого аутентифицированного принципала (cookie-сессия ИЛИ initData) —
+ * через мост сессии, чтобы работало и в нативном приложении, и в Mini App.
  */
 export async function handleGetUserReviews(req: ApiRequest): Promise<ApiResponse> {
-  const auth = authenticate(req, req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  const principal = await resolveCurrentUserId(req);
+  if (typeof principal !== 'number') {
+    return principal;
   }
 
   const userId = toPositiveInt(req.params.id);
