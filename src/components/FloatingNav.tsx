@@ -38,6 +38,7 @@ const HIDDEN_ON: Screen[] = [
   'my-trips',
   'rate-trip',
   'evening-publish',
+  'my-cars',
   'add-car',
 ];
 
@@ -59,6 +60,7 @@ const SCREEN_TO_TAB: Record<Screen, NavTabRoot | 'notifications' | null> = {
   'driver-bookings': 'main',
   'become-driver': 'profile',
   'license-review': 'profile',
+  'my-cars': 'profile',
   'in-trip': 'main',
   safety: 'profile',
   'passenger-request': 'main',

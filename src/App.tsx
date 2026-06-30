@@ -25,6 +25,7 @@ const RateTripScreen = lazy(() => import('./screens/RateTripScreen'));
 const UserProfileScreen = lazy(() => import('./screens/UserProfileScreen'));
 const NotificationsScreen = lazy(() => import('./screens/NotificationsScreen'));
 const AddCarScreen = lazy(() => import('./screens/AddCarScreen'));
+const MyCarsScreen = lazy(() => import('./screens/MyCarsScreen'));
 const AuthGateScreen = lazy(() => import('./screens/AuthGateScreen'));
 const LoginScreen = lazy(() => import('./screens/LoginScreen'));
 const RegisterScreen = lazy(() => import('./screens/RegisterScreen'));
@@ -554,7 +555,7 @@ function App() {
                 onLicenseReview={() => navigate('license-review')}
                 onSafety={() => navigate('safety')}
                 onMyTrips={() => navigate('my-trips')}
-                onMyCars={() => navigate('add-car')}
+                onMyCars={() => navigate('my-cars')}
                 onToggleTheme={toggleTheme}
                 theme={theme}
                 onOpenProfile={handleOpenUserProfile}
@@ -636,6 +637,9 @@ function App() {
             )}
             {currentScreen === 'notifications' && (
               <NotificationsScreen onNavigate={handleNotificationNavigate} />
+            )}
+            {currentScreen === 'my-cars' && (
+              <MyCarsScreen onAddCar={() => navigate('add-car', null, undefined, undefined, 'my-cars')} />
             )}
             {currentScreen === 'add-car' && (
               <AddCarScreen onSaved={goBack} />

@@ -27,6 +27,7 @@ export type Screen =
   | 'habit-home'
   | 'user-profile'
   | 'notifications'
+  | 'my-cars'
   | 'add-car';
 
 // Откуда пришли на экран подтверждения (бронь пассажира или публикация водителя)
