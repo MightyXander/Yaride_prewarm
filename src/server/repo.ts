@@ -1365,13 +1365,21 @@ export async function cancelBookingByDriver(
   bookingId: number,
   tgDriverId: number,
 ): Promise<CancelBookingActionResult> {
+  const driverId = await internalUserIdByTg(tgDriverId);
+  if (driverId === null) {
+    throw new Error('Профиль водителя не найден.');
+  }
+  return cancelBookingByDriverById(bookingId, driverId);
+}
+
+/** Отмена брони водителем по внутреннему users.id (мост сессии, issue #258). */
+export async function cancelBookingByDriverById(
+  bookingId: number,
+  driverId: number,
+): Promise<CancelBookingActionResult> {
   await ensureReady();
 
   return withTransaction(async (client): Promise<CancelBookingActionResult> => {
-    const driverId = await getInternalUserId(client, tgDriverId);
-    if (driverId === null) {
-      throw new Error('Профиль водителя не найден.');
-    }
 
     const bookingRes = await client.query<{
       id: number;

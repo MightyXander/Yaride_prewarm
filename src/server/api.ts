@@ -33,7 +33,7 @@ import {
   getLatestLicenseRequest,
   createRating,
   getTripBookings,
-  cancelBookingByDriver,
+  cancelBookingByDriverById,
   cancelTripByDriver,
   ensureRateReminders,
   listRoutePoints,
@@ -676,9 +676,9 @@ export async function handleCreateRating(req: ApiRequest): Promise<ApiResponse> 
 
 /** GET /api/trips/:id/bookings — список броней для поездки (для водителя). */
 export async function handleGetTripBookings(req: ApiRequest): Promise<ApiResponse> {
-  const auth = authenticate(req, req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
 
   const tripId = toPositiveInt(req.params.id);
@@ -694,11 +694,10 @@ export async function handleGetTripBookings(req: ApiRequest): Promise<ApiRespons
 export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
 
-  const auth = authenticate(req, body.initData);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const bookingId = toPositiveInt(req.params.id);
   if (bookingId === undefined) {
@@ -711,7 +710,7 @@ export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse>
   }
 
   try {
-    const r = await cancelBookingByDriver(bookingId, user.id);
+    const r = await cancelBookingByDriverById(bookingId, userId);
 
     // Fire-and-forget: уведомить пассажира об отмене его брони (in-app лента + Telegram)
     void notifyPassengerAboutBookingDecision({
