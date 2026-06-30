@@ -13,13 +13,14 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
   CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    tg_user_id BIGINT UNIQUE NOT NULL,
+    -- tg_user_id NULLABLE: браузерные аккаунты (email/пароль) Telegram-id не имеют.
+    tg_user_id BIGINT UNIQUE,
     name TEXT NOT NULL,
     username TEXT,
     age INTEGER,
@@ -30,8 +31,43 @@ const BOOTSTRAP_SQL = `
     trips_passenger_count INTEGER NOT NULL DEFAULT 0,
     license_status TEXT NOT NULL DEFAULT 'none'
       CHECK (license_status IN ('none', 'pending', 'verified', 'rejected')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    -- Браузерная авторизация (issue #242): email/пароль + согласия 152-ФЗ.
+    email TEXT,
+    password_hash TEXT,
+    first_name TEXT,
+    last_name TEXT,
+    pdn_consent_at TIMESTAMPTZ,
+    pdn_consent_version TEXT,
+    marketing_consent_at TIMESTAMPTZ,
+    marketing_consent_version TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Инвариант «хотя бы один способ входа»: либо Telegram, либо email+пароль.
+    CONSTRAINT users_login_method_check
+      CHECK (tg_user_id IS NOT NULL OR (email IS NOT NULL AND password_hash IS NOT NULL))
   );
+
+  -- Регистронезависимая уникальность email среди ВЕБ-аккаунтов (partial — NULL не конфликтуют).
+  CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower
+    ON users (lower(email)) WHERE email IS NOT NULL;
+  -- ВАЖНО: уникальность username ТОЛЬКО среди веб-аккаунтов (password_hash IS NOT NULL).
+  -- users.username хранит СНИМКИ Telegram-ников, среди которых исторически возможны
+  -- регистровые дубли ('John' и 'john'); индекс на всех строках упал бы 23505 при
+  -- создании и зациклил старт. Веб-юзер может взять ник, совпадающий с TG-снимком,
+  -- но два веб-юзера один ник — нет. Условие должно совпадать с миграцией v7→v8.
+  CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower
+    ON users (lower(username)) WHERE password_hash IS NOT NULL;
+
+  -- Сессии браузерной авторизации (opaque-токен хранится только как sha256-хеш).
+  CREATE TABLE IF NOT EXISTS sessions (
+    id SERIAL PRIMARY KEY,
+    token_hash TEXT NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS uq_sessions_token_hash ON sessions(token_hash);
+  CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 
   CREATE TABLE IF NOT EXISTS route_points (
     id SERIAL PRIMARY KEY,
@@ -186,6 +222,11 @@ const BOOTSTRAP_SQL = `
  * v4→v5: добавление таблицы notifications (события для лент уведомлений).
  * v5→v6: добавление таблицы cars (машины водителя) + колонки trips.car_model.
  * v6→v7: расширение notifications.type — добавлен тип 'trip_new' (поездка по маршруту пассажира).
+ * v7→v8: бэкафилл денормализованных счётчиков профиля (#243) — пересчёт
+ *        trips_driver_count/trips_passenger_count и rating_avg/rating_count из источников.
+ * v8→v9: браузерная авторизация (issue #242) — tg_user_id NULLABLE, поля email/пароль/
+ *        имя/согласия в users, уникальные индексы lower(email)/lower(username),
+ *        CHECK «способ входа», таблица sessions. Безопасно для прод-БД (только ADD/ALTER).
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -303,6 +344,55 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
         rating_count = (
           SELECT COUNT(*) FROM ratings r WHERE r.ratee_id = u.id
         );
+    `);
+    return;
+  }
+  if (fromV === 8 && toV === 9) {
+    // Браузерная авторизация (issue #242). Все шаги идемпотентны и аддитивны,
+    // поэтому безопасно применяются на проде при старте.
+    //
+    // tg_user_id → NULLABLE: существующие Telegram-строки этим не затрагиваются
+    // (UNIQUE сохраняется). Новые колонки добавляются IF NOT EXISTS.
+    await pool.query(`
+      ALTER TABLE users ALTER COLUMN tg_user_id DROP NOT NULL;
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS pdn_consent_at TIMESTAMPTZ;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS pdn_consent_version TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_consent_at TIMESTAMPTZ;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_consent_version TEXT;
+
+      -- email: регистронезависимая уникальность (partial WHERE NOT NULL — NULL не конфликтуют).
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower
+        ON users (lower(email)) WHERE email IS NOT NULL;
+      -- username: уникальность ТОЛЬКО среди ВЕБ-аккаунтов (password_hash IS NOT NULL).
+      -- users.username — это снимки Telegram-ников, среди которых исторически возможны
+      -- регистровые дубли ('John'/'john'); индекс на лету по всем строкам упал бы 23505
+      -- и зациклил старт прода. На текущем проде password_hash везде NULL → индекс пуст →
+      -- создаётся гарантированно. Условие совпадает с bootstrap-схемой и проверкой в repo.ts.
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower
+        ON users (lower(username)) WHERE password_hash IS NOT NULL;
+
+      -- CHECK навешиваем идемпотентно (DROP IF EXISTS + ADD), как в миграции v6→v7.
+      -- Существующие Telegram-строки удовлетворяют (tg_user_id IS NOT NULL).
+      ALTER TABLE users DROP CONSTRAINT IF EXISTS users_login_method_check;
+      ALTER TABLE users ADD CONSTRAINT users_login_method_check
+        CHECK (tg_user_id IS NOT NULL OR (email IS NOT NULL AND password_hash IS NOT NULL));
+
+      CREATE TABLE IF NOT EXISTS sessions (
+        id SERIAL PRIMARY KEY,
+        token_hash TEXT NOT NULL,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMPTZ NOT NULL
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_sessions_token_hash ON sessions(token_hash);
+      CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
     `);
     return;
   }

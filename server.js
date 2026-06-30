@@ -43,6 +43,10 @@ try {
     listMyCars: mod.handleListMyCars,
     addCar: mod.handleAddCar,
     cancelTrip: mod.handleCancelTrip,
+    authRegister: mod.handleRegister,
+    authLogin: mod.handleLogin,
+    authLogout: mod.handleLogout,
+    authMe: mod.handleMe,
   };
   telegram = {
     sendMessage: mod.sendMessage,
@@ -162,6 +166,14 @@ async function startLongPolling(telegram, botToken) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// За одним обратным прокси (Caddy). trust proxy=1 → Express берёт req.ip из
+// последнего значения X-Forwarded-For (его проставляет Caddy) и выставляет
+// req.secure/req.protocol по X-Forwarded-Proto. Это делает ключ анти-брутфорс
+// троттлинга (email|ip) привязанным к реальному клиенту, а не к адресу Caddy
+// (иначе одного клиента хватило бы, чтобы залочить вход всем — account-lockout DoS).
+// НЕ ставим trust proxy=true: это доверяло бы любому XFF и открывало спуфинг IP.
+app.set('trust proxy', 1);
+
 app.use(express.json());
 
 // /health: лёгкий SELECT 1 к Postgres. db:true только если пинг прошёл.
@@ -195,8 +207,19 @@ function wrap(handler) {
         params: req.params ?? {},
         body: req.body ?? {},
         headers: req.headers ?? {},
+        ip: req.ip,
       };
       const result = await handler(apiReq);
+      // Применить cookies авторизации (httpOnly Set-Cookie / clear), если есть.
+      if (Array.isArray(result.cookies)) {
+        for (const c of result.cookies) {
+          if (c.value === null || c.value === undefined) {
+            res.clearCookie(c.name, { path: c.options?.path ?? '/' });
+          } else {
+            res.cookie(c.name, c.value, c.options ?? {});
+          }
+        }
+      }
       res.status(result.status).json(result.body);
     } catch (err) {
       console.error('API handler error:', err?.message ?? err);
@@ -223,6 +246,12 @@ app.post('/api/me/license', wrap(api?.submitLicense));
 app.post('/api/ratings', wrap(api?.createRating));
 app.get('/api/trips/:id/bookings', wrap(api?.getTripBookings));
 app.patch('/api/bookings/:id', wrap(api?.cancelBooking));
+
+// Issue #242: браузерная авторизация (email/пароль + сессии в httpOnly-cookie).
+app.post('/api/auth/register', wrap(api?.authRegister));
+app.post('/api/auth/login', wrap(api?.authLogin));
+app.post('/api/auth/logout', wrap(api?.authLogout));
+app.get('/api/auth/me', wrap(api?.authMe));
 
 // Issue #68: справочник точек коридора для домена Заявки.
 app.get('/api/route-points', wrap(api?.listRoutePoints));

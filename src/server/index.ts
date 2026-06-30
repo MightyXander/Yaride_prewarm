@@ -75,7 +75,15 @@ export {
   handleAddCar,
   handleCancelTrip,
 } from './api.ts';
-export type { ApiRequest, ApiResponse } from './api.ts';
+export type { ApiRequest, ApiResponse, SetCookieInstruction } from './api.ts';
+
+// Браузерная авторизация (issue #242): регистрация/вход/выход/сессия.
+export {
+  handleRegister,
+  handleLogin,
+  handleLogout,
+  handleMe,
+} from './auth.ts';
 
 /**
  * Инициализировать БД (пул + схема + сид). Идемпотентно: повторный вызов

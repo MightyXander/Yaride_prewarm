@@ -6,8 +6,10 @@ import {
   AuthField,
   PasswordField,
   ButtonSpinner,
+  AuthError,
 } from '../components/AuthKit';
 import { hapticImpact } from '../lib/haptics';
+import { ApiException } from '../lib/api';
 
 /**
  * RegisterScreen — создание аккаунта для браузерных пользователей (без Telegram).
@@ -24,7 +26,8 @@ export interface RegisterPayload {
 }
 
 interface RegisterScreenProps {
-  onSubmit: (payload: RegisterPayload) => void;
+  /** async: экран await'ит реальную регистрацию; на ошибке сбрасывает loading. */
+  onSubmit: (payload: RegisterPayload) => Promise<void>;
   onLogin: () => void;
 }
 
@@ -89,13 +92,29 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
   const [usernameError, setUsernameError] = useState<string | undefined>();
   const [emailError, setEmailError] = useState<string | undefined>();
   const [passwordError, setPasswordError] = useState<string | undefined>();
+  const [firstNameError, setFirstNameError] = useState<string | undefined>();
+  const [lastNameError, setLastNameError] = useState<string | undefined>();
+  const [formError, setFormError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (loading || !consent) return;
+    setFormError(undefined);
 
-    // Локальная валидация (без backend).
+    // Локальная валидация.
     let valid = true;
+    if (firstName.trim() === '') {
+      setFirstNameError('Укажите имя');
+      valid = false;
+    } else {
+      setFirstNameError(undefined);
+    }
+    if (lastName.trim() === '') {
+      setLastNameError('Укажите фамилию');
+      valid = false;
+    } else {
+      setLastNameError(undefined);
+    }
     if (!USERNAME_RE.test(username.trim())) {
       setUsernameError('Только латиница, цифры и _');
       valid = false;
@@ -118,11 +137,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
 
     hapticImpact('light');
     setLoading(true);
-    // МОК: имитируем сетевую задержку для состояния загрузки кнопки.
-    // TODO: заменить на реальный вызов регистрации; ошибку «email занят» с backend
-    //       мапить в setEmailError('Такой email уже зарегистрирован').
-    setTimeout(() => {
-      onSubmit({
+    try {
+      await onSubmit({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         username: username.trim(),
@@ -130,7 +146,22 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
         password,
         news,
       });
-    }, 600);
+      // Успех — App уводит дальше (компонент размонтируется).
+    } catch (e) {
+      // Конфликты email/username мапим в соответствующие поля; иначе общий баннер.
+      // Backend отдаёт машинно-различимый code (email_taken | username_taken).
+      const code = e instanceof ApiException ? (e.details?.code as string | undefined) : undefined;
+      if (code === 'email_taken') {
+        setEmailError('Такой email уже зарегистрирован');
+      } else if (code === 'username_taken') {
+        setUsernameError('Этот ник уже занят');
+      } else {
+        setFormError(
+          e instanceof ApiException ? e.message : 'Не удалось создать аккаунт. Попробуйте ещё раз.',
+        );
+      }
+      setLoading(false);
+    }
   };
 
   return (
@@ -161,7 +192,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
               autoComplete="given-name"
               placeholder="Имя"
               value={firstName}
-              onChange={setFirstName}
+              onChange={(v) => {
+                setFirstName(v);
+                if (firstNameError) setFirstNameError(undefined);
+              }}
+              error={firstNameError}
             />
           </div>
           <div style={{ flex: 1 }}>
@@ -170,7 +205,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
               autoComplete="family-name"
               placeholder="Фамилия"
               value={lastName}
-              onChange={setLastName}
+              onChange={(v) => {
+                setLastName(v);
+                if (lastNameError) setLastNameError(undefined);
+              }}
+              error={lastNameError}
             />
           </div>
         </div>
@@ -233,11 +272,13 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
         </Checkbox>
       </div>
 
+      {formError && <AuthError>{formError}</AuthError>}
+
       <Button
         variant="primary"
         haptic="none"
         disabled={!consent || loading}
-        onClick={handleSubmit}
+        onClick={() => void handleSubmit()}
         style={
           consent
             ? { height: '54px', borderRadius: '16px', fontSize: '16px', fontWeight: 700 }
