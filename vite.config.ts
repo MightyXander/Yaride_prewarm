@@ -83,6 +83,13 @@ function mockApiPlugin() {
       // переживают между запросами в dev/QA без backend. Нормализация повторяет
       // серверную: 8/+7/7 + 10 цифр (оператор «9») → +7XXXXXXXXXX, иначе null.
       let mockPhone: string | null = null;
+      // In-memory статус входа по email текущего (TG) пользователя (#273).
+      // Имитирует users-строку с tg_user_id и без пароля: username — снимок TG-ника.
+      const mockCredentials: { hasPassword: boolean; email: string | null; username: string | null } = {
+        hasPassword: false,
+        email: null,
+        username: 'tg_snapshot',
+      };
       const normalizeRuPhoneMock = (raw: string): string | null => {
         const digits = String(raw).replace(/\D/g, '');
         let national: string;
@@ -478,6 +485,48 @@ function mockApiPlugin() {
             }
             mockPhone = phone;
             sendJson({ phone });
+          });
+          return;
+        }
+
+        // GET /api/me/credentials — статус входа по email (#273)
+        if (method === 'GET' && pathname === '/me/credentials') {
+          sendJson({
+            hasPassword: mockCredentials.hasPassword,
+            email: mockCredentials.email,
+            username: mockCredentials.username,
+          });
+          return;
+        }
+
+        // POST /api/me/credentials — добавить email+username+пароль (#273)
+        if (method === 'POST' && pathname === '/me/credentials') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            const p = JSON.parse(body || '{}');
+            const email = String(p.email ?? '').trim();
+            const username = String(p.username ?? '').trim();
+            const password = String(p.password ?? '');
+            if (mockCredentials.hasPassword) {
+              sendJson({ error: 'Для аккаунта уже настроен вход по email', code: 'already_set' }, 409); return;
+            }
+            if (!EMAIL_RE.test(email)) { sendJson({ error: 'Введите корректный email', field: 'email' }, 400); return; }
+            if (password.length < 8) { sendJson({ error: 'Пароль должен быть не короче 8 символов', field: 'password' }, 400); return; }
+            if (!USERNAME_RE.test(username)) { sendJson({ error: 'Ник: только латиница, цифры и _', field: 'username' }, 400); return; }
+            // Конфликты с веб-аккаунтами мок-регистрации (email — все; username — веб).
+            if (mockAuthUsers.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
+              sendJson({ error: 'Такой email уже зарегистрирован', code: 'email_taken' }, 409); return;
+            }
+            if (mockAuthUsers.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
+              sendJson({ error: 'Этот ник уже занят', code: 'username_taken' }, 409); return;
+            }
+            mockCredentials.hasPassword = true;
+            mockCredentials.email = email;
+            mockCredentials.username = username;
+            sendJson({
+              user: { id: 999, name: 'Тестовый Пользователь', email, username, first_name: 'Тестовый', last_name: 'Пользователь' },
+            });
           });
           return;
         }

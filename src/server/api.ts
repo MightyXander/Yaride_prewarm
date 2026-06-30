@@ -49,11 +49,23 @@ import {
   getOrCreateDriverTemplateById,
   submitLicenseRequestById,
   createTripFromTemplateById,
+  getUserCredentials,
+  addUserCredentials,
+  isEmailTaken,
+  isUsernameTaken,
+  UserConflictError,
+  CredentialsAlreadySetError,
   type FindTripsParams,
   type TimeSlot,
   type TripStatusFilter,
 } from './repo.ts';
-import { getSessionUserFromRequest } from './auth.ts';
+import {
+  getSessionUserFromRequest,
+  hashPassword,
+  EMAIL_RE,
+  USERNAME_RE,
+  MIN_PASSWORD_LENGTH,
+} from './auth.ts';
 import {
   telegramDisplayName,
   verifyInitData,
@@ -604,6 +616,98 @@ export async function handleSaveMyPhone(req: ApiRequest): Promise<ApiResponse> {
   }
 
   return { status: 200, body: { phone } };
+}
+
+/**
+ * GET /api/me/credentials — статус входа по email текущего пользователя (issue #273).
+ * Фронт показывает секцию «Вход по email» только TG-аккаунтам без пароля
+ * (hasPassword=false) и префиллит username из текущего снимка.
+ */
+export async function handleGetMyCredentials(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const cred = await getUserCredentials(userId);
+  if (cred === null) {
+    return err(404, 'Профиль не найден');
+  }
+  return {
+    status: 200,
+    body: { hasPassword: cred.hasPassword, email: cred.email, username: cred.username },
+  };
+}
+
+/**
+ * POST /api/me/credentials — добавить вход по email (email+username+пароль) к
+ * текущему аккаунту без пароля (TG→браузер, issue #273). Единая users-карточка.
+ * Body: { email, username, password }.
+ *
+ * Валидация — та же, что при регистрации (переиспользуем EMAIL_RE/USERNAME_RE/
+ * MIN_PASSWORD_LENGTH и hashPassword из auth.ts). Конфликты:
+ *  - 409 already_set — у аккаунта уже задан пароль (смена/управление — вне MVP);
+ *  - 409 email_taken / username_taken — занятые email/ник (маппинг по коду/индексу).
+ */
+export async function handleAddMyCredentials(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const body = asRecord(req.body);
+  const email = (typeof body.email === 'string' ? body.email : '').trim();
+  const username = (typeof body.username === 'string' ? body.username : '').trim();
+  const password = typeof body.password === 'string' ? body.password : '';
+
+  if (!EMAIL_RE.test(email)) {
+    return err(400, 'Введите корректный email', { field: 'email' });
+  }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return err(400, 'Пароль должен быть не короче 8 символов', { field: 'password' });
+  }
+  if (!USERNAME_RE.test(username)) {
+    return err(400, 'Ник: только латиница, цифры и _', { field: 'username' });
+  }
+
+  // Cheap-win: занятость email/username ДО scrypt (гонку добивает индекс + 23505 в repo).
+  if (await isEmailTaken(email)) {
+    return err(409, 'Такой email уже зарегистрирован', { code: 'email_taken' });
+  }
+  if (await isUsernameTaken(username)) {
+    return err(409, 'Этот ник уже занят', { code: 'username_taken' });
+  }
+
+  const passwordHash = await hashPassword(password);
+
+  try {
+    const user = await addUserCredentials({ userId, email, username, passwordHash });
+    return {
+      status: 200,
+      body: {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          username: user.username,
+          first_name: user.first_name,
+          last_name: user.last_name,
+        },
+      },
+    };
+  } catch (e) {
+    if (e instanceof CredentialsAlreadySetError) {
+      return err(409, 'Для аккаунта уже настроен вход по email', { code: 'already_set' });
+    }
+    if (e instanceof UserConflictError) {
+      const message =
+        e.code === 'email_taken'
+          ? 'Такой email уже зарегистрирован'
+          : 'Этот ник уже занят';
+      return err(409, message, { code: e.code });
+    }
+    throw e;
+  }
 }
 
 /** GET /api/me/trips?status=upcoming|past — поездки текущего пользователя. */

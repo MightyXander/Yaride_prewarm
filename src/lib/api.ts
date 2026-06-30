@@ -39,6 +39,9 @@ import type {
   RegisterRequest,
   LoginRequest,
   AuthResponse,
+  GetMyCredentialsResponse,
+  AddCredentialsRequest,
+  AddCredentialsResponse,
   ApiErrorResponse,
 } from '../types/api.ts';
 
@@ -291,4 +294,21 @@ export async function logoutUser(): Promise<{ ok: boolean }> {
 /** GET /api/auth/me — текущий пользователь по cookie-сессии (или ApiException 401). */
 export async function getMe(): Promise<AuthResponse> {
   return apiFetch<AuthResponse>('/auth/me');
+}
+
+/* ----------------------- Вход по email для TG-аккаунта (#273) ----------------------- */
+
+/** GET /api/me/credentials — статус входа по email текущего пользователя. */
+export async function getMyCredentials(): Promise<GetMyCredentialsResponse> {
+  return apiFetch<GetMyCredentialsResponse>('/me/credentials');
+}
+
+/** POST /api/me/credentials — добавить email+username+пароль к своему аккаунту. */
+export async function addMyCredentials(
+  params: AddCredentialsRequest,
+): Promise<AddCredentialsResponse> {
+  return apiFetch<AddCredentialsResponse>('/me/credentials', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
 }

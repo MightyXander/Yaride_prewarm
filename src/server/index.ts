@@ -61,6 +61,8 @@ export {
   handleGetMyProfile,
   handleGetMyPhone,
   handleSaveMyPhone,
+  handleGetMyCredentials,
+  handleAddMyCredentials,
   handleGetMyTrips,
   handleGetMyTemplate,
   handleCreateRating,

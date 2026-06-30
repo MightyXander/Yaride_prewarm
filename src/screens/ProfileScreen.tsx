@@ -2,6 +2,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
+import EmailLoginSection from '../components/EmailLoginSection';
 import { useProfile } from '../contexts/ProfileContext';
 import { getMyCars } from '../lib/api';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
@@ -244,6 +245,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
           last
         />
       </Card>
+
+      {/* Вход по email (issue #273): только в Telegram и только аккаунту без пароля.
+          Видимостью управляет сам компонент (см. EmailLoginSection). */}
+      <EmailLoginSection />
 
       {/* Стать водителем */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: 'auto', paddingTop: '6px' }}>

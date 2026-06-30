@@ -416,6 +416,25 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
+// GET /api/me/credentials — статус входа по email текущего пользователя (#273).
+export interface GetMyCredentialsResponse {
+  /** true — вход по email уже настроен (у аккаунта есть пароль). */
+  hasPassword: boolean;
+  email: string | null;
+  username: string | null;
+}
+
+// POST /api/me/credentials — добавить email+username+пароль к своему аккаунту (#273).
+export interface AddCredentialsRequest {
+  email: string;
+  username: string;
+  password: string;
+}
+
+export interface AddCredentialsResponse {
+  user: AuthUser;
+}
+
 // Ошибки
 export interface ApiErrorResponse {
   error: string;
