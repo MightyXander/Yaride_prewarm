@@ -25,6 +25,9 @@ const RateTripScreen = lazy(() => import('./screens/RateTripScreen'));
 const UserProfileScreen = lazy(() => import('./screens/UserProfileScreen'));
 const NotificationsScreen = lazy(() => import('./screens/NotificationsScreen'));
 const AddCarScreen = lazy(() => import('./screens/AddCarScreen'));
+const AuthGateScreen = lazy(() => import('./screens/AuthGateScreen'));
+const LoginScreen = lazy(() => import('./screens/LoginScreen'));
+const RegisterScreen = lazy(() => import('./screens/RegisterScreen'));
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -34,6 +37,8 @@ import { getTrips, getRoutePoints, getTrip, cancelTrip, ApiException } from './l
 import { mapTripListItemToTrip, mapTripCardToTrip } from './lib/mappers';
 import { showToast } from './lib/toast';
 import { loadRole, saveRole, type UserRole } from './lib/role';
+import { isTelegramContext, hasAuthSession, setAuthSession } from './lib/auth';
+import type { RegisterPayload } from './screens/RegisterScreen';
 import { formatSubtitle } from './lib/date';
 import { ProfileProvider } from './contexts/ProfileContext';
 import type { Screen } from './types/navigation';
@@ -77,8 +82,13 @@ function App() {
   // Роль пользователя: пассажир или водитель (персистится в localStorage)
   const [userRole, setUserRole] = useState<UserRole | null>(() => loadRole());
 
-  // Определяем начальный экран: если роль уже выбрана — сразу main, иначе intro.
-  const initialScreen: Screen = userRole ? 'main' : 'intro';
+  // Гейтинг входа для браузерных пользователей БЕЗ Telegram:
+  // если приложение открыто не в Telegram И нет мок-сессии — стартуем с экрана выбора входа.
+  // Telegram-пользователи и уже «вошедшие» в браузере идут привычным путём (intro/main).
+  const needsAuthGate = !isTelegramContext() && !hasAuthSession();
+
+  // Определяем начальный экран: гейт → если нужен; иначе роль выбрана — main, нет — intro.
+  const initialScreen: Screen = needsAuthGate ? 'auth-gate' : userRole ? 'main' : 'intro';
 
   // Splash-состояние: показываем при старте, скрываем когда данные готовы или прошло время
   const [splashVisible, setSplashVisible] = useState(true);
@@ -107,6 +117,29 @@ function App() {
     setUserRole('driver');
     saveRole('driver');
     navigate('become-driver');
+  };
+
+  // --- Авторизация (мок-сессия, без backend) ---
+  // Куда вести после успешного «входа»: роль есть → main, нет → intro (как при обычном старте).
+  const afterAuth = () => {
+    setAuthSession();
+    navigate(userRole ? 'main' : 'intro');
+  };
+
+  // Мок-сабмит входа по email: ставим сессию и идём дальше (валидация — внутри LoginScreen).
+  const handleAuthLogin = (_email: string, _password: string) => {
+    afterAuth();
+  };
+
+  // Мок-сабмит регистрации: ставим сессию и идём дальше (валидация/согласие — внутри RegisterScreen).
+  const handleAuthRegister = (_payload: RegisterPayload) => {
+    afterAuth();
+  };
+
+  // «Войти через Telegram» — пока заглушка: ставим мок-сессию и идём дальше.
+  // TODO: реальная привязка Telegram-аккаунта (Login Widget / initData) — отдельная задача.
+  const handleAuthTelegram = () => {
+    afterAuth();
   };
 
   // Deep-link обработка: при старте Mini App с start_param (например, 'trip-123')
@@ -229,7 +262,9 @@ function App() {
   // BackButton показываем везде, кроме «главных» (списки поездок с left-topbar
   // и нижней навигацией): intro/main/main-more/evening-main.
   // Для user-profile: показываем BackButton всегда (даже на корневом уровне — выход из профиля).
-  const showBackButton = !['intro', 'main', 'main-more', 'evening-main'].includes(
+  // Auth-экраны (gate/login/register) — веб-флоу без back-хрома (как в макете): на login/register
+  // плавающая кнопка «Назад» иначе перекрыла бы логотип; переходы доступны in-screen ссылками.
+  const showBackButton = !['auth-gate', 'login', 'register', 'intro', 'main', 'main-more', 'evening-main'].includes(
     currentScreen
   );
 
@@ -408,6 +443,23 @@ function App() {
             }}
           >
             <Suspense fallback={null}>
+            {currentScreen === 'auth-gate' && (
+              <AuthGateScreen
+                onTelegram={handleAuthTelegram}
+                onLogin={() => navigate('login')}
+                onRegister={() => navigate('register')}
+              />
+            )}
+            {currentScreen === 'login' && (
+              <LoginScreen
+                onSubmit={handleAuthLogin}
+                onTelegram={handleAuthTelegram}
+                onRegister={() => navigate('register')}
+              />
+            )}
+            {currentScreen === 'register' && (
+              <RegisterScreen onSubmit={handleAuthRegister} onLogin={() => navigate('login')} />
+            )}
             {currentScreen === 'intro' && <IntroScreen onRoleSelect={handleRoleSelect} />}
             {currentScreen === 'main' && (
               <MainScreen

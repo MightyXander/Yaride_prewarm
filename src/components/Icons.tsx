@@ -113,6 +113,9 @@ export const Icons = () => (
     <symbol id="i-chev-d" viewBox="0 0 24 24">
       <path d="M6 9.5l6 6 6-6" />
     </symbol>
+    <symbol id="i-telegram" viewBox="0 0 24 24">
+      <polygon points="2,11.5 22,3 14.5,21.5 11.5,13.5" />
+    </symbol>
   </svg>
 );
 
