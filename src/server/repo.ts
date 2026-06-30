@@ -237,6 +237,32 @@ async function getInternalUserId(
   return res.rows[0]?.id ?? null;
 }
 
+/**
+ * Пересчитать денормализованные счётчики поездок пользователя из источников.
+ * Recompute-on-write (без дрейфа): trips_driver_count — число неотменённых
+ * поездок, где он водитель; trips_passenger_count — число активных броней.
+ * Вызывается ВНУТРИ транзакции после мутаций (публикация / бронь / отмены).
+ * rating_avg/rating_count поддерживаются отдельно в createRating.
+ */
+async function recomputeUserTripCounters(
+  client: PoolClient,
+  userId: number,
+): Promise<void> {
+  await client.query(
+    `UPDATE users u SET
+       trips_driver_count = (
+         SELECT COUNT(*) FROM trips t
+         WHERE t.driver_id = u.id AND t.status <> 'cancelled'
+       ),
+       trips_passenger_count = (
+         SELECT COUNT(*) FROM bookings b
+         WHERE b.passenger_id = u.id AND b.status = 'active'
+       )
+     WHERE u.id = $1`,
+    [userId],
+  );
+}
+
 export interface EnsureUserParams {
   tgUserId: number;
   name: string;
@@ -479,6 +505,9 @@ export async function createTripFromTemplate(
       ],
     );
 
+    // Денормализованный счётчик водителя — пересчёт из источника.
+    await recomputeUserTripCounters(client, driverId);
+
     return {
       tripId: ins.rows[0].id,
       driverId,
@@ -627,6 +656,9 @@ export async function createBooking(
       );
       bookingId = ins.rows[0].id;
     }
+
+    // Денормализованный счётчик пассажира — пересчёт из источника.
+    await recomputeUserTripCounters(client, passengerId);
 
     const afterRes = await client.query<{ avail: number }>(
       'SELECT seats_total - seats_booked AS avail FROM trips WHERE id = $1',
@@ -1069,6 +1101,9 @@ export async function cancelBookingByDriver(
       [booking.seats, booking.trip_id],
     );
 
+    // Бронь снята — пересчитать счётчик пассажира.
+    await recomputeUserTripCounters(client, booking.passenger_id);
+
     const availRes = await client.query<{ avail: number }>(
       'SELECT seats_total - seats_booked AS avail FROM trips WHERE id = $1',
       [booking.trip_id],
@@ -1159,6 +1194,12 @@ export async function cancelTripByDriver(
        WHERE trip_id = $1 AND status = 'active'`,
       [tripId],
     );
+
+    // Поездка отменена — пересчитать счётчик водителя и всех затронутых пассажиров.
+    await recomputeUserTripCounters(client, driverId);
+    for (const p of passengersRes.rows) {
+      await recomputeUserTripCounters(client, p.passenger_id);
+    }
 
     return {
       tripId,
