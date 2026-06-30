@@ -17,7 +17,7 @@
         <a class="{{ 'on' if active == 'users' }}" href="/admin/users">Пользователи</a>
     </nav>
     <div class="user">
-        <span>{{ admin }}</span>
+        <a class="{{ 'on' if active == 'account' }}" href="/admin/account">{{ admin }}</a>
         <a href="/admin/logout">Выйти</a>
     </div>
 </header>
