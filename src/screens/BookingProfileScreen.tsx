@@ -8,6 +8,7 @@ import { hapticNotify } from '../lib/haptics';
 import { showToast } from '../lib/toast';
 import { createBooking } from '../lib/api';
 import { Appear } from '../components/Appear';
+import { useProfile } from '../contexts/ProfileContext';
 import type { Trip } from '../types/navigation';
 import type { BookingResult } from '../types/api';
 
@@ -49,8 +50,13 @@ const fieldStyle: React.CSSProperties = {
 };
 
 const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onConfirm }) => {
+  const { profile } = useProfile();
   const telegramName = getTelegramName();
-  const [name, setName] = useState<string>(telegramName);
+  // Имя берём из профиля (для браузерных аккаунтов = имя+фамилия), иначе из Telegram.
+  // Если оно известно — НЕ спрашиваем имя (показываем read-only); инпут только как фолбэк.
+  const knownName = (profile?.name ?? '').trim() || telegramName.trim();
+  const hasKnownName = knownName.length > 0;
+  const [name, setName] = useState<string>('');
   // Телефон собирается «по требованию» (issue #267): реальный ввод + сохранение
   // в users.phone. Бронь доступна только когда номер задан (phoneReady).
   const [phoneReady, setPhoneReady] = useState<boolean>(false);
@@ -59,7 +65,8 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
   const [error, setError] = useState<string | null>(null);
   const nameInputId = useId();
 
-  const canConfirm = name.trim().length > 0 && phoneReady;
+  const effectiveName = hasKnownName ? knownName : name.trim();
+  const canConfirm = effectiveName.length > 0 && phoneReady;
 
   const handleConfirmBooking = async () => {
     if (trip.isOwn) {
@@ -145,19 +152,21 @@ const BookingProfileScreen: React.FC<BookingProfileScreenProps> = ({ trip, onCon
         <label htmlFor={nameInputId} style={{ ...sectionLabelStyle, display: 'block' }}>
           Имя
         </label>
-        {telegramName ? (
+        {hasKnownName ? (
           <div id={nameInputId} style={fieldStyle}>
-            <span>{telegramName}</span>
-            <span
-              style={{
-                marginLeft: 'auto',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: 'var(--muted-foreground)',
-              }}
-            >
-              из Telegram
-            </span>
+            <span>{knownName}</span>
+            {!profile?.name && (
+              <span
+                style={{
+                  marginLeft: 'auto',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'var(--muted-foreground)',
+                }}
+              >
+                из Telegram
+              </span>
+            )}
           </div>
         ) : (
           <input
