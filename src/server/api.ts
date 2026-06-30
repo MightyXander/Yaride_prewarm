@@ -26,12 +26,12 @@
  */
 
 import {
-  createRouteAlert,
+  createRouteAlertById,
   ensureUser,
   findOpenTrips,
   getTripCard,
   getLatestLicenseRequest,
-  createRating,
+  createRatingById,
   getTripBookings,
   cancelBookingByDriver,
   cancelTripByDriver,
@@ -384,11 +384,10 @@ export async function handleCreateBooking(req: ApiRequest): Promise<ApiResponse>
 export async function handleCreateAlert(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
 
-  const auth = authenticate(req, body.initData);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const fromPointId = toPositiveInt(body.fromPointId);
   const toPointId = toPositiveInt(body.toPointId);
@@ -409,15 +408,8 @@ export async function handleCreateAlert(req: ApiRequest): Promise<ApiResponse> {
     desiredTime = body.time.trim();
   }
 
-  await ensureUser({
-    tgUserId: user.id,
-    name: telegramDisplayName(user),
-    username: user.username ?? null,
-  });
-
   try {
-    const alert = await createRouteAlert({
-      tgPassengerId: user.id,
+    const alert = await createRouteAlertById(userId, {
       fromPointId,
       toPointId,
       desiredDate: rawDate,
@@ -752,11 +744,10 @@ export async function handleGetMyTrips(req: ApiRequest): Promise<ApiResponse> {
 export async function handleCreateRating(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
 
-  const auth = authenticate(req, body.initData);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const tripId = toPositiveInt(body.tripId);
   if (tripId === undefined) {
@@ -776,21 +767,8 @@ export async function handleCreateRating(req: ApiRequest): Promise<ApiResponse> 
   const tags = typeof body.tags === 'string' ? body.tags.trim() : null;
   const comment = typeof body.comment === 'string' ? body.comment.trim() : null;
 
-  await ensureUser({
-    tgUserId: user.id,
-    name: telegramDisplayName(user),
-    username: user.username ?? null,
-  });
-
   try {
-    const result = await createRating({
-      tgRaterId: user.id,
-      tripId,
-      rateeId,
-      stars,
-      tags,
-      comment,
-    });
+    const result = await createRatingById(userId, { tripId, rateeId, stars, tags, comment });
     return { status: 201, body: { rating: result } };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не удалось создать рейтинг';

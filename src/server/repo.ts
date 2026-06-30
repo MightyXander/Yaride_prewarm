@@ -752,14 +752,21 @@ export interface RouteAlertResult {
 export async function createRouteAlert(
   params: RouteAlertParams,
 ): Promise<RouteAlertResult> {
+  const passengerId = await internalUserIdByTg(params.tgPassengerId);
+  if (passengerId === null) {
+    throw new Error('Профиль пассажира не найден.');
+  }
+  return createRouteAlertById(passengerId, params);
+}
+
+/** Заявка на маршрут по внутреннему users.id пассажира (мост сессии, issue #258). */
+export async function createRouteAlertById(
+  passengerId: number,
+  params: Omit<RouteAlertParams, 'tgPassengerId'>,
+): Promise<RouteAlertResult> {
   await ensureReady();
 
   return withTransaction(async (client): Promise<RouteAlertResult> => {
-    const passengerId = await getInternalUserId(client, params.tgPassengerId);
-    if (passengerId === null) {
-      throw new Error('Профиль пассажира не найден.');
-    }
-
     const pointsRes = await client.query<{ id: number }>(
       'SELECT id FROM route_points WHERE id = ANY($1::int[])',
       [[params.fromPointId, params.toPointId]],
@@ -1405,14 +1412,21 @@ export interface CreateRatingResult {
 export async function createRating(
   params: CreateRatingParams,
 ): Promise<CreateRatingResult> {
+  const raterId = await internalUserIdByTg(params.tgRaterId);
+  if (raterId === null) {
+    throw new Error('Профиль оценивающего не найден.');
+  }
+  return createRatingById(raterId, params);
+}
+
+/** Рейтинг по внутреннему users.id оценивающего (мост сессии, issue #258). */
+export async function createRatingById(
+  raterId: number,
+  params: Omit<CreateRatingParams, 'tgRaterId'>,
+): Promise<CreateRatingResult> {
   await ensureReady();
 
   return withTransaction(async (client): Promise<CreateRatingResult> => {
-    const raterId = await getInternalUserId(client, params.tgRaterId);
-    if (raterId === null) {
-      throw new Error('Профиль оценивающего не найден.');
-    }
-
     if (params.stars < 1 || params.stars > 5) {
       throw new Error('Оценка должна быть от 1 до 5 звёзд.');
     }
