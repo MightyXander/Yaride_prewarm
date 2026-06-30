@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { getMyProfile, ApiException } from '../lib/api';
+import { useRefetchOnFocus } from '../hooks/useRefetchOnFocus';
 import type { UserProfile } from '../types/api';
 import {
   readProfileCache,
@@ -93,6 +94,13 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
   useEffect(() => {
     loadProfile();
   }, []);
+
+  // Авто-обновление профиля при возврате фокуса/видимости вкладки (#258).
+  // Сценарий: админ одобряет заявку на ВУ, пока mini-app открыт в фоне —
+  // при возврате к вкладке license_status обновится без перезагрузки, и кнопка
+  // «Стать водителем»/блокировка публикации перестроятся. Рефетч тихий
+  // (stale-while-revalidate: loading не поднимается, скелет не мигает).
+  useRefetchOnFocus(loadProfile);
 
   const value: ProfileContextValue = {
     profile,

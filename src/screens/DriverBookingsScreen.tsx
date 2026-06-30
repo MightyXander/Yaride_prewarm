@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Avatar from '../components/ui/Avatar';
@@ -6,6 +6,7 @@ import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import PhoneLink from '../components/PhoneLink';
 import { showToast } from '../lib/toast';
+import { useRefetchOnFocus } from '../hooks/useRefetchOnFocus';
 import { getTripBookings, cancelBookingByDriver, ApiException } from '../lib/api';
 import type { BookingDetail } from '../types/api';
 
@@ -88,30 +89,35 @@ const DriverBookingsScreen: React.FC<DriverBookingsScreenProps> = ({ tripId, onD
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<number | null>(null);
 
-  useEffect(() => {
+  // silent=true — тихий рефетч (без полноэкранного «Загрузка...») для обновления по фокусу.
+  const loadBookings = useCallback(async (silent = false) => {
     if (!tripId) {
       setLoading(false);
       setError('ID поездки не передан');
       return;
     }
-
-    const loadBookings = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await getTripBookings(tripId);
-        setBookings(response.bookings);
-      } catch (err) {
-        const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки броней';
-        setError(msg);
-        showToast(msg);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void loadBookings();
+    try {
+      if (!silent) setLoading(true);
+      setError(null);
+      const response = await getTripBookings(tripId);
+      setBookings(response.bookings);
+    } catch (err) {
+      const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки броней';
+      setError(msg);
+      showToast(msg);
+    } finally {
+      setLoading(false);
+    }
   }, [tripId]);
+
+  useEffect(() => {
+    void loadBookings();
+  }, [loadBookings]);
+
+  // Возврат фокуса/видимости вкладки → актуальные брони (новые заявки приходят пушем).
+  useRefetchOnFocus(() => {
+    void loadBookings(true);
+  });
 
   const handleCancelBooking = async (bookingId: number) => {
     try {

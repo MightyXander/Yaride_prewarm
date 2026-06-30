@@ -90,8 +90,17 @@ const MenuRow: React.FC<MenuRowProps> = ({ icon, label, onClick, right, last }) 
 );
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onToggleTheme, theme, onOpenProfile, onLogout }) => {
-  const { profile, loading, needsTelegram } = useProfile();
+  const { profile, loading, needsTelegram, refetch } = useProfile();
   const [carsCount, setCarsCount] = useState(0);
+
+  // Профиль живёт в контексте (не размонтируется), поэтому при заходе на экран
+  // тихо перезапрашиваем — чтобы статус ВУ (одобрение админом) и счётчики были
+  // свежими без перезагрузки. Рефетч stale-while-revalidate, без мигания скелета.
+  useEffect(() => {
+    void refetch();
+    // Только на маунте экрана профиля; refetch стабилен по смыслу (loadProfile).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     getMyCars()
