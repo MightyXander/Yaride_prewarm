@@ -42,7 +42,7 @@ import { POLICY_VERSION } from './lib/policy';
 import type { RegisterPayload } from './screens/RegisterScreen';
 import { formatSubtitle } from './lib/date';
 import { ProfileProvider } from './contexts/ProfileContext';
-import type { Screen } from './types/navigation';
+import type { Screen, PublishedTripSummary } from './types/navigation';
 import type { BookingResult } from './types/api';
 import type { NotificationType } from './types/api';
 
@@ -321,6 +321,8 @@ function App() {
 
   // Текущая бронь (для передачи из booking-profile в booking-confirmed)
   const [currentBooking, setCurrentBooking] = useState<BookingResult | null>(null);
+  // Сводка последней опубликованной поездки — для экрана «Поездка опубликована».
+  const [publishedTrip, setPublishedTrip] = useState<PublishedTripSummary | null>(null);
 
   // Стек просмотренных профилей (для user-profile): [userId0, userId1, ...]
   // Максимальная глубина 2 (корневой + 1 вложенный)
@@ -594,7 +596,10 @@ function App() {
             )}
             {currentScreen === 'driver-publish' && (
               <DriverPublishScreen
-                onPublish={(tripId) => navigate('booking-confirmed', null, 'publish', tripId)}
+                onPublish={(summary) => {
+                  setPublishedTrip(summary);
+                  navigate('booking-confirmed', null, 'publish', summary.tripId);
+                }}
                 onAddCar={() => navigate('add-car')}
               />
             )}
@@ -604,6 +609,7 @@ function App() {
                 trip={selectedTrip}
                 booking={confirmKind === 'booking' ? currentBooking : null}
                 publishedTripId={confirmKind === 'publish' ? publishedTripId ?? undefined : undefined}
+                publishedTrip={confirmKind === 'publish' ? publishedTrip : null}
                 onDone={() => navigate('main')}
                 onViewBookings={() => navigate('driver-bookings')}
                 onStartTrip={() => navigate('in-trip')}
@@ -682,7 +688,10 @@ function App() {
                 routeLabel="Маршрут · обратный, из шаблона"
                 defaultPickup="volkova"
                 reverse={true}
-                onPublish={(tripId) => navigate('booking-confirmed', null, 'publish', tripId)}
+                onPublish={(summary) => {
+                  setPublishedTrip(summary);
+                  navigate('booking-confirmed', null, 'publish', summary.tripId);
+                }}
                 onAddCar={() => navigate('add-car')}
               />
             )}

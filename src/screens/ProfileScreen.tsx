@@ -89,7 +89,7 @@ const MenuRow: React.FC<MenuRowProps> = ({ icon, label, onClick, right, last }) 
 );
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onToggleTheme, theme, onOpenProfile, onLogout }) => {
-  const { profile, loading } = useProfile();
+  const { profile, loading, needsTelegram } = useProfile();
   const [carsCount, setCarsCount] = useState(0);
 
   useEffect(() => {
@@ -164,6 +164,24 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ height: '18px', width: '55%', borderRadius: '8px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite' }} />
             <div style={{ height: '13px', width: '40%', borderRadius: '6px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite', marginTop: '8px' }} />
+          </div>
+        </Card>
+      ) : !profile ? (
+        // Вне Telegram / 401 без засиженного профиля — честная карточка-баннер
+        // вместо выдуманных данных (#244). Меню навигации ниже остаётся видимым.
+        <Card style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '18px' }}>
+          <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--secondary)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <svg viewBox="0 0 24 24" style={{ width: '28px', height: '28px', fill: 'none', stroke: 'var(--muted-foreground)', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
+              <path d="M21 5 2 12l7 2 2 7 3-5 5 4z" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '16px', fontWeight: 700 }}>Откройте в Telegram</div>
+            <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '3px', lineHeight: 1.4 }}>
+              {needsTelegram
+                ? 'Профиль доступен после входа через Telegram. Откройте приложение в боте @Yaride_bot.'
+                : 'Не удалось загрузить профиль. Откройте приложение в боте @Yaride_bot.'}
+            </div>
           </div>
         </Card>
       ) : (

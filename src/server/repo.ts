@@ -451,6 +451,32 @@ async function getInternalUserId(
   return res.rows[0]?.id ?? null;
 }
 
+/**
+ * Пересчитать денормализованные счётчики поездок пользователя из источников.
+ * Recompute-on-write (без дрейфа): trips_driver_count — число неотменённых
+ * поездок, где он водитель; trips_passenger_count — число активных броней.
+ * Вызывается ВНУТРИ транзакции после мутаций (публикация / бронь / отмены).
+ * rating_avg/rating_count поддерживаются отдельно в createRating.
+ */
+async function recomputeUserTripCounters(
+  client: PoolClient,
+  userId: number,
+): Promise<void> {
+  await client.query(
+    `UPDATE users u SET
+       trips_driver_count = (
+         SELECT COUNT(*) FROM trips t
+         WHERE t.driver_id = u.id AND t.status <> 'cancelled'
+       ),
+       trips_passenger_count = (
+         SELECT COUNT(*) FROM bookings b
+         WHERE b.passenger_id = u.id AND b.status = 'active'
+       )
+     WHERE u.id = $1`,
+    [userId],
+  );
+}
+
 export interface EnsureUserParams {
   tgUserId: number;
   name: string;
@@ -693,6 +719,9 @@ export async function createTripFromTemplate(
       ],
     );
 
+    // Денормализованный счётчик водителя — пересчёт из источника.
+    await recomputeUserTripCounters(client, driverId);
+
     return {
       tripId: ins.rows[0].id,
       driverId,
@@ -841,6 +870,9 @@ export async function createBooking(
       );
       bookingId = ins.rows[0].id;
     }
+
+    // Денормализованный счётчик пассажира — пересчёт из источника.
+    await recomputeUserTripCounters(client, passengerId);
 
     const afterRes = await client.query<{ avail: number }>(
       'SELECT seats_total - seats_booked AS avail FROM trips WHERE id = $1',
@@ -1283,6 +1315,9 @@ export async function cancelBookingByDriver(
       [booking.seats, booking.trip_id],
     );
 
+    // Бронь снята — пересчитать счётчик пассажира.
+    await recomputeUserTripCounters(client, booking.passenger_id);
+
     const availRes = await client.query<{ avail: number }>(
       'SELECT seats_total - seats_booked AS avail FROM trips WHERE id = $1',
       [booking.trip_id],
@@ -1373,6 +1408,12 @@ export async function cancelTripByDriver(
        WHERE trip_id = $1 AND status = 'active'`,
       [tripId],
     );
+
+    // Поездка отменена — пересчитать счётчик водителя и всех затронутых пассажиров.
+    await recomputeUserTripCounters(client, driverId);
+    for (const p of passengersRes.rows) {
+      await recomputeUserTripCounters(client, p.passenger_id);
+    }
 
     return {
       tripId,
@@ -1690,6 +1731,56 @@ export async function submitLicenseRequest(
 
     return { requestId, status: 'pending' };
   });
+}
+
+export interface PendingLicenseRequest {
+  requestId: number;
+  driverTgUserId: number;
+  driverName: string;
+  driverUsername: string | null;
+  seriesNumber: string;
+  validUntil: string;
+  createdAt: string;
+}
+
+/**
+ * Список всех заявок на проверку ВУ в статусе pending (для админ-очереди в боте).
+ * Джойнит данные водителя (имя, username, telegram-id). Сортировка — старые сверху,
+ * чтобы админ обрабатывал в порядке поступления. created_at форматируется в SQL,
+ * чтобы не зависеть от таймзоны/локали Node.
+ */
+export async function listPendingLicenseRequests(): Promise<PendingLicenseRequest[]> {
+  await ensureReady();
+  const res = await getPool().query<{
+    request_id: number;
+    tg_user_id: number;
+    name: string;
+    username: string | null;
+    series_number: string;
+    valid_until: string;
+    created_at: string;
+  }>(
+    `SELECT lr.id AS request_id,
+            u.tg_user_id,
+            u.name,
+            u.username,
+            lr.series_number,
+            lr.valid_until,
+            to_char(lr.created_at, 'DD.MM.YYYY HH24:MI') AS created_at
+     FROM license_requests lr
+     JOIN users u ON u.id = lr.driver_id
+     WHERE lr.status = 'pending'
+     ORDER BY lr.created_at ASC`,
+  );
+  return res.rows.map((r) => ({
+    requestId: r.request_id,
+    driverTgUserId: r.tg_user_id,
+    driverName: r.name,
+    driverUsername: r.username,
+    seriesNumber: r.series_number,
+    validUntil: r.valid_until,
+    createdAt: r.created_at,
+  }));
 }
 
 export interface LicenseDecisionResult {

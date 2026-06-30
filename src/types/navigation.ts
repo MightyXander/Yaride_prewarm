@@ -66,6 +66,21 @@ export interface RatingContext {
   raterRole: 'driver' | 'passenger';
 }
 
+/**
+ * Сводка только что опубликованной поездки — для экрана «Поездка опубликована».
+ * Собирается в DriverPublishScreen из ответа publishTrip + выбранных точек маршрута,
+ * чтобы экран подтверждения показывал реальные данные, а не демо-заглушку.
+ */
+export interface PublishedTripSummary {
+  tripId: number;
+  startTitle: string;
+  endTitle: string;
+  tripDate: string;
+  departureTime: string;
+  seatsTotal: number;
+  priceRub: number;
+}
+
 export interface NavigationState {
   currentScreen: Screen;
   selectedTrip: Trip | null;

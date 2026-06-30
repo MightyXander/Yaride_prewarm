@@ -8,22 +8,12 @@ import {
   readTelegramProfile,
 } from '../lib/profileCache';
 
-// Демо-данные для браузера без Telegram (graceful fallback при 401).
-const DEMO_PROFILE: UserProfile = {
-  id: 1,
-  name: 'Никита Р.',
-  age: 28,
-  rating_avg: 4.9,
-  rating_count: 23,
-  trips_driver_count: 12,
-  trips_passenger_count: 11,
-  license_status: 'verified',
-};
-
 interface ProfileContextValue {
   profile: UserProfile | null;
   loading: boolean;
   error: Error | null;
+  /** true, если профиль недоступен из-за отсутствия авторизации Telegram (401). */
+  needsTelegram: boolean;
   refetch: () => Promise<void>;
 }
 
@@ -65,6 +55,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
   // loading=true ТОЛЬКО если начальный профиль отсутствует
   const [loading, setLoading] = useState(initialProfile === null);
   const [error, setError] = useState<Error | null>(null);
+  const [needsTelegram, setNeedsTelegram] = useState(false);
 
   const loadProfile = async () => {
     try {
@@ -75,6 +66,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
         return currentLoading;
       });
       setError(null);
+      setNeedsTelegram(false);
 
       const res = await getMyProfile();
       setProfile(res.profile);
@@ -86,11 +78,12 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setLoading(false);
     } catch (err) {
       if (err instanceof ApiException && err.status === 401) {
-        // Graceful fallback для dev-среды без Telegram
-        setProfile(DEMO_PROFILE);
+        // Вне Telegram (нет авторизации) — НЕ показываем выдуманный профиль.
+        // Честное состояние: «Открой в Telegram». Засиженный реальный профиль
+        // из кэша/initData (если есть) оставляем как есть.
+        setNeedsTelegram(true);
       } else {
-        // Любая другая ошибка — используем демо (если профиль ещё null)
-        setProfile((currentProfile) => currentProfile || DEMO_PROFILE);
+        // Иная ошибка загрузки — отдаём honest error (как другие экраны).
         setError(err instanceof Error ? err : new Error('Unknown error'));
       }
       setLoading(false);
@@ -105,6 +98,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
     profile,
     loading,
     error,
+    needsTelegram,
     refetch: loadProfile,
   };
 

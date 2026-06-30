@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Сводка — Yaride Admin{% endblock %}
+{% block content %}
+<h1>Сводка</h1>
+<div class="cards">
+    <div class="card"><div class="num">{{ stats.users }}</div><div class="lbl">Пользователи</div></div>
+    <div class="card"><div class="num">{{ stats.trips_open }}</div><div class="lbl">Открытые поездки</div></div>
+    <div class="card"><div class="num">{{ stats.trips_total }}</div><div class="lbl">Всего поездок</div></div>
+    <div class="card"><div class="num">{{ stats.bookings }}</div><div class="lbl">Активные брони</div></div>
+    <div class="card{% if stats.pending_drivers %} warn{% endif %}">
+        <div class="num">{{ stats.pending_drivers }}</div>
+        <div class="lbl"><a href="/admin/drivers/pending">Заявки ВУ на модерации</a></div>
+    </div>
+</div>
+{% endblock %}

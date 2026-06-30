@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Пользователи — Yaride Admin{% endblock %}
+{% block content %}
+<h1>Пользователи <small>всего: {{ users|length }}</small></h1>
+<table>
+    <thead>
+        <tr>
+            <th>#</th><th>Имя</th><th>username</th><th>tg_id</th>
+            <th>ВУ</th><th>Рейтинг</th><th>Поездок (вод./пасс.)</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for u in users %}
+        <tr>
+            <td>{{ u.id }}</td>
+            <td>{{ u.name }}</td>
+            <td>{{ u.username or '—' }}</td>
+            <td>{{ u.tg_user_id }}</td>
+            <td>{{ u.license_status }}</td>
+            <td>{% if u.rating_count %}{{ '%.1f'|format(u.rating_avg) }} ({{ u.rating_count }}){% else %}—{% endif %}</td>
+            <td>{{ u.trips_driver_count }} / {{ u.trips_passenger_count }}</td>
+        </tr>
+    {% else %}
+        <tr><td colspan="7" class="empty">Пусто.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

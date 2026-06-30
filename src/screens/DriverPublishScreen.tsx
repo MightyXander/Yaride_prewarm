@@ -15,9 +15,10 @@ import { showToast } from '../lib/toast';
 import { Appear } from '../components/Appear';
 import type { SelectOption } from '../components/ui/Select';
 import type { GetMyTemplateResponse, RoutePoint, Car } from '../types/api';
+import type { PublishedTripSummary } from '../types/navigation';
 
 interface DriverPublishScreenProps {
-  onPublish: (tripId: number) => void;
+  onPublish: (summary: PublishedTripSummary) => void;
   title?: string;
   timeOptions?: string[];
   defaultTime?: string;
@@ -190,7 +191,18 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         reverse: reverseForApi,
         carId: selectedCarId ?? undefined,
       });
-      onPublish(response.trip.tripId);
+      // Названия точек для экрана подтверждения берём из выбранного маршрута.
+      const startTitle = routePoints.find((p) => p.id === Number(fromPointId))?.title ?? '';
+      const endTitle = routePoints.find((p) => p.id === Number(toPointId))?.title ?? '';
+      onPublish({
+        tripId: response.trip.tripId,
+        startTitle,
+        endTitle,
+        tripDate: response.trip.tripDate,
+        departureTime: response.trip.departureTime,
+        seatsTotal: response.trip.seatsTotal,
+        priceRub: response.trip.priceRub,
+      });
     } catch (err) {
       const msg = err instanceof ApiException ? err.message : 'Ошибка публикации поездки';
       showToast(msg);

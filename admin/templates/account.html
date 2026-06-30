@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Аккаунт — Yaride Admin{% endblock %}
+{% block content %}
+<h1>Аккаунт <small>{{ admin }}</small></h1>
+<div class="login-card">
+    <h2>Сменить пароль</h2>
+    <form method="post" action="/admin/account/password">
+        <label>Текущий пароль<input type="password" name="current" required></label>
+        <label>Новый пароль<input type="password" name="new" minlength="8" required></label>
+        <label>Повторите новый<input type="password" name="confirm" minlength="8" required></label>
+        <button type="submit">Сменить пароль</button>
+    </form>
+</div>
+{% endblock %}

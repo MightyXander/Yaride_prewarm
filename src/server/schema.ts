@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -222,7 +222,9 @@ const BOOTSTRAP_SQL = `
  * v4→v5: добавление таблицы notifications (события для лент уведомлений).
  * v5→v6: добавление таблицы cars (машины водителя) + колонки trips.car_model.
  * v6→v7: расширение notifications.type — добавлен тип 'trip_new' (поездка по маршруту пассажира).
- * v7→v8: браузерная авторизация (issue #242) — tg_user_id NULLABLE, поля email/пароль/
+ * v7→v8: бэкафилл денормализованных счётчиков профиля (#243) — пересчёт
+ *        trips_driver_count/trips_passenger_count и rating_avg/rating_count из источников.
+ * v8→v9: браузерная авторизация (issue #242) — tg_user_id NULLABLE, поля email/пароль/
  *        имя/согласия в users, уникальные индексы lower(email)/lower(username),
  *        CHECK «способ входа», таблица sessions. Безопасно для прод-БД (только ADD/ALTER).
  */
@@ -321,6 +323,31 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
     return;
   }
   if (fromV === 7 && toV === 8) {
+    // Бэкафилл денормализованных счётчиков профиля из источников (#243).
+    // Существующие пользователи имели trips_driver_count/trips_passenger_count = 0,
+    // хотя в trips/bookings были реальные поездки/брони. Пересчитываем разом.
+    // rating_avg/rating_count тоже пересчитываем из ratings для консистентности
+    // исторических данных. Идемпотентно (чистый пересчёт из источников).
+    await pool.query(`
+      UPDATE users u SET
+        trips_driver_count = (
+          SELECT COUNT(*) FROM trips t
+          WHERE t.driver_id = u.id AND t.status <> 'cancelled'
+        ),
+        trips_passenger_count = (
+          SELECT COUNT(*) FROM bookings b
+          WHERE b.passenger_id = u.id AND b.status = 'active'
+        ),
+        rating_avg = (
+          SELECT COALESCE(AVG(r.stars), 0.0) FROM ratings r WHERE r.ratee_id = u.id
+        ),
+        rating_count = (
+          SELECT COUNT(*) FROM ratings r WHERE r.ratee_id = u.id
+        );
+    `);
+    return;
+  }
+  if (fromV === 8 && toV === 9) {
     // Браузерная авторизация (issue #242). Все шаги идемпотентны и аддитивны,
     // поэтому безопасно применяются на проде при старте.
     //

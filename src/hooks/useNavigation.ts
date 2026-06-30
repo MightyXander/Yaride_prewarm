@@ -17,7 +17,9 @@ const PARENT_SCREEN: Record<Screen, Screen> = {
   profile: 'main',
   'driver-bookings': 'booking-confirmed',
   'become-driver': 'profile',
-  'license-review': 'become-driver',
+  // «Назад» со статусного экрана ВУ ведёт в профиль (а не в форму ввода ВУ).
+  // Повторная подача заявки — через явную кнопку «Отправить заново» (onRetry).
+  'license-review': 'profile',
   'in-trip': 'booking-confirmed',
   safety: 'profile',
   'passenger-request': 'empty-state',
