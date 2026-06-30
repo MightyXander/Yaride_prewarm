@@ -3,6 +3,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { useProfile } from '../contexts/ProfileContext';
+import { EmptyState } from '../components/ui/StateView';
 import { getMyCars } from '../lib/api';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 
@@ -87,7 +88,7 @@ const MenuRow: React.FC<MenuRowProps> = ({ icon, label, onClick, right, last }) 
 );
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onToggleTheme, theme, onOpenProfile }) => {
-  const { profile, loading } = useProfile();
+  const { profile, loading, needsTelegram } = useProfile();
   const [carsCount, setCarsCount] = useState(0);
 
   useEffect(() => {
@@ -140,6 +141,37 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
       <span style={{ position: 'absolute', top: '3px', left: '3px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)', transform: theme === 'dark' ? 'translateX(18px)' : 'translateX(0)', transition: 'transform .2s cubic-bezier(.22,1,.36,1)' }} />
     </span>
   );
+
+  // Вне Telegram / без авторизации (401) и без засиженного профиля — честное
+  // состояние «Откройте в Telegram», а не выдуманные данные (#244).
+  if (!loading && !profile) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '6px 16px',
+          paddingBottom: FLOATING_NAV_SCROLL_CLEARANCE,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+        }}
+      >
+        <Header title="Профиль" />
+        <EmptyState
+          icon={
+            <svg viewBox="0 0 24 24" style={{ width: '32px', height: '32px', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
+              <path d="M21 5 2 12l7 2 2 7 3-5 5 4z" />
+            </svg>
+          }
+          title="Откройте в Telegram"
+          subtitle={needsTelegram
+            ? 'Профиль доступен после входа через Telegram. Откройте приложение в боте @Yaride_bot.'
+            : 'Не удалось загрузить профиль. Откройте приложение в боте @Yaride_bot.'}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
