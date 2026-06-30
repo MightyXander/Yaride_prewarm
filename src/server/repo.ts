@@ -475,10 +475,16 @@ export async function findOpenTrips(
   const limit = params.limit ?? 25;
 
   const selectPart = buildTripListSelect(params.currentUserId);
+  // Не показываем в коридоре поездки, чьё время выезда уже прошло: для поездок
+  // сегодняшней даты требуем departure_time >= текущего времени. departure_time —
+  // TEXT 'HH:MM' с ведущими нулями, поэтому лексикографическое сравнение совпадает
+  // с хронологическим. Часы берём из серверного now()/CURRENT_DATE — той же базы,
+  // что и todayISO() для $1 (если сервер не в локальной TZ, сдвигать нужно их вместе).
   let query = `${selectPart}
     WHERE t.status = 'open'
       AND t.trip_date = $1
-      AND (t.seats_total - t.seats_booked) > 0`;
+      AND (t.seats_total - t.seats_booked) > 0
+      AND (t.trip_date <> CURRENT_DATE OR t.departure_time >= to_char(now(), 'HH24:MI'))`;
   const args: (string | number)[] = [tripDate];
 
   if (params.startPointId !== undefined) {
