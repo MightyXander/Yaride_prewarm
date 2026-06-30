@@ -2305,3 +2305,53 @@ export async function ensureRateReminders(tgUserId: number, today: string): Prom
     [tgUserId, today],
   );
 }
+
+// --- internal-id варианты уведомлений (мост сессии, issue #258) ---
+
+export async function listNotificationsById(userId: number, limit = 50): Promise<NotificationItem[]> {
+  await ensureReady();
+  const res = await getPool().query<NotificationItem>(
+    `SELECT n.id, n.type, n.title, n.body, n.read, n.ref_trip_id, n.ref_user_id, n.created_at
+     FROM notifications n
+     WHERE n.user_id = $1
+     ORDER BY n.created_at DESC
+     LIMIT $2`,
+    [userId, limit],
+  );
+  return res.rows;
+}
+
+export async function markNotificationReadById(notificationId: number, userId: number): Promise<boolean> {
+  await ensureReady();
+  const res = await getPool().query(
+    'UPDATE notifications SET read = TRUE WHERE id = $1 AND user_id = $2',
+    [notificationId, userId],
+  );
+  return res.rowCount !== null && res.rowCount > 0;
+}
+
+export async function ensureRateRemindersById(userId: number, today: string): Promise<void> {
+  await ensureReady();
+  await getPool().query(
+    `INSERT INTO notifications (user_id, type, title, body, ref_trip_id, ref_user_id)
+     SELECT b.passenger_id, 'rate_reminder', 'Оцените поездку',
+            'Как прошла поездка ' || sp.title || ' → ' || ep.title || '? Оставьте оценку.',
+            t.id, t.driver_id
+     FROM bookings b
+     JOIN trips t ON t.id = b.trip_id
+     JOIN route_points sp ON sp.id = t.start_point_id
+     JOIN route_points ep ON ep.id = t.end_point_id
+     WHERE b.passenger_id = $1
+       AND b.status = 'active'
+       AND t.status <> 'cancelled'
+       AND t.trip_date < $2
+       AND NOT EXISTS (
+         SELECT 1 FROM ratings r WHERE r.trip_id = t.id AND r.rater_id = b.passenger_id
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM notifications n
+         WHERE n.user_id = b.passenger_id AND n.type = 'rate_reminder' AND n.ref_trip_id = t.id
+       )`,
+    [userId, today],
+  );
+}
