@@ -269,6 +269,14 @@ app.post('/webhook/telegram', async (req, res) => {
   }
 });
 
+// Публичная страница «Политика обработки персональных данных» (152-ФЗ).
+// Это ОТДЕЛЬНАЯ HTML-страница (не экран SPA): vite кладёт public/privacy.html в
+// dist/privacy.html при сборке. express.static отдал бы её только по /privacy.html,
+// поэтому добавляем явный «красивый» URL /privacy (на него ссылается чекбокс согласия).
+app.get('/privacy', (req, res) => {
+  res.sendFile('privacy.html', { root: path.join(__dirname, 'dist') });
+});
+
 app.use(express.static(path.join(__dirname, 'dist')));
 
 app.listen(PORT, () => {
