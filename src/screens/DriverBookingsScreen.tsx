@@ -4,6 +4,7 @@ import Button from '../components/ui/Button';
 import Avatar from '../components/ui/Avatar';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import PhoneLink from '../components/PhoneLink';
 import { showToast } from '../lib/toast';
 import { getTripBookings, cancelBookingByDriver, ApiException } from '../lib/api';
 import type { BookingDetail } from '../types/api';
@@ -239,6 +240,12 @@ const DriverBookingsScreen: React.FC<DriverBookingsScreenProps> = ({ tripId, onD
             <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '2px' }}>
               {b.seats} {b.seats === 1 ? 'место' : b.seats < 5 ? 'места' : 'мест'}
             </div>
+
+            {b.status === 'active' && b.passenger_phone && (
+              <div style={{ marginTop: '8px' }}>
+                <PhoneLink phone={b.passenger_phone} name={b.passenger_name} />
+              </div>
+            )}
 
             <div
               style={{

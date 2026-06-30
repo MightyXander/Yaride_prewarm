@@ -179,6 +179,10 @@ function mockApiPlugin() {
               end_lng: 39.8845,
               driver_username: 'andrey_k',
               driver_created_at: '2024-05-10T10:00:00Z',
+              // Контакт водителя (issue #267): в dev отдаём раскрытым, чтобы был виден
+              // tel-чип. На бэке раскрывается только пассажиру с активной бронью.
+              driver_phone: '+79991234567',
+              driver_phone_locked: false,
             };
             sendJson({ trip: tripCard });
             return;
@@ -654,6 +658,9 @@ function mockApiPlugin() {
               seats: 1,
               status: 'active',
               created_at: '2026-06-26T06:00:00Z',
+              // Телефон пассажира (issue #267): на бэке отдаётся водителю только
+              // для активной брони. В dev — показываем tel-чип в карточке брони.
+              passenger_phone: '+79995554433',
             },
           ];
           sendJson({ bookings });
