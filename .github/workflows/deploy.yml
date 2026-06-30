@@ -1,0 +1,34 @@
+name: Deploy to VPS
+
+# Автодеплой prewarm на VPS (188.227.32.99) — «как Railway».
+# Push в main → SSH на сервер, где forced-command в authorized_keys
+# запускает /opt/yaride/deploy.sh (git pull + docker compose up --build).
+# Сама команда, переданная по SSH, игнорируется forced-command'ом.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=20 \
+            "${VPS_USER}@${VPS_HOST}" deploy
