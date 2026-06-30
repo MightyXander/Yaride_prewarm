@@ -1,6 +1,34 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import type { ViteDevServer } from 'vite'
+
+// Публичная страница «Политика обработки персональных данных» по «красивому» URL /privacy.
+// В проде её отдаёт Express (route /privacy → dist/privacy.html). В dev Vite по умолчанию
+// отдаёт public/privacy.html только по /privacy.html, поэтому здесь маппим /privacy на файл
+// напрямую (без зависимости от порядка внутренних middleware Vite).
+function privacyPagePlugin() {
+  const file = fileURLToPath(new URL('./public/privacy.html', import.meta.url));
+  return {
+    name: 'privacy-page',
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use((req, res, next) => {
+        const pathname = (req.url || '').split('?')[0];
+        if (pathname === '/privacy' || pathname === '/privacy/') {
+          try {
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.end(readFileSync(file, 'utf-8'));
+            return;
+          } catch {
+            // если файл не найден — отдать обычный поток обработки (404 Vite)
+          }
+        }
+        next();
+      });
+    },
+  };
+}
 
 // Mock API middleware для QA (когда backend недоступен)
 function mockApiPlugin() {
@@ -517,5 +545,5 @@ function mockApiPlugin() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), mockApiPlugin()],
+  plugins: [react(), mockApiPlugin(), privacyPagePlugin()],
 })
