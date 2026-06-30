@@ -20,6 +20,9 @@ const ITEMS: NavItem[] = [
 
 // Экраны, на которых nav скрыт (flow-экраны, где pill мешает).
 const HIDDEN_ON: Screen[] = [
+  'auth-gate',
+  'login',
+  'register',
   'intro',
   'booking-profile',
   'driver-publish',
@@ -41,6 +44,9 @@ const HIDDEN_ON: Screen[] = [
 // Маппинг экрана → корневой таб. Поток поездок → Поездки; профиль → Профиль.
 // 'notifications' — особый «таб»: навбар виден, активна подсветка колокола (не Поездки/Профиль).
 const SCREEN_TO_TAB: Record<Screen, NavTabRoot | 'notifications' | null> = {
+  'auth-gate': null,
+  login: null,
+  register: null,
   intro: null,
   main: 'main',
   'main-more': 'main',

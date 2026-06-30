@@ -266,6 +266,11 @@ html {
   50% { opacity: 0.5; }
 }
 
+/* Спиннер кнопок авторизации (состояние «Входим…»). */
+@keyframes ya-auth-spin {
+  to { transform: rotate(360deg); }
+}
+
 @keyframes selectDropdownFadeSlide {
   to {
     opacity: 1;
