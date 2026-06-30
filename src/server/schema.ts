@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -68,6 +68,18 @@ const BOOTSTRAP_SQL = `
 
   CREATE UNIQUE INDEX IF NOT EXISTS uq_sessions_token_hash ON sessions(token_hash);
   CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
+  -- FCM push-токены устройств пользователя (issue #265). token уникален; при
+  -- повторной регистрации/смене аккаунта строка переезжает (upsert по token).
+  CREATE TABLE IF NOT EXISTS push_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    token TEXT NOT NULL,
+    platform TEXT NOT NULL DEFAULT 'android',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS uq_push_tokens_token ON push_tokens(token);
+  CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id);
 
   CREATE TABLE IF NOT EXISTS route_points (
     id SERIAL PRIMARY KEY,
@@ -393,6 +405,21 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
 
       CREATE UNIQUE INDEX IF NOT EXISTS uq_sessions_token_hash ON sessions(token_hash);
       CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+    `);
+    return;
+  }
+  if (fromV === 9 && toV === 10) {
+    // FCM push-токены (issue #265). Аддитивно/идемпотентно.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS push_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        token TEXT NOT NULL,
+        platform TEXT NOT NULL DEFAULT 'android',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_push_tokens_token ON push_tokens(token);
+      CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id);
     `);
     return;
   }
