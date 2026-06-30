@@ -63,6 +63,8 @@ export interface Trip {
   isOwn: boolean;
   carColor: string | null;
   plate: string | null;
+  /** true — номер есть, но скрыт до брони (UI показывает цензуру вместо номера). */
+  plateLocked?: boolean;
 }
 
 export interface RatingContext {

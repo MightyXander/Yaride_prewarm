@@ -64,8 +64,10 @@ export function mapTripListItemToTrip(item: TripListItem): Trip {
 export function mapTripCardToTrip(card: TripCard): Trip {
   const base = mapTripListItemToTrip(card);
 
-  // При наличии дополнительных полей в TripCard — можно добавить их в Trip
-  // Например, комментарий водителя, координаты точек и т.д.
-
-  return base;
+  // plate (детальная карточка) уже замаскирован на бэке: реальный номер приходит
+  // только водителю/забронировавшему, иначе null + plate_locked=true → цензура в UI.
+  return {
+    ...base,
+    plateLocked: card.plate_locked ?? false,
+  };
 }

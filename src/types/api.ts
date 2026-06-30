@@ -55,6 +55,8 @@ export interface TripCard extends TripListItem {
   end_lng: number | null;
   driver_username: string | null;
   driver_created_at: string;
+  /** true — у поездки есть госномер, но он скрыт (нет брони). UI показывает цензуру. */
+  plate_locked?: boolean;
 }
 
 export interface GetTripResponse {

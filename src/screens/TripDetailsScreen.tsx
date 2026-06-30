@@ -17,6 +17,46 @@ interface TripDetailsScreenProps {
   onCancelTrip?: () => void;
 }
 
+// Бэйдж госномера — общий контейнер для реального номера и цензуры.
+const plateBadgeStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  height: '19px',
+  padding: '0 7px',
+  gap: '3px',
+  border: '1px solid var(--border)',
+  borderRadius: '4px',
+  background: 'color-mix(in srgb, var(--foreground) 6%, var(--card))',
+  fontWeight: 800,
+  fontSize: '11px',
+  letterSpacing: '0.03em',
+  color: 'var(--foreground)',
+  fontVariantNumeric: 'tabular-nums',
+  verticalAlign: 'middle',
+};
+
+/** Замазанный номер: бэйдж с «шумной» серой цензурой (квадраты разной плотности). */
+const CensoredPlate: React.FC = () => {
+  // Разная прозрачность создаёт эффект шума, как у зацензуренного текста.
+  const blocks = [0.55, 0.32, 0.5, 0.6, 0.38, 0.52];
+  return (
+    <span style={plateBadgeStyle} aria-label="Номер скрыт до бронирования" role="img">
+      {blocks.map((o, i) => (
+        <span
+          key={i}
+          aria-hidden
+          style={{
+            width: '6px',
+            height: '11px',
+            borderRadius: '1.5px',
+            background: `color-mix(in srgb, var(--muted-foreground) ${Math.round(o * 100)}%, transparent)`,
+          }}
+        />
+      ))}
+    </span>
+  );
+};
+
 const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onOpenProfile, onCancelTrip }) => {
   const age = trip.driver.age || 34;
   const verified = trip.driver.verified !== false;
@@ -182,6 +222,22 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
           {trip.car && (
             <>
               Машина&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>{trip.car}{trip.carColor ? `, ${trip.carColor}` : ''}</b>
+              <br />
+            </>
+          )}
+          {(trip.plate || trip.plateLocked) && (
+            <>
+              Номер&nbsp;&nbsp;
+              {trip.plate ? (
+                <span style={plateBadgeStyle}>{trip.plate}</span>
+              ) : (
+                <>
+                  <CensoredPlate />
+                  <span style={{ color: 'var(--muted-foreground)', fontSize: '11px' }}>
+                    &nbsp;&nbsp;откроется после бронирования
+                  </span>
+                </>
+              )}
               <br />
             </>
           )}

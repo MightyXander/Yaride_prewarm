@@ -312,7 +312,9 @@ function buildTripListSelect(currentUserId?: number): string {
     u.license_status AS driver_license_status,
     t.car_model,
     t.car_color,
-    t.plate,
+    -- Госномер в фиде НЕ раскрываем: «доверенный контур» — номер виден только
+    -- после подтверждения брони (в деталях поездки). Здесь всегда NULL.
+    NULL AS plate,
     ${isOwnExpr}
   FROM trips t
   JOIN route_points sp ON sp.id = t.start_point_id
@@ -366,6 +368,16 @@ export async function getTripCard(tripId: number, currentUserId?: number): Promi
     ? `(t.driver_id = ${currentUserId}) AS is_own`
     : `false AS is_own`;
 
+  // «Доверенный контур»: реальный госномер виден только водителю поездки ИЛИ
+  // пассажиру с активной бронью. Остальным — NULL + флаг plate_locked, чтобы UI
+  // показал бэйдж с серой цензурой («откроется после бронирования»), а не пустоту.
+  const accessCond = currentUserId !== undefined
+    ? `(t.driver_id = ${currentUserId} OR EXISTS (
+         SELECT 1 FROM bookings b
+         WHERE b.trip_id = t.id AND b.passenger_id = ${currentUserId} AND b.status = 'active'
+       ))`
+    : `false`;
+
   const query = `
     SELECT
       t.id,
@@ -381,7 +393,8 @@ export async function getTripCard(tripId: number, currentUserId?: number): Promi
       t.comment,
       t.car_model,
       t.car_color,
-      t.plate,
+      CASE WHEN ${accessCond} THEN t.plate ELSE NULL END AS plate,
+      (t.plate IS NOT NULL AND NOT ${accessCond}) AS plate_locked,
       t.start_point_id,
       t.end_point_id,
       sp.title AS start_title,
