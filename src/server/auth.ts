@@ -308,8 +308,14 @@ throttleSweeper.unref();
 // Валидация
 // ----------------------------------------------------------------------------
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const USERNAME_RE = /^[a-zA-Z0-9_]+$/;
+/**
+ * Правила валидации регистрации — экспортируются для переиспользования
+ * (issue #273: добавление email/пароля к TG-аккаунту в api.ts, без дублей).
+ */
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const USERNAME_RE = /^[a-zA-Z0-9_]+$/;
+/** Минимальная длина пароля (та же, что при регистрации). */
+export const MIN_PASSWORD_LENGTH = 8;
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (typeof value === 'object' && value !== null && !Array.isArray(value)) {

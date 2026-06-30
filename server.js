@@ -30,6 +30,8 @@ try {
     getMyProfile: mod.handleGetMyProfile,
     getMyPhone: mod.handleGetMyPhone,
     saveMyPhone: mod.handleSaveMyPhone,
+    getMyCredentials: mod.handleGetMyCredentials,
+    addMyCredentials: mod.handleAddMyCredentials,
     getMyTrips: mod.handleGetMyTrips,
     getMyTemplate: mod.handleGetMyTemplate,
     createRating: mod.handleCreateRating,
@@ -243,6 +245,8 @@ app.get('/api/me/profile', wrap(api?.getMyProfile));
 // Issue #267: сбор телефона «по требованию» (чтение для префилла + сохранение).
 app.get('/api/me/phone', wrap(api?.getMyPhone));
 app.put('/api/me/phone', wrap(api?.saveMyPhone));
+app.get('/api/me/credentials', wrap(api?.getMyCredentials));
+app.post('/api/me/credentials', wrap(api?.addMyCredentials));
 app.get('/api/me/trips', wrap(api?.getMyTrips));
 app.get('/api/me/template', wrap(api?.getMyTemplate));
 app.get('/api/me/cars', wrap(api?.listMyCars));
