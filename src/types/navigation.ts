@@ -61,6 +61,7 @@ export interface Trip {
     duration?: string;
   };
   isOwn: boolean;
+  booked: boolean;
   carColor: string | null;
   plate: string | null;
   /** true — номер есть, но скрыт до брони (UI показывает цензуру вместо номера). */

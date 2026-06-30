@@ -31,6 +31,7 @@ export interface TripListItem {
   driver_trips_count: number;
   driver_license_status: string;
   is_own: boolean;
+  already_booked: boolean;
   car_model: string | null;
   car_color: string | null;
   plate: string | null;
