@@ -46,6 +46,11 @@ export interface CreateWebUserParams {
   pdnConsentVersion: string;
   marketingConsent: boolean;
   marketingConsentVersion?: string | null;
+  /**
+   * Если задано — сессия создаётся в ТОЙ ЖЕ транзакции, что и пользователь
+   * (атомарность: при откате не остаётся «орфан»-аккаунт без сессии).
+   */
+  session?: { tokenHash: string; expiresAt: Date };
 }
 
 /** Занят ли email (регистронезависимо). */
@@ -58,11 +63,18 @@ export async function isEmailTaken(email: string): Promise<boolean> {
   return (res.rowCount ?? 0) > 0;
 }
 
-/** Занят ли username (регистронезависимо). */
+/**
+ * Занят ли username среди ВЕБ-аккаунтов (регистронезависимо).
+ *
+ * Ограничение `password_hash IS NOT NULL` совпадает с уникальным индексом
+ * uq_users_username_lower: users.username хранит снимки Telegram-ников, и веб-юзеру
+ * разрешено взять ник, совпадающий с историческим TG-снимком; конфликт считаем
+ * только между двумя веб-аккаунтами.
+ */
 export async function isUsernameTaken(username: string): Promise<boolean> {
   await ensureReady();
   const res = await getPool().query(
-    'SELECT 1 FROM users WHERE lower(username) = lower($1) LIMIT 1',
+    'SELECT 1 FROM users WHERE lower(username) = lower($1) AND password_hash IS NOT NULL LIMIT 1',
     [username],
   );
   return (res.rowCount ?? 0) > 0;
@@ -98,8 +110,10 @@ export async function createWebUser(params: CreateWebUserParams): Promise<WebUse
     if ((emailRes.rowCount ?? 0) > 0) {
       throw new UserConflictError('email_taken');
     }
+    // Конфликт ника считаем только среди веб-аккаунтов (совпадает с uq_users_username_lower
+    // и isUsernameTaken): веб-юзер вправе занять ник, совпадающий с TG-снимком.
     const unameRes = await client.query(
-      'SELECT 1 FROM users WHERE lower(username) = lower($1) LIMIT 1',
+      'SELECT 1 FROM users WHERE lower(username) = lower($1) AND password_hash IS NOT NULL LIMIT 1',
       [username],
     );
     if ((unameRes.rowCount ?? 0) > 0) {
@@ -125,7 +139,17 @@ export async function createWebUser(params: CreateWebUserParams): Promise<WebUse
           marketingVer,
         ],
       );
-      return ins.rows[0];
+      const user = ins.rows[0];
+
+      // Атомарно создаём сессию в той же транзакции (нет «орфан»-аккаунта при откате).
+      if (params.session) {
+        await client.query(
+          'INSERT INTO sessions(token_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+          [params.session.tokenHash, user.id, params.session.expiresAt],
+        );
+      }
+
+      return user;
     } catch (e) {
       // Гонка: уникальный индекс сработал между проверкой и вставкой.
       const constraint = (e as { code?: string; constraint?: string });
@@ -190,6 +214,16 @@ export async function getSessionUser(tokenHash: string): Promise<WebUserRecord |
 export async function deleteSession(tokenHash: string): Promise<void> {
   await ensureReady();
   await getPool().query('DELETE FROM sessions WHERE token_hash = $1', [tokenHash]);
+}
+
+/**
+ * Удалить просроченные сессии (крона нет — чистим лениво при логине и из sweeper'а).
+ * Возвращает число удалённых строк. Идемпотентно.
+ */
+export async function deleteExpiredSessions(): Promise<number> {
+  await ensureReady();
+  const res = await getPool().query('DELETE FROM sessions WHERE expires_at < now()');
+  return res.rowCount ?? 0;
 }
 
 export type TimeSlot = 'morning' | 'evening';

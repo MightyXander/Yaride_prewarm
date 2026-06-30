@@ -46,11 +46,16 @@ const BOOTSTRAP_SQL = `
       CHECK (tg_user_id IS NOT NULL OR (email IS NOT NULL AND password_hash IS NOT NULL))
   );
 
-  -- Регистронезависимая уникальность email/username (partial — NULL допускают дубли).
+  -- Регистронезависимая уникальность email среди ВЕБ-аккаунтов (partial — NULL не конфликтуют).
   CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower
     ON users (lower(email)) WHERE email IS NOT NULL;
+  -- ВАЖНО: уникальность username ТОЛЬКО среди веб-аккаунтов (password_hash IS NOT NULL).
+  -- users.username хранит СНИМКИ Telegram-ников, среди которых исторически возможны
+  -- регистровые дубли ('John' и 'john'); индекс на всех строках упал бы 23505 при
+  -- создании и зациклил старт. Веб-юзер может взять ник, совпадающий с TG-снимком,
+  -- но два веб-юзера один ник — нет. Условие должно совпадать с миграцией v7→v8.
   CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower
-    ON users (lower(username)) WHERE username IS NOT NULL;
+    ON users (lower(username)) WHERE password_hash IS NOT NULL;
 
   -- Сессии браузерной авторизации (opaque-токен хранится только как sha256-хеш).
   CREATE TABLE IF NOT EXISTS sessions (
@@ -334,13 +339,16 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
       ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_consent_at TIMESTAMPTZ;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_consent_version TEXT;
 
-      -- Регистронезависимая уникальность; partial WHERE NOT NULL — NULL не конфликтуют.
-      -- Telegram-usernames глобально уникальны в TG, поэтому коллизий при создании
-      -- индекса на проде не ожидается (NULL у TG-юзеров без ника индекс игнорирует).
+      -- email: регистронезависимая уникальность (partial WHERE NOT NULL — NULL не конфликтуют).
       CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower
         ON users (lower(email)) WHERE email IS NOT NULL;
+      -- username: уникальность ТОЛЬКО среди ВЕБ-аккаунтов (password_hash IS NOT NULL).
+      -- users.username — это снимки Telegram-ников, среди которых исторически возможны
+      -- регистровые дубли ('John'/'john'); индекс на лету по всем строкам упал бы 23505
+      -- и зациклил старт прода. На текущем проде password_hash везде NULL → индекс пуст →
+      -- создаётся гарантированно. Условие совпадает с bootstrap-схемой и проверкой в repo.ts.
       CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower
-        ON users (lower(username)) WHERE username IS NOT NULL;
+        ON users (lower(username)) WHERE password_hash IS NOT NULL;
 
       -- CHECK навешиваем идемпотентно (DROP IF EXISTS + ADD), как в миграции v6→v7.
       -- Существующие Telegram-строки удовлетворяют (tg_user_id IS NOT NULL).

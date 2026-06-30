@@ -22,9 +22,12 @@ import {
 import {
   createSession,
   createWebUser,
+  deleteExpiredSessions,
   deleteSession,
   findUserByEmail,
   getSessionUser,
+  isEmailTaken,
+  isUsernameTaken,
   UserConflictError,
   type WebUserRecord,
 } from './repo.ts';
@@ -88,6 +91,19 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return derived.length === expected.length && timingSafeEqual(derived, expected);
 }
 
+/**
+ * Постоянный dummy-хеш для login по несуществующему email: verifyPassword против
+ * него выполняет тот же scrypt, что и реальная проверка, выравнивая время ответа
+ * (защита от тайминговой user-enumeration). Считается один раз лениво.
+ */
+let dummyHashPromise: Promise<string> | null = null;
+function getDummyHash(): Promise<string> {
+  if (dummyHashPromise === null) {
+    dummyHashPromise = hashPassword(randomBytes(16).toString('hex'));
+  }
+  return dummyHashPromise;
+}
+
 // ----------------------------------------------------------------------------
 // Сессии и cookie
 // ----------------------------------------------------------------------------
@@ -111,14 +127,25 @@ function isProd(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
-function sessionSetCookie(token: string): SetCookieInstruction {
+/**
+ * Нужен ли флаг Secure у cookie. true если запрос пришёл по https
+ * (X-Forwarded-Proto=https за Caddy) ИЛИ это прод. За Caddy внешний коннект
+ * всегда TLS, поэтому cookie получает Secure; локальный dev по http — нет.
+ */
+function cookieSecure(req: ApiRequest): boolean {
+  const xfp = req.headers['x-forwarded-proto'] ?? req.headers['X-Forwarded-Proto'];
+  const proto = typeof xfp === 'string' ? xfp.split(',')[0].trim().toLowerCase() : '';
+  return proto === 'https' || isProd();
+}
+
+function sessionSetCookie(token: string, secure: boolean): SetCookieInstruction {
   return {
     name: SESSION_COOKIE,
     value: token,
     options: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: isProd(),
+      secure,
       path: '/',
       maxAge: SESSION_TTL_MS,
     },
@@ -142,8 +169,16 @@ function parseCookies(header: string | undefined): Record<string, string> {
     }
     const key = part.slice(0, idx).trim();
     const val = part.slice(idx + 1).trim();
-    if (key !== '') {
+    if (key === '') {
+      continue;
+    }
+    // Битый percent-encoding (например "%E0%A4%A") бросает URIError в
+    // decodeURIComponent. Не валим запрос 500 — просто пропускаем этот cookie
+    // (для сессии это эквивалентно её отсутствию → 401 на /me, идемпотентный logout).
+    try {
       out[key] = decodeURIComponent(val);
+    } catch {
+      // пропускаем некорректно закодированный cookie
     }
   }
   return out;
@@ -158,55 +193,116 @@ function readSessionToken(req: ApiRequest): string | null {
 }
 
 // ----------------------------------------------------------------------------
-// Анти-брутфорс троттлинг (in-memory по ключу email+IP)
+// Анти-брутфорс троттлинг (in-memory)
+//
+// Ключи зависят от req.ip. За Caddy Express должен доверять одному прокси-хопу
+// (app.set('trust proxy', 1) в server.js), иначе req.ip = адрес Caddy и троттлинг
+// на login по ключу email|ip залочил бы всех пользователей глобально (account-lockout
+// DoS). С trust proxy=1 req.ip берётся из последнего значения X-Forwarded-For,
+// проставляемого Caddy → ключ привязан к реальному клиенту.
 // ----------------------------------------------------------------------------
 
-const MAX_FAILS = 5;
-const BLOCK_MS = 15 * 60 * 1000;
-/** Окно подсчёта неудач — сбрасывается при успехе/истечении блокировки. */
-const FAIL_WINDOW_MS = 15 * 60 * 1000;
+interface ThrottlePolicy {
+  /** Сколько событий в окне до блокировки. */
+  maxFails: number;
+  /** Длительность блокировки после превышения. */
+  blockMs: number;
+  /** Окно подсчёта событий. */
+  windowMs: number;
+}
+
+/** Login: 5 неудачных входов за 15 мин → блок на 15 мин. */
+const LOGIN_POLICY: ThrottlePolicy = {
+  maxFails: 5,
+  blockMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000,
+};
+
+/** Register: 10 попыток с одного IP за 15 мин → блок на 15 мин (анти-DoS на scrypt). */
+const REGISTER_POLICY: ThrottlePolicy = {
+  maxFails: 10,
+  blockMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000,
+};
 
 interface ThrottleEntry {
   fails: number;
   firstFailAt: number;
   blockedUntil: number;
+  /** Момент, после которого запись бесполезна и удаляется (lazy + sweeper). */
+  expiresAt: number;
 }
 
 const throttleMap = new Map<string, ThrottleEntry>();
 
-function throttleKey(email: string, ip: string): string {
-  return `${email.toLowerCase()}|${ip}`;
+function loginKey(email: string, ip: string): string {
+  return `login|${email.toLowerCase()}|${ip}`;
 }
 
-/** Проверить блокировку. Возвращает оставшиеся секунды блокировки или 0. */
+function registerKey(ip: string): string {
+  return `register|${ip}`;
+}
+
+/**
+ * Оставшиеся секунды блокировки по ключу, либо 0.
+ * Лениво удаляет полностью просроченную запись (защита от роста Map).
+ */
 function throttleRetryAfter(key: string): number {
   const e = throttleMap.get(key);
   if (!e) {
     return 0;
   }
   const now = Date.now();
+  if (now >= e.expiresAt) {
+    throttleMap.delete(key);
+    return 0;
+  }
   if (e.blockedUntil > now) {
     return Math.ceil((e.blockedUntil - now) / 1000);
   }
   return 0;
 }
 
-function recordFailure(key: string): void {
+function recordFailure(key: string, policy: ThrottlePolicy): void {
   const now = Date.now();
   const e = throttleMap.get(key);
-  if (!e || now - e.firstFailAt > FAIL_WINDOW_MS) {
-    throttleMap.set(key, { fails: 1, firstFailAt: now, blockedUntil: 0 });
+  if (!e || now - e.firstFailAt > policy.windowMs) {
+    throttleMap.set(key, {
+      fails: 1,
+      firstFailAt: now,
+      blockedUntil: 0,
+      expiresAt: now + policy.windowMs,
+    });
     return;
   }
   e.fails += 1;
-  if (e.fails >= MAX_FAILS) {
-    e.blockedUntil = now + BLOCK_MS;
+  e.expiresAt = Math.max(e.expiresAt, now + policy.windowMs);
+  if (e.fails >= policy.maxFails) {
+    e.blockedUntil = now + policy.blockMs;
+    e.expiresAt = Math.max(e.expiresAt, e.blockedUntil);
   }
 }
 
 function resetThrottle(key: string): void {
   throttleMap.delete(key);
 }
+
+// Периодический sweeper: подчищает просроченные записи троттлинга и сессии в БД.
+// unref() — таймер не держит процесс от штатного завершения (важно для тестов/CLI).
+const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+const throttleSweeper = setInterval(() => {
+  const now = Date.now();
+  for (const [key, e] of throttleMap) {
+    if (now >= e.expiresAt) {
+      throttleMap.delete(key);
+    }
+  }
+  // Просроченные сессии (крона нет) — best-effort, ошибки не критичны.
+  void deleteExpiredSessions().catch((err) => {
+    console.error('[auth sweeper] deleteExpiredSessions:', err?.message ?? err);
+  });
+}, SWEEP_INTERVAL_MS);
+throttleSweeper.unref();
 
 // ----------------------------------------------------------------------------
 // Валидация
@@ -253,6 +349,18 @@ function publicUser(u: WebUserRecord): Record<string, unknown> {
  */
 export async function handleRegister(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
+  const ip = req.ip ?? 'unknown';
+
+  // Анти-DoS: rate-limit по IP ДО любой тяжёлой работы (scrypt).
+  const rlKey = registerKey(ip);
+  const rlRetry = throttleRetryAfter(rlKey);
+  if (rlRetry > 0) {
+    return err(429, 'Слишком много попыток регистрации. Попробуйте позже.', {
+      code: 'too_many_attempts',
+      retryAfter: rlRetry,
+    });
+  }
+  recordFailure(rlKey, REGISTER_POLICY);
 
   const email = asString(body.email).trim();
   const password = asString(body.password);
@@ -286,9 +394,21 @@ export async function handleRegister(req: ApiRequest): Promise<ApiResponse> {
     return err(400, 'Не указана версия политики обработки ПДн', { field: 'pdnConsentVersion' });
   }
 
+  // Cheap-win: проверяем занятость email/username ДО scrypt — не жжём CPU/RAM на
+  // заведомо конфликтных регистрациях. Гонку добивает уникальный индекс + catch 23505
+  // в createWebUser (ниже).
+  if (await isEmailTaken(email)) {
+    return err(409, 'Такой email уже зарегистрирован', { code: 'email_taken' });
+  }
+  if (await isUsernameTaken(username)) {
+    return err(409, 'Этот ник уже занят', { code: 'username_taken' });
+  }
+
   const passwordHash = await hashPassword(password);
+  const token = generateToken();
 
   try {
+    // user + session в одной транзакции (атомарность — нет «орфан»-аккаунта).
     const user = await createWebUser({
       email,
       username,
@@ -298,15 +418,16 @@ export async function handleRegister(req: ApiRequest): Promise<ApiResponse> {
       pdnConsentVersion,
       marketingConsent,
       marketingConsentVersion,
+      session: {
+        tokenHash: hashToken(token),
+        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+      },
     });
-
-    const token = generateToken();
-    await createSession(user.id, hashToken(token), new Date(Date.now() + SESSION_TTL_MS));
 
     return {
       status: 201,
       body: { user: publicUser(user) },
-      cookies: [sessionSetCookie(token)],
+      cookies: [sessionSetCookie(token, cookieSecure(req))],
     };
   } catch (e) {
     if (e instanceof UserConflictError) {
@@ -334,7 +455,7 @@ export async function handleLogin(req: ApiRequest): Promise<ApiResponse> {
     return err(400, 'Укажите email и пароль');
   }
 
-  const key = throttleKey(email, ip);
+  const key = loginKey(email, ip);
   const retryAfter = throttleRetryAfter(key);
   if (retryAfter > 0) {
     return err(429, 'Слишком много попыток входа. Попробуйте позже.', {
@@ -344,14 +465,25 @@ export async function handleLogin(req: ApiRequest): Promise<ApiResponse> {
   }
 
   const user = await findUserByEmail(email);
-  const ok = user !== null && (await verifyPassword(password, user.password_hash));
+  // При отсутствии пользователя всё равно гоняем scrypt по dummy-хешу — постоянное
+  // время ответа, чтобы нельзя было различить «нет такого email» по тайму.
+  let ok: boolean;
+  if (user !== null) {
+    ok = await verifyPassword(password, user.password_hash);
+  } else {
+    await verifyPassword(password, await getDummyHash());
+    ok = false;
+  }
 
   if (!ok || user === null) {
-    recordFailure(key);
+    recordFailure(key, LOGIN_POLICY);
     return err(401, 'Неверный email или пароль', { code: 'invalid_credentials' });
   }
 
   resetThrottle(key);
+
+  // Лениво подчищаем просроченные сессии при успешном входе (best-effort).
+  void deleteExpiredSessions().catch(() => {});
 
   const token = generateToken();
   await createSession(user.id, hashToken(token), new Date(Date.now() + SESSION_TTL_MS));
@@ -368,7 +500,7 @@ export async function handleLogin(req: ApiRequest): Promise<ApiResponse> {
         last_name: user.last_name,
       }),
     },
-    cookies: [sessionSetCookie(token)],
+    cookies: [sessionSetCookie(token, cookieSecure(req))],
   };
 }
 

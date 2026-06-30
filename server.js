@@ -166,6 +166,14 @@ async function startLongPolling(telegram, botToken) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// За одним обратным прокси (Caddy). trust proxy=1 → Express берёт req.ip из
+// последнего значения X-Forwarded-For (его проставляет Caddy) и выставляет
+// req.secure/req.protocol по X-Forwarded-Proto. Это делает ключ анти-брутфорс
+// троттлинга (email|ip) привязанным к реальному клиенту, а не к адресу Caddy
+// (иначе одного клиента хватило бы, чтобы залочить вход всем — account-lockout DoS).
+// НЕ ставим trust proxy=true: это доверяло бы любому XFF и открывало спуфинг IP.
+app.set('trust proxy', 1);
+
 app.use(express.json());
 
 // /health: лёгкий SELECT 1 к Postgres. db:true только если пинг прошёл.
