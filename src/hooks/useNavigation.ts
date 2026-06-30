@@ -3,6 +3,9 @@ import type { Screen, Trip, ConfirmKind, NavigationState, RatingContext } from '
 
 // Куда возвращает BackButton с каждого экрана
 const PARENT_SCREEN: Record<Screen, Screen> = {
+  'auth-gate': 'auth-gate',
+  login: 'auth-gate',
+  register: 'auth-gate',
   intro: 'intro',
   main: 'intro',
   'main-more': 'main',
@@ -42,6 +45,9 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     publishedTripId: null,
     backOverrides: {},
     scrollPositions: {
+      'auth-gate': 0,
+      login: 0,
+      register: 0,
       intro: 0,
       main: 0,
       'main-more': 0,

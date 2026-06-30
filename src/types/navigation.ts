@@ -1,5 +1,8 @@
 // Navigation types
 export type Screen =
+  | 'auth-gate'
+  | 'login'
+  | 'register'
   | 'intro'
   | 'main'
   | 'main-more'
