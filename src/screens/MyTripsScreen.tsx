@@ -178,9 +178,17 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip,
     return role === 'driver' ? 'водитель' : 'пассажир';
   };
 
+  // Поездка уже состоялась, если её дата+время выезда в прошлом.
+  const isTripPast = (trip: UserTripItem): boolean => {
+    const departed = new Date(`${trip.trip_date}T${trip.departure_time}`);
+    return departed.getTime() < Date.now();
+  };
+
   const getStatusLabel = (trip: UserTripItem): 'бронь' | 'ожидает' | 'завершено' => {
     if (trip.trip_status === 'completed') return 'завершено';
     if (trip.booking_status === 'active') return 'бронь';
+    // Прошедшие поездки (status=open, дата в прошлом) не «ожидают» — показываем «завершено».
+    if (isTripPast(trip)) return 'завершено';
     return 'ожидает';
   };
 
