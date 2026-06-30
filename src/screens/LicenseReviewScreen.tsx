@@ -87,6 +87,22 @@ const LicenseReviewScreen: React.FC<LicenseReviewScreenProps> = ({ onFindRide, o
   const meta = STATUS_META[status];
   const steps = timelineFor(status);
 
+  // Реальные данные заявки ВУ (из профиля). null — заявок нет, блок «Отправлено» скрываем.
+  const licenseSeries = profile?.license_series ?? null;
+  const licenseValidUntil = profile?.license_valid_until ?? null;
+  // Маскируем последнюю группу цифр номера: ···+последние 3 цифры.
+  const maskSeries = (s: string): string => {
+    const parts = s.trim().split(/\s+/);
+    const last = parts[parts.length - 1];
+    if (/^\d{4,}$/.test(last)) parts[parts.length - 1] = `···${last.slice(-3)}`;
+    return parts.join(' ');
+  };
+  // Срок действия 'YYYY-MM-DD' → 'MM/YYYY'; иной формат показываем как есть.
+  const formatValid = (v: string): string => {
+    const m = /^(\d{4})-(\d{2})-\d{2}/.exec(v);
+    return m ? `${m[2]}/${m[1]}` : v;
+  };
+
   return (
     <div
       style={{
@@ -187,15 +203,16 @@ const LicenseReviewScreen: React.FC<LicenseReviewScreenProps> = ({ onFindRide, o
         </div>
       </Card>
 
-      {/* Что отправлено */}
-      <Card>
-        <div style={sectionLabelStyle}>Отправлено</div>
-        <div style={{ fontSize: '15px', color: 'var(--foreground)', lineHeight: 1.6 }}>
-          ВУ 9916 АВ ···456 · до 03/2030
-          <br />
-          Фото загружено
-        </div>
-      </Card>
+      {/* Что отправлено — реальные данные заявки; без заявки блок не показываем */}
+      {licenseSeries && (
+        <Card>
+          <div style={sectionLabelStyle}>Отправлено</div>
+          <div style={{ fontSize: '15px', color: 'var(--foreground)', lineHeight: 1.6 }}>
+            ВУ {maskSeries(licenseSeries)}
+            {licenseValidUntil ? ` · до ${formatValid(licenseValidUntil)}` : ''}
+          </div>
+        </Card>
+      )}
 
       {/* Поясняющая плашка */}
       <Card variant="accent" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>

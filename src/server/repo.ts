@@ -697,6 +697,25 @@ export async function getUserProfile(tgUserId: number): Promise<UserProfile | nu
   return res.rows[0] ?? null;
 }
 
+/**
+ * Последняя заявка ВУ водителя (для статусного экрана «Заявка водителя»).
+ * Возвращает серию/номер и срок действия из license_requests; null — заявок нет.
+ */
+export async function getLatestLicenseRequest(
+  driverId: number,
+): Promise<{ series_number: string; valid_until: string } | null> {
+  await ensureReady();
+  const res = await getPool().query<{ series_number: string; valid_until: string }>(
+    `SELECT series_number, valid_until
+     FROM license_requests
+     WHERE driver_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [driverId],
+  );
+  return res.rows[0] ?? null;
+}
+
 export interface PublicUserProfile {
   id: number;
   name: string;

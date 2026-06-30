@@ -33,6 +33,7 @@ import {
   findOpenTrips,
   getTripCard,
   getUserProfile,
+  getLatestLicenseRequest,
   getUserTrips,
   createRating,
   getTripBookings,
@@ -508,6 +509,9 @@ export async function handleGetMyProfile(req: ApiRequest): Promise<ApiResponse> 
     return err(404, 'Профиль не найден');
   }
 
+  // Данные последней заявки ВУ — для блока «Отправлено» на статусном экране.
+  const license = await getLatestLicenseRequest(profile.id);
+
   return {
     status: 200,
     body: {
@@ -520,6 +524,8 @@ export async function handleGetMyProfile(req: ApiRequest): Promise<ApiResponse> 
         trips_driver_count: profile.trips_driver_count,
         trips_passenger_count: profile.trips_passenger_count,
         license_status: profile.license_status,
+        license_series: license?.series_number ?? null,
+        license_valid_until: license?.valid_until ?? null,
       },
     },
   };

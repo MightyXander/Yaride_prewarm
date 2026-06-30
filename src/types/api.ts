@@ -133,6 +133,10 @@ export interface UserProfile {
   trips_driver_count: number;
   trips_passenger_count: number;
   license_status: string;
+  /** Серия/номер ВУ из последней заявки (для статусного экрана). null — заявок нет. */
+  license_series?: string | null;
+  /** Срок действия ВУ из последней заявки. null — заявок нет. */
+  license_valid_until?: string | null;
 }
 
 export interface GetMyProfileResponse {
