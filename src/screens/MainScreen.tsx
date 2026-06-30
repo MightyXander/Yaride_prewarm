@@ -12,6 +12,7 @@ import { AppearList } from '../components/Appear';
 import type { Trip } from '../types/navigation';
 import type { UserRole } from '../lib/role';
 import { formatSubtitle } from '../lib/date';
+import { useProfile } from '../contexts/ProfileContext';
 
 interface MainScreenProps {
   trips: Trip[];
@@ -47,6 +48,13 @@ const MainScreen: React.FC<MainScreenProps> = ({
   const firstTripRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const prefersReduced = useReducedMotion();
+  const { profile } = useProfile();
+
+  // Кнопку «Создать поездку» показываем водителю. Источник истины — серверный
+  // статус ВУ (license_status==='verified'), а не только localStorage-роль:
+  // в Telegram WebView роль между запусками может теряться, и верифицированный
+  // водитель оставался без кнопки публикации (в т.ч. сразу после создания поездки).
+  const canPublish = userRole === 'driver' || profile?.license_status === 'verified';
 
   const openFirstTripDetails = () => {
     if (trips.length > 0) {
@@ -118,7 +126,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                 onCtaClick={openFirstTripDetails}
                 onToggleDirection={onToggleDirection}
                 onPublish={onPublish}
-                showPublish={userRole === 'driver'}
+                showPublish={canPublish}
               />
               <AppearList stagger={40} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {trips.map((trip, index) => (
@@ -147,7 +155,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
               <EmptyTripsState
                 onLeaveRequest={onLeaveRequest}
                 onPublish={onPublish}
-                showPublish={userRole === 'driver'}
+                showPublish={canPublish}
                 onToggleDirection={onToggleDirection}
               />
             </motion.div>

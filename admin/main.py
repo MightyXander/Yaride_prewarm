@@ -239,3 +239,34 @@ def users_list(request: Request, admin: str = Depends(require_login)):
         for r in rows
     ]
     return render(request, "users_list.html", active="users", users=users)
+
+
+@app.get("/admin/account", response_class=HTMLResponse)
+def account_form(request: Request, admin: str = Depends(require_login)):
+    return render(request, "account.html", active="account")
+
+
+@app.post("/admin/account/password")
+def account_password(
+    request: Request,
+    admin: str = Depends(require_login),
+    current: str = Form(...),
+    new: str = Form(...),
+    confirm: str = Form(...),
+):
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT password_hash FROM admin_users WHERE username = %s", (admin,)
+        ).fetchone()
+    if not row or not _verify(current, row[0]):
+        return render(request, "account.html", active="account", error="Текущий пароль неверный")
+    if len(new) < 8:
+        return render(request, "account.html", active="account", error="Новый пароль — минимум 8 символов")
+    if new != confirm:
+        return render(request, "account.html", active="account", error="Новый пароль и подтверждение не совпадают")
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE admin_users SET password_hash = %s WHERE username = %s",
+            (PWD.hash(new), admin),
+        )
+    return render(request, "account.html", active="account", msg="Пароль обновлён")
