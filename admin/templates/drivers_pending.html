@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Заявки ВУ — Yaride Admin{% endblock %}
+{% block content %}
+<h1>Заявки на права <small>ожидают: {{ pending_count }}</small></h1>
+<table>
+    <thead>
+        <tr>
+            <th>#</th><th>Имя</th><th>username</th><th>tg_id</th>
+            <th>Серия/номер ВУ</th><th>Действует до</th><th>Авто</th><th>Решение</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for u in items %}
+        <tr>
+            <td>{{ u.user_id }}</td>
+            <td>{{ u.name }}</td>
+            <td>{{ u.username or '—' }}</td>
+            <td>{{ u.tg_user_id }}</td>
+            <td>{{ u.series_number or '—' }}</td>
+            <td>{{ u.valid_until or '—' }}</td>
+            <td>{% if u.car_model or u.car_plate %}{{ u.car_model or '—' }} / {{ u.car_plate or '—' }}{% else %}—{% endif %}</td>
+            <td class="actions">
+                <form method="post" action="/admin/drivers/{{ u.req_id }}/approve" style="display:inline">
+                    <button class="btn ok" type="submit">Одобрить</button>
+                </form>
+                <form method="post" action="/admin/drivers/{{ u.req_id }}/reject" style="display:inline">
+                    <button class="btn danger" type="submit">Отклонить</button>
+                </form>
+            </td>
+        </tr>
+    {% else %}
+        <tr><td colspan="8" class="empty">Нет заявок на модерации.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
