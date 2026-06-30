@@ -7,6 +7,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import { Appear, AppearList } from '../components/Appear';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
+import { useRefetchOnFocus } from '../hooks/useRefetchOnFocus';
 import { getNotifications, markNotificationRead } from '../lib/api';
 import type { NotificationItem, NotificationType } from '../types/api';
 
@@ -32,8 +33,9 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const loadNotifications = useCallback(async () => {
-    setLoading(true);
+  // silent=true — тихий рефетч (без скелета) для обновления по фокусу.
+  const loadNotifications = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(false);
     try {
       const res = await getNotifications();
@@ -49,6 +51,11 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
   useEffect(() => {
     void loadNotifications();
   }, [loadNotifications]);
+
+  // Возврат фокуса/видимости вкладки → свежая лента уведомлений.
+  useRefetchOnFocus(() => {
+    void loadNotifications(true);
+  });
 
   // Форматирование относительного времени: «только что», «5 мин назад», «2 ч назад», «вчера», «3 дня назад»
   const formatRelativeTime = (isoDate: string): string => {

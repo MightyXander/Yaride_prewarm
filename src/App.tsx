@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icons } from './components/Icons';
 import BackButton from './components/BackButton';
@@ -33,6 +33,7 @@ import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/Floating
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useAsync } from './hooks/useAsync';
+import { useRefetchOnFocus, usePollingRefetch } from './hooks/useRefetchOnFocus';
 import { useStartParam } from './hooks/useStartParam';
 import { getTrips, getRoutePoints, getTrip, cancelTrip, getMe, loginUser, registerUser, logoutUser, ApiException } from './lib/api';
 import { mapTripListItemToTrip, mapTripCardToTrip } from './lib/mappers';
@@ -284,6 +285,40 @@ function App() {
     morningTripsState.status === 'success' ? morningTripsState.data : [];
   const eveningTrips =
     eveningTripsState.status === 'success' ? eveningTripsState.data : [];
+
+  // --- Авто-обновление списков коридора (#258 «данные протухают») ---
+  // Списки поездок живут на уровне App (не размонтируются при навигации между
+  // экранами), поэтому после публикации/брони/отмены они оставались устаревшими
+  // до перезагрузки. Перефетчим их: при возврате фокуса/видимости вкладки,
+  // при входе на экран-коридор и лёгким периодическим обновлением, пока он открыт.
+  const refetchCorridor = useCallback(() => {
+    // Тихий рефетч (refetch): без скелета поверх уже показанного списка.
+    morningTripsState.refetch();
+    eveningTripsState.refetch();
+    // refetch стабильна по [braginoId, centrId]; пересоздаётся только при их смене.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [morningTripsState.refetch, eveningTripsState.refetch]);
+
+  // Экраны-коридоры (списки поездок) — где обновление списка имеет смысл.
+  const CORRIDOR_SCREENS: Screen[] = ['main', 'main-more', 'evening-main'];
+  const onCorridorScreen = CORRIDOR_SCREENS.includes(currentScreen);
+
+  // 1) Возврат фокуса/видимости вкладки → свежие списки (одобрение ВУ, новые поездки).
+  useRefetchOnFocus(refetchCorridor);
+
+  // 2) Вход на экран-коридор из НЕ-коридора → перефетч (после публикации/отмены поездки,
+  //    когда onDone уводит на 'main'). На первом маунте не дёргаем — useAsync уже грузит.
+  const prevScreenRef = useRef(currentScreen);
+  useEffect(() => {
+    const prev = prevScreenRef.current;
+    prevScreenRef.current = currentScreen;
+    const entering = CORRIDOR_SCREENS.includes(currentScreen) && !CORRIDOR_SCREENS.includes(prev);
+    if (entering) refetchCorridor();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentScreen, refetchCorridor]);
+
+  // 3) Лёгкий периодический рефетч, пока открыт коридор (≈30с, пауза при скрытой вкладке).
+  usePollingRefetch(refetchCorridor, 30_000, onCorridorScreen);
 
   // Splash уходит как только данные готовы (дав лого ~0.6с проявиться),
   // но не позже ~2.5с — жёсткий cap на медленных/зависших данных.

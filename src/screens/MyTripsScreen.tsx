@@ -8,6 +8,7 @@ import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
 import { hapticSelection, hapticImpact } from '../lib/haptics';
+import { useRefetchOnFocus } from '../hooks/useRefetchOnFocus';
 import { getMyTrips, ApiException } from '../lib/api';
 import type { UserTripItem } from '../types/api';
 import { Appear, AppearList } from '../components/Appear';
@@ -104,8 +105,10 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip,
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const loadTrips = useCallback(async () => {
-    setLoading(true);
+  // silent=true — тихий рефетч (без скелета): для обновления по фокусу,
+  // чтобы возврат к вкладке не мигал загрузкой поверх уже показанных данных.
+  const loadTrips = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(false);
     try {
       const [upcomingRes, pastRes] = await Promise.all([
@@ -131,6 +134,11 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip,
   useEffect(() => {
     void loadTrips();
   }, [loadTrips]);
+
+  // Возврат фокуса/видимости вкладки → свежий список (новые брони/отмены/статусы).
+  useRefetchOnFocus(() => {
+    void loadTrips(true);
+  });
 
   const trips = activeTab === 'upcoming' ? upcomingTrips : pastTrips;
 

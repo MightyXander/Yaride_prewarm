@@ -17,11 +17,13 @@ export function useAsync<T>(
   asyncFn: () => Promise<T>,
   deps: React.DependencyList = [],
   options: UseAsyncOptions = { immediate: true }
-): AsyncState<T> & { retry: () => void } {
+): AsyncState<T> & { retry: () => void; refetch: () => void } {
   const [state, setState] = useState<AsyncState<T>>({ status: 'idle' });
 
-  const execute = useCallback(async () => {
-    setState({ status: 'loading' });
+  // silent=true — тихое обновление: НЕ переводим состояние в 'loading', поэтому
+  // уже показанные данные не сменяются скелетом (для авто-рефетча по фокусу/таймеру).
+  const run = useCallback(async (silent: boolean) => {
+    if (!silent) setState({ status: 'loading' });
     try {
       const data = await asyncFn();
       setState({ status: 'success', data });
@@ -32,9 +34,20 @@ export function useAsync<T>(
 
   useEffect(() => {
     if (options.immediate) {
-      execute();
+      void run(false);
     }
-  }, [execute, options.immediate]);
+  }, [run, options.immediate]);
 
-  return { ...state, retry: execute };
+  // retry — явный повтор (показывает loading), используется кнопкой «Повторить».
+  // Игнорирует переданные аргументы (может прилететь event при использовании как onClick).
+  const retry = useCallback(() => {
+    void run(false);
+  }, [run]);
+
+  // refetch — тихий перефетч без скелета (фоновое обновление свежести данных).
+  const refetch = useCallback(() => {
+    void run(true);
+  }, [run]);
+
+  return { ...state, retry, refetch };
 }
