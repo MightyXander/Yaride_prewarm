@@ -51,6 +51,8 @@ import {
   createTripFromTemplateById,
   getUserCredentials,
   addUserCredentials,
+  findWebAccountByEmail,
+  mergeAccounts,
   isEmailTaken,
   isUsernameTaken,
   UserConflictError,
@@ -62,6 +64,8 @@ import {
 import {
   getSessionUserFromRequest,
   hashPassword,
+  verifyPassword,
+  getDummyHash,
   EMAIL_RE,
   USERNAME_RE,
   MIN_PASSWORD_LENGTH,
@@ -700,6 +704,68 @@ export async function handleAddMyCredentials(req: ApiRequest): Promise<ApiRespon
     }
     throw e;
   }
+}
+
+/**
+ * POST /api/me/link-account — привязать ранее заведённую браузерную учётку к
+ * текущей TG-карточке (issue #300, defence). TG-пользователь вводит email+пароль
+ * своей веб-учётки; сервер проверяет пароль и сливает веб-карточку в TG-карточку
+ * (переиспользуем mergeAccounts). Так дубль лечится, а не остаётся жить.
+ * Body: { email, password }.
+ *
+ * Гварды:
+ *  - 401 invalid_credentials — email не найден или пароль неверный (constant-time);
+ *  - 400 same_account — email принадлежит текущей же карточке (уже привязан);
+ *  - 409 other_telegram — email привязан к ДРУГОМУ Telegram-аккаунту (мержить нельзя).
+ */
+export async function handleLinkMyAccount(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const body = asRecord(req.body);
+  const email = (typeof body.email === 'string' ? body.email : '').trim();
+  const password = typeof body.password === 'string' ? body.password : '';
+
+  if (!EMAIL_RE.test(email) || password.length === 0) {
+    return err(400, 'Укажите email и пароль', { field: 'email' });
+  }
+
+  const web = await findWebAccountByEmail(email);
+  // Constant-time: при отсутствии аккаунта всё равно гоняем scrypt по dummy-хешу,
+  // чтобы нельзя было различить «нет такого email» по времени ответа.
+  let ok: boolean;
+  if (web !== null) {
+    ok = await verifyPassword(password, web.password_hash);
+  } else {
+    await verifyPassword(password, await getDummyHash());
+    ok = false;
+  }
+  if (!ok || web === null) {
+    return err(401, 'Неверный email или пароль', { code: 'invalid_credentials' });
+  }
+
+  if (web.id === userId) {
+    return err(400, 'Этот аккаунт уже привязан к вашему профилю', { code: 'same_account' });
+  }
+  if (web.tg_user_id !== null) {
+    return err(409, 'Этот email привязан к другому Telegram-аккаунту', { code: 'other_telegram' });
+  }
+
+  // Сливаем веб-карточку (dupe) в текущую TG-карточку (keep): данные входа
+  // (email/ник/пароль) и вся история браузерной учётки переезжают на TG-карточку.
+  await mergeAccounts(userId, web.id);
+
+  const creds = await getUserCredentials(userId);
+  return {
+    status: 200,
+    body: {
+      linked: true,
+      email: creds?.email ?? email,
+      username: creds?.username ?? null,
+    },
+  };
 }
 
 /** POST /api/me/push-token — сохранить FCM-токен устройства (issue #265). */

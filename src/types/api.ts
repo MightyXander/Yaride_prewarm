@@ -443,6 +443,18 @@ export interface AddCredentialsResponse {
   user: AuthUser;
 }
 
+/** Привязка ранее заведённой браузерной учётки к TG-карточке (issue #300). */
+export interface LinkAccountRequest {
+  email: string;
+  password: string;
+}
+
+export interface LinkAccountResponse {
+  linked: boolean;
+  email: string;
+  username: string | null;
+}
+
 // Ошибки
 export interface ApiErrorResponse {
   error: string;

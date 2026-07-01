@@ -42,6 +42,8 @@ import type {
   GetMyCredentialsResponse,
   AddCredentialsRequest,
   AddCredentialsResponse,
+  LinkAccountRequest,
+  LinkAccountResponse,
   ApiErrorResponse,
 } from '../types/api.ts';
 
@@ -308,6 +310,16 @@ export async function addMyCredentials(
   params: AddCredentialsRequest,
 ): Promise<AddCredentialsResponse> {
   return apiFetch<AddCredentialsResponse>('/me/credentials', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+/** POST /api/me/link-account — привязать существующую браузерную учётку к TG-карточке. */
+export async function linkMyAccount(
+  params: LinkAccountRequest,
+): Promise<LinkAccountResponse> {
+  return apiFetch<LinkAccountResponse>('/me/link-account', {
     method: 'POST',
     body: JSON.stringify(params),
   });

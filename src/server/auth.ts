@@ -97,7 +97,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
  * (защита от тайминговой user-enumeration). Считается один раз лениво.
  */
 let dummyHashPromise: Promise<string> | null = null;
-function getDummyHash(): Promise<string> {
+export function getDummyHash(): Promise<string> {
   if (dummyHashPromise === null) {
     dummyHashPromise = hashPassword(randomBytes(16).toString('hex'));
   }

@@ -32,6 +32,7 @@ try {
     saveMyPhone: mod.handleSaveMyPhone,
     getMyCredentials: mod.handleGetMyCredentials,
     addMyCredentials: mod.handleAddMyCredentials,
+    linkMyAccount: mod.handleLinkMyAccount,
     savePushToken: mod.handleSavePushToken,
     getMyTrips: mod.handleGetMyTrips,
     getMyTemplate: mod.handleGetMyTemplate,
@@ -248,6 +249,7 @@ app.get('/api/me/phone', wrap(api?.getMyPhone));
 app.put('/api/me/phone', wrap(api?.saveMyPhone));
 app.get('/api/me/credentials', wrap(api?.getMyCredentials));
 app.post('/api/me/credentials', wrap(api?.addMyCredentials));
+app.post('/api/me/link-account', wrap(api?.linkMyAccount));
 app.post('/api/me/push-token', wrap(api?.savePushToken));
 app.get('/api/me/trips', wrap(api?.getMyTrips));
 app.get('/api/me/template', wrap(api?.getMyTemplate));

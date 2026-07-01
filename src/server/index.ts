@@ -57,6 +57,7 @@ export {
   handleSaveMyPhone,
   handleGetMyCredentials,
   handleAddMyCredentials,
+  handleLinkMyAccount,
   handleSavePushToken,
   handleGetMyTrips,
   handleGetMyTemplate,
