@@ -3,6 +3,8 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import EmailLoginSection from '../components/EmailLoginSection';
+import ThemeModeSheet from '../components/ThemeModeSheet';
+import type { ThemeMode } from '../hooks/useTheme';
 import { useProfile } from '../contexts/ProfileContext';
 import { getMyCars } from '../lib/api';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
@@ -16,9 +18,11 @@ interface ProfileScreenProps {
   onMyTrips?: () => void;
   /** Открыть экран «Мои машины» / добавление машины. */
   onMyCars?: () => void;
-  /** Переключение темы (light/dark). */
-  onToggleTheme?: () => void;
-  /** Текущая тема. */
+  /** Текущий режим темы (light/dark/system) — паритет с Android. */
+  themeMode?: ThemeMode;
+  /** Выбрать режим темы. */
+  onSetThemeMode?: (mode: ThemeMode) => void;
+  /** Текущая (разрешённая) тема — для иконки строки. */
   theme?: 'light' | 'dark';
   /** Открыть публичный профиль пользователя. */
   onOpenProfile?: (userId: number) => void;
@@ -110,9 +114,17 @@ const MenuRow: React.FC<MenuRowProps> = ({ icon, label, onClick, right, last }) 
   </button>
 );
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onToggleTheme, theme, onOpenProfile, onLogout }) => {
+// Короткая подпись режима темы для строки меню (паритет с Android themeModeLabel).
+const THEME_MODE_LABEL: Record<ThemeMode, string> = {
+  light: 'Светлая',
+  dark: 'Тёмная',
+  system: 'Авто',
+};
+
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, themeMode = 'system', onSetThemeMode, theme, onOpenProfile, onLogout }) => {
   const { profile, loading, needsTelegram, refetch } = useProfile();
   const [carsCount, setCarsCount] = useState(0);
+  const [themeSheetOpen, setThemeSheetOpen] = useState(false);
 
   // Профиль живёт в контексте (не размонтируется), поэтому при заходе на экран
   // тихо перезапрашиваем — чтобы статус ВУ (одобрение админом) и счётчики были
@@ -164,13 +176,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
     </span>
   ) : undefined;
 
-  // Переключатель темы (трек + бегунок).
-  const themeToggle = (
-    <span
-      aria-hidden="true"
-      style={{ width: '44px', height: '26px', borderRadius: '999px', background: theme === 'dark' ? 'var(--brand)' : 'var(--secondary)', position: 'relative', flexShrink: 0, transition: 'background .2s ease' }}
-    >
-      <span style={{ position: 'absolute', top: '3px', left: '3px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)', transform: theme === 'dark' ? 'translateX(18px)' : 'translateX(0)', transition: 'transform .2s cubic-bezier(.22,1,.36,1)' }} />
+  // Правый слот строки «Сменить тему»: текущий режим + шеврон (открывает лист выбора).
+  // Паритет с Android — вместо тумблера light/dark выбор из трёх режимов в нижнем листе.
+  const themeRight = (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--muted-foreground)' }}>
+        {THEME_MODE_LABEL[themeMode]}
+      </span>
+      <ChevronRight />
     </span>
   );
 
@@ -266,12 +279,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
           label="Безопасность и SOS"
         />
         <MenuRow
-          onClick={onToggleTheme}
+          onClick={() => setThemeSheetOpen(true)}
           icon={theme === 'dark'
             ? <svg viewBox="0 0 24 24" style={navIconStyle}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5" /></svg>
             : <svg viewBox="0 0 24 24" style={navIconStyle}><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>}
           label="Сменить тему"
-          right={themeToggle}
+          right={themeRight}
           last
         />
       </Card>
@@ -293,6 +306,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
           </Button>
         )}
       </div>
+
+      <ThemeModeSheet
+        open={themeSheetOpen}
+        mode={themeMode}
+        onSelect={(m) => onSetThemeMode?.(m)}
+        onClose={() => setThemeSheetOpen(false)}
+      />
     </div>
   );
 };

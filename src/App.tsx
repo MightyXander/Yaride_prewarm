@@ -40,7 +40,7 @@ const NAV_VISIBLE_SCREENS: Screen[] = ['main', 'main-more', 'trip-details', 'pro
 const NO_BACK_BUTTON_SCREENS: Screen[] = ['auth-gate', 'login', 'register', 'intro', 'main', 'main-more', 'evening-main'];
 
 function App() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, themeMode, setThemeMode, toggleTheme } = useTheme();
 
   // Роль пользователя: пассажир или водитель (персистится в localStorage)
   const [userRole, setUserRole] = useState<UserRole | null>(() => loadRole());
@@ -123,6 +123,8 @@ function App() {
     publishedTripId,
     ratingContext,
     theme,
+    themeMode,
+    setThemeMode,
     toggleTheme,
     userRole,
     mainDirection,
