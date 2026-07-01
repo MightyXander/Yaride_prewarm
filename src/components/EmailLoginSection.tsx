@@ -55,9 +55,6 @@ const EmailLoginSection: React.FC = () => {
   //            следующем кадре после маунта, чтобы переход реально проиграл.
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
-  // overflow:hidden нужен только на время анимации (клип высоты). После раскрытия
-  // возвращаем visible, иначе мягкая тень карточки (--shadow-card) обрезается снизу.
-  const [clip, setClip] = useState(true);
 
   useEffect(() => {
     // Вне Telegram секция не нужна: браузерные аккаунты уже входят по email.
@@ -162,17 +159,9 @@ const EmailLoginSection: React.FC = () => {
   // зафиксировать стартовое состояние 0fr, иначе перехода не будет — резкий скачок).
   useEffect(() => {
     if (!mounted || prefersReducedMotion) return;
-    setClip(true);
     const r = requestAnimationFrame(() => requestAnimationFrame(() => setOpen(true)));
     return () => cancelAnimationFrame(r);
   }, [mounted]);
-
-  // Смена содержимого (форма → карточка успеха) — снова клипаем на время перестройки высоты.
-  useEffect(() => {
-    if (mounted && !prefersReducedMotion) setClip(true);
-    // Реагируем только на смену контента; mounted читаем как охранное условие.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doneEmail]);
 
   // Успех: подтверждаем результат и каким email теперь можно входить из браузера.
   const body = doneEmail ? (
@@ -283,9 +272,13 @@ const EmailLoginSection: React.FC = () => {
 
   // Плавное раскрытие «как у выпадающего списка»: grid-template-rows 0fr→1fr
   // (компонентный переход высоты, без measure-jump как у height:auto) + лёгкий
-  // fade и подъём. Внутренний слой overflow:hidden клипает контент во время
-  // раскрытия; после — visible, чтобы мягкая тень карточки не обрезалась снизу.
+  // fade и подъём. Внутренний overflow:hidden держим ПОСТОЯННО — переключение
+  // hidden↔visible по концу перехода вызывало смену BFC/схлопывание margin и
+  // резкий скачок блока вверх в самом конце раскрытия. Чтобы мягкая тень карточки
+  // при этом не обрезалась снизу — даём клип-слою paddingBottom под тень и гасим
+  // лишний отступ отрицательным marginBottom (визуальная геометрия не меняется).
   const reduce = prefersReducedMotion;
+  const SHADOW_ROOM = 20;
   return (
     <div
       style={{
@@ -298,12 +291,17 @@ const EmailLoginSection: React.FC = () => {
           : `grid-template-rows 340ms ${EASE}, opacity 260ms ${EASE}, transform 340ms ${EASE}`,
         willChange: reduce ? 'auto' : 'grid-template-rows, opacity, transform',
       }}
-      onTransitionEnd={(e) => {
-        // По завершении раскрытия высоты снимаем клип (чтобы тень была видна).
-        if (e.propertyName === 'grid-template-rows' && open) setClip(false);
-      }}
     >
-      <div style={{ overflow: clip && !reduce ? 'hidden' : 'visible', minHeight: 0 }}>{body}</div>
+      <div
+        style={{
+          overflow: 'hidden',
+          minHeight: 0,
+          paddingBottom: `${SHADOW_ROOM}px`,
+          marginBottom: `-${SHADOW_ROOM}px`,
+        }}
+      >
+        {body}
+      </div>
     </div>
   );
 };
