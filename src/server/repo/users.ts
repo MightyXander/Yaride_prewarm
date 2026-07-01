@@ -200,7 +200,13 @@ export interface UserRecord {
 /**
  * JIT-профиль: резолв пользователя по telegram_id, создание при первом
  * обращении (имя из Telegram initData). Идемпотентно через ON CONFLICT.
- * Имя/username обновляются на актуальные из initData; возраст не перетираем.
+ *
+ * Имя/возраст обновляем, а username при КОНФЛИКТЕ (существующий пользователь)
+ * НЕ трогаем: слепое навязывание ника из Telegram на каждом резолве роняло
+ * запрос по уникальному индексу lower(username), когда такой ник уже занят
+ * другой карточкой (например браузерной учёткой с тем же ником) — из-за этого
+ * падали ВСЕ авторизованные запросы. Ник задаётся только при первом создании;
+ * если и он занят — создаём без ника (пользователь задаст его позже в профиле).
  */
 export async function ensureUser(params: EnsureUserParams): Promise<UserRecord> {
   await ensureReady();
@@ -208,17 +214,26 @@ export async function ensureUser(params: EnsureUserParams): Promise<UserRecord> 
   const username = params.username?.trim() || null;
   const age = params.age ?? null;
 
-  const res = await getPool().query<UserRecord>(
-    `INSERT INTO users(tg_user_id, name, username, age)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (tg_user_id) DO UPDATE
-       SET name = EXCLUDED.name,
-           username = COALESCE(EXCLUDED.username, users.username),
-           age = COALESCE(users.age, EXCLUDED.age)
-     RETURNING id, tg_user_id, name, username, age`,
-    [params.tgUserId, name, username, age],
-  );
-  return res.rows[0];
+  const upsert = async (uname: string | null): Promise<UserRecord> => {
+    const res = await getPool().query<UserRecord>(
+      `INSERT INTO users(tg_user_id, name, username, age)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (tg_user_id) DO UPDATE
+         SET name = EXCLUDED.name,
+             age = COALESCE(users.age, EXCLUDED.age)
+       RETURNING id, tg_user_id, name, username, age`,
+      [params.tgUserId, name, uname, age],
+    );
+    return res.rows[0];
+  };
+
+  try {
+    return await upsert(username);
+  } catch (e) {
+    // 23505 — unique_violation (ник занят другой карточкой при первом создании).
+    if ((e as { code?: string }).code !== '23505') throw e;
+    return upsert(null);
+  }
 }
 
 export interface UserProfile {
