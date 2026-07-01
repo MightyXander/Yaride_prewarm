@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import { Icon } from './Icons';
@@ -22,6 +23,13 @@ import { hapticImpact, hapticNotify } from '../lib/haptics';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_RE = /^[a-zA-Z0-9_]+$/;
 
+const prefersReducedMotion =
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Плавная кривая раскрытия — та же ease-out, что у Appear/Select (единый «язык» движения).
+const EASE_OUT = [0.25, 0.1, 0.25, 1] as const;
+
 const EmailLoginSection: React.FC = () => {
   // Решение о видимости принимаем после загрузки статуса, чтобы секция не «мигала».
   const [checked, setChecked] = useState(false);
@@ -38,6 +46,10 @@ const EmailLoginSection: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [doneEmail, setDoneEmail] = useState<string | null>(null);
+
+  // overflow:hidden нужен только на время раскрытия/сворачивания (клип высоты). В покое
+  // возвращаем visible, иначе мягкая тень карточки (--shadow-card) обрезалась бы снизу.
+  const [clip, setClip] = useState(true);
 
   useEffect(() => {
     // Вне Telegram секция не нужна: браузерные аккаунты уже входят по email.
@@ -119,12 +131,18 @@ const EmailLoginSection: React.FC = () => {
     }
   };
 
-  // До завершения проверки статуса или вне области применения — ничего не рисуем.
-  if (!checked || !visible) return null;
+  // До завершения проверки статуса или вне области применения — блок отсутствует
+  // (AnimatePresence ниже сам плавно сворачивает его при уходе).
+  const shouldShow = checked && visible;
+
+  // Перед сменой содержимого (форма → карточка успеха) или скрытием снова клипаем,
+  // чтобы коллапс/кроссфейд шёл ровно, без выпирания тени.
+  useEffect(() => {
+    setClip(true);
+  }, [doneEmail, shouldShow]);
 
   // Успех: подтверждаем результат и каким email теперь можно входить из браузера.
-  if (doneEmail) {
-    return (
+  const body = doneEmail ? (
       <Card
         role="status"
         aria-live="polite"
@@ -154,10 +172,7 @@ const EmailLoginSection: React.FC = () => {
           </div>
         </div>
       </Card>
-    );
-  }
-
-  return (
+  ) : (
     <Card style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
       <div>
         <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 700, letterSpacing: '-0.01em' }}>Вход по email</h2>
@@ -228,6 +243,43 @@ const EmailLoginSection: React.FC = () => {
         )}
       </Button>
     </Card>
+  );
+
+  // Плавное раскрытие «как у выпадающего списка»: высота 0→auto + fade, с небольшой
+  // задержкой перед появлением, чтобы блок не «прыгал» поверх только что отрисованного
+  // профиля (раньше секция резко вставлялась в DOM после async-проверки статуса).
+  // Сворачивается так же плавно (height→0) при уходе/замене на карточку успеха.
+  // Respect prefers-reduced-motion — тогда без движения, только мгновенный показ.
+  return (
+    <AnimatePresence mode="wait">
+      {shouldShow && (
+        <motion.div
+          key={doneEmail ? 'done' : 'form'}
+          initial={prefersReducedMotion ? false : { height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={
+            prefersReducedMotion
+              ? { opacity: 0, transition: { duration: 0 } }
+              : { height: 0, opacity: 0, transition: { duration: 0.2, ease: EASE_OUT } }
+          }
+          transition={{
+            duration: prefersReducedMotion ? 0 : 0.32,
+            ease: EASE_OUT,
+            // Небольшая пауза перед раскрытием — секция появляется осознанно, а не рывком.
+            delay: prefersReducedMotion ? 0 : 0.35,
+            opacity: {
+              duration: prefersReducedMotion ? 0 : 0.24,
+              ease: EASE_OUT,
+              delay: prefersReducedMotion ? 0 : 0.42,
+            },
+          }}
+          onAnimationComplete={() => setClip(false)}
+          style={{ overflow: clip ? 'hidden' : 'visible' }}
+        >
+          {body}
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
