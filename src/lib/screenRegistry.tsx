@@ -27,6 +27,7 @@ const LoginScreen = lazy(() => import('../screens/LoginScreen'));
 const RegisterScreen = lazy(() => import('../screens/RegisterScreen'));
 
 import type { AsyncState } from '../hooks/useAsync';
+import type { ThemeMode } from '../hooks/useTheme';
 import { formatSubtitle } from './date';
 import type { UserRole } from './role';
 import type { RegisterPayload } from '../screens/RegisterScreen';
@@ -60,6 +61,8 @@ export interface ScreenCtx {
   ratingContext: RatingContext | null;
 
   theme: 'light' | 'dark';
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
   toggleTheme: () => void;
   userRole: UserRole | null;
 
@@ -212,7 +215,8 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       onSafety={() => ctx.navigate('safety')}
       onMyTrips={() => ctx.navigate('my-trips')}
       onMyCars={() => ctx.navigate('my-cars')}
-      onToggleTheme={ctx.toggleTheme}
+      themeMode={ctx.themeMode}
+      onSetThemeMode={ctx.setThemeMode}
       theme={ctx.theme}
       onOpenProfile={ctx.handleOpenUserProfile}
       onLogout={ctx.gateContext ? ctx.handleLogout : undefined}
