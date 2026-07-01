@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import { Icon } from './Icons';
@@ -27,8 +26,10 @@ const prefersReducedMotion =
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// Плавная кривая раскрытия — та же ease-out, что у Appear/Select (единый «язык» движения).
-const EASE_OUT = [0.25, 0.1, 0.25, 1] as const;
+// Пауза перед раскрытием: даём профилю отрисоваться, чтобы секция не «прыгала» поверх.
+const REVEAL_DELAY_MS = 450;
+// Единый «язык» движения (та же ease-out, что у Appear/Select).
+const EASE = 'cubic-bezier(0.25, 0.1, 0.25, 1)';
 
 const EmailLoginSection: React.FC = () => {
   // Решение о видимости принимаем после загрузки статуса, чтобы секция не «мигала».
@@ -47,8 +48,15 @@ const EmailLoginSection: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [doneEmail, setDoneEmail] = useState<string | null>(null);
 
-  // overflow:hidden нужен только на время раскрытия/сворачивания (клип высоты). В покое
-  // возвращаем visible, иначе мягкая тень карточки (--shadow-card) обрезалась бы снизу.
+  // Двухступенчатое раскрытие без рывка:
+  //  mounted — секция появилась в DOM (после паузы REVEAL_DELAY_MS, чтобы профиль
+  //            успел отрисоваться и блок не «прыгал» поверх);
+  //  open    — запускает CSS-переход grid-template-rows 0fr→1fr (+ fade/slide) на
+  //            следующем кадре после маунта, чтобы переход реально проиграл.
+  const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(false);
+  // overflow:hidden нужен только на время анимации (клип высоты). После раскрытия
+  // возвращаем visible, иначе мягкая тень карточки (--shadow-card) обрезается снизу.
   const [clip, setClip] = useState(true);
 
   useEffect(() => {
@@ -131,15 +139,40 @@ const EmailLoginSection: React.FC = () => {
     }
   };
 
-  // До завершения проверки статуса или вне области применения — блок отсутствует
-  // (AnimatePresence ниже сам плавно сворачивает его при уходе).
+  // До завершения проверки статуса или вне области применения — блока нет в DOM.
   const shouldShow = checked && visible;
 
-  // Перед сменой содержимого (форма → карточка успеха) или скрытием снова клипаем,
-  // чтобы коллапс/кроссфейд шёл ровно, без выпирания тени.
+  // Пауза перед появлением, затем маунт. При reduced-motion — сразу, без задержки.
   useEffect(() => {
+    if (!shouldShow) {
+      setMounted(false);
+      setOpen(false);
+      return;
+    }
+    if (prefersReducedMotion) {
+      setMounted(true);
+      setOpen(true);
+      return;
+    }
+    const t = setTimeout(() => setMounted(true), REVEAL_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [shouldShow]);
+
+  // После маунта — на следующем кадре запускаем раскрытие (даём браузеру
+  // зафиксировать стартовое состояние 0fr, иначе перехода не будет — резкий скачок).
+  useEffect(() => {
+    if (!mounted || prefersReducedMotion) return;
     setClip(true);
-  }, [doneEmail, shouldShow]);
+    const r = requestAnimationFrame(() => requestAnimationFrame(() => setOpen(true)));
+    return () => cancelAnimationFrame(r);
+  }, [mounted]);
+
+  // Смена содержимого (форма → карточка успеха) — снова клипаем на время перестройки высоты.
+  useEffect(() => {
+    if (mounted && !prefersReducedMotion) setClip(true);
+    // Реагируем только на смену контента; mounted читаем как охранное условие.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doneEmail]);
 
   // Успех: подтверждаем результат и каким email теперь можно входить из браузера.
   const body = doneEmail ? (
@@ -245,41 +278,33 @@ const EmailLoginSection: React.FC = () => {
     </Card>
   );
 
-  // Плавное раскрытие «как у выпадающего списка»: высота 0→auto + fade, с небольшой
-  // задержкой перед появлением, чтобы блок не «прыгал» поверх только что отрисованного
-  // профиля (раньше секция резко вставлялась в DOM после async-проверки статуса).
-  // Сворачивается так же плавно (height→0) при уходе/замене на карточку успеха.
-  // Respect prefers-reduced-motion — тогда без движения, только мгновенный показ.
+  // До паузы/маунта — блока нет в DOM (не занимает место, не даёт лишний gap).
+  if (!shouldShow || !mounted) return null;
+
+  // Плавное раскрытие «как у выпадающего списка»: grid-template-rows 0fr→1fr
+  // (компонентный переход высоты, без measure-jump как у height:auto) + лёгкий
+  // fade и подъём. Внутренний слой overflow:hidden клипает контент во время
+  // раскрытия; после — visible, чтобы мягкая тень карточки не обрезалась снизу.
+  const reduce = prefersReducedMotion;
   return (
-    <AnimatePresence mode="wait">
-      {shouldShow && (
-        <motion.div
-          key={doneEmail ? 'done' : 'form'}
-          initial={prefersReducedMotion ? false : { height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={
-            prefersReducedMotion
-              ? { opacity: 0, transition: { duration: 0 } }
-              : { height: 0, opacity: 0, transition: { duration: 0.2, ease: EASE_OUT } }
-          }
-          transition={{
-            duration: prefersReducedMotion ? 0 : 0.32,
-            ease: EASE_OUT,
-            // Небольшая пауза перед раскрытием — секция появляется осознанно, а не рывком.
-            delay: prefersReducedMotion ? 0 : 0.35,
-            opacity: {
-              duration: prefersReducedMotion ? 0 : 0.24,
-              ease: EASE_OUT,
-              delay: prefersReducedMotion ? 0 : 0.42,
-            },
-          }}
-          onAnimationComplete={() => setClip(false)}
-          style={{ overflow: clip ? 'hidden' : 'visible' }}
-        >
-          {body}
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateRows: reduce || open ? '1fr' : '0fr',
+        opacity: reduce || open ? 1 : 0,
+        transform: reduce ? 'none' : open ? 'translateY(0)' : 'translateY(-6px)',
+        transition: reduce
+          ? 'none'
+          : `grid-template-rows 340ms ${EASE}, opacity 260ms ${EASE}, transform 340ms ${EASE}`,
+        willChange: reduce ? 'auto' : 'grid-template-rows, opacity, transform',
+      }}
+      onTransitionEnd={(e) => {
+        // По завершении раскрытия высоты снимаем клип (чтобы тень была видна).
+        if (e.propertyName === 'grid-template-rows' && open) setClip(false);
+      }}
+    >
+      <div style={{ overflow: clip && !reduce ? 'hidden' : 'visible', minHeight: 0 }}>{body}</div>
+    </div>
   );
 };
 
