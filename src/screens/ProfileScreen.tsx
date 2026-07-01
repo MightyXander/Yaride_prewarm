@@ -58,6 +58,13 @@ interface MenuRowProps {
   last?: boolean;
 }
 
+// Единая строка меню: фиксированная высота (все строки визуально равны, даже с
+// тумблером/статусом справа) + разделитель с отступом слева под текст (iOS-groped
+// стиль). Разделитель не доходит до скруглённых углов карточки, поэтому крайние
+// строки больше не «кажутся» другой высоты. Идентично Flutter-версии (_MenuRow).
+const MENU_ROW_HEIGHT = 56;
+const MENU_DIVIDER_INSET = 48; // 16 (паддинг) + 20 (иконка) + 12 (gap) — под лейбл
+
 const MenuRow: React.FC<MenuRowProps> = ({ icon, label, onClick, right, last }) => (
   <button
     type="button"
@@ -67,14 +74,15 @@ const MenuRow: React.FC<MenuRowProps> = ({ icon, label, onClick, right, last }) 
       onClick?.();
     }}
     style={{
+      position: 'relative',
       width: '100%',
+      minHeight: `${MENU_ROW_HEIGHT}px`,
       display: 'flex',
       alignItems: 'center',
       gap: '12px',
-      padding: '15px 16px',
+      padding: '0 16px',
       background: 'transparent',
       border: 'none',
-      borderBottom: last ? 'none' : '1px solid var(--border)',
       color: 'var(--foreground)',
       fontFamily: 'var(--font-sans)',
       fontWeight: 600,
@@ -86,6 +94,19 @@ const MenuRow: React.FC<MenuRowProps> = ({ icon, label, onClick, right, last }) 
     <span style={{ width: '20px', height: '20px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{icon}</span>
     <span style={{ flex: 1, minWidth: 0 }}>{label}</span>
     {right ?? <ChevronRight />}
+    {!last && (
+      <span
+        aria-hidden
+        style={{
+          position: 'absolute',
+          left: `${MENU_DIVIDER_INSET}px`,
+          right: 0,
+          bottom: 0,
+          height: '1px',
+          background: 'var(--border)',
+        }}
+      />
+    )}
   </button>
 );
 
