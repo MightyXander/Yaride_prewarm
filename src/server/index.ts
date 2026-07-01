@@ -63,6 +63,7 @@ export {
   handleGetMyTemplate,
   handleCreateRating,
   handleGetTripBookings,
+  handleGetTripParticipants,
   handleCancelBooking,
   handleListRoutePoints,
   handleDebugCounts,

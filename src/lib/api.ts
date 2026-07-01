@@ -22,6 +22,7 @@ import type {
   CreateRatingRequest,
   CreateRatingResponse,
   GetTripBookingsResponse,
+  GetTripParticipantsResponse,
   CancelBookingRequest,
   CancelBookingResponse,
   GetRoutePointsResponse,
@@ -202,6 +203,11 @@ export async function createRating(params: CreateRatingRequest): Promise<CreateR
 /** GET /api/trips/:id/bookings */
 export async function getTripBookings(tripId: number): Promise<GetTripBookingsResponse> {
   return apiFetch<GetTripBookingsResponse>(`/trips/${tripId}/bookings`);
+}
+
+/** GET /api/trips/:id/participants — участники поездки (водитель + активные пассажиры). */
+export async function getTripParticipants(tripId: number): Promise<GetTripParticipantsResponse> {
+  return apiFetch<GetTripParticipantsResponse>(`/trips/${tripId}/participants`);
 }
 
 /** PATCH /api/bookings/:id */

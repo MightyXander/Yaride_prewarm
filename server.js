@@ -38,6 +38,7 @@ try {
     getMyTemplate: mod.handleGetMyTemplate,
     createRating: mod.handleCreateRating,
     getTripBookings: mod.handleGetTripBookings,
+    getTripParticipants: mod.handleGetTripParticipants,
     cancelBooking: mod.handleCancelBooking,
     listRoutePoints: mod.handleListRoutePoints,
     debugCounts: mod.handleDebugCounts,
@@ -258,6 +259,7 @@ app.post('/api/me/cars', wrap(api?.addCar));
 app.post('/api/me/license', wrap(api?.submitLicense));
 app.post('/api/ratings', wrap(api?.createRating));
 app.get('/api/trips/:id/bookings', wrap(api?.getTripBookings));
+app.get('/api/trips/:id/participants', wrap(api?.getTripParticipants));
 app.patch('/api/bookings/:id', wrap(api?.cancelBooking));
 
 // Issue #242: браузерная авторизация (email/пароль + сессии в httpOnly-cookie).

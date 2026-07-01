@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card from '../components/ui/Card';
+import Avatar from '../components/ui/Avatar';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { hapticNotify } from '../lib/haptics';
 import { showToast } from '../lib/toast';
+import { getTripParticipants } from '../lib/api';
+import type { TripParticipant } from '../types/api';
 import type { Trip } from '../types/navigation';
 
 interface InTripScreenProps {
   trip: Trip | null;
+  onOpenProfile?: (userId: number) => void;
 }
 
 // Рыба-данные активной поездки (используется, если selectedTrip не передан).
@@ -17,12 +21,54 @@ const FALLBACK_TRIP = {
   eta: '~18 мин до места',
 };
 
-const InTripScreen: React.FC<InTripScreenProps> = ({ trip }) => {
+const InTripScreen: React.FC<InTripScreenProps> = ({ trip, onOpenProfile }) => {
   const driverName = trip?.driver.name ?? FALLBACK_TRIP.driver.name;
   const driverRating = trip?.driver.rating ?? FALLBACK_TRIP.driver.rating;
   const driverAvatar = trip?.driver.avatar ?? FALLBACK_TRIP.driver.avatar;
   const car = trip?.car ?? FALLBACK_TRIP.car;
   const eta = trip?.route?.duration ? `~${trip.route.duration} до места` : FALLBACK_TRIP.eta;
+
+  const driverId = trip?.driver.id;
+  const driverClickable = !!driverId && !!onOpenProfile;
+  const openDriverProfile = () => {
+    if (!driverId || !onOpenProfile) return;
+    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+    onOpenProfile(driverId);
+  };
+
+  // Попутчики видны только участникам поездки (водитель своей поездки или забронировавший пассажир).
+  const canSeeParticipants = !!trip && (trip.isOwn || trip.booked === true);
+  const [participants, setParticipants] = useState<TripParticipant[]>([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
+
+  useEffect(() => {
+    const tripId = Number(trip?.id);
+    if (!canSeeParticipants || !Number.isFinite(tripId)) {
+      setParticipants([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingParticipants(true);
+    getTripParticipants(tripId)
+      .then((res) => {
+        if (!cancelled) setParticipants(res.participants);
+      })
+      .catch((err) => {
+        console.error('Ошибка загрузки участников поездки:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingParticipants(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.id, canSeeParticipants]);
+
+  const handleOpenParticipant = (userId: number) => {
+    if (!onOpenProfile) return;
+    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+    onOpenProfile(userId);
+  };
 
   const [shared, setShared] = useState(false);
   const [sosArmed, setSosArmed] = useState(false);
@@ -123,33 +169,58 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip }) => {
       {/* Водитель и статус «в пути» */}
       <Card style={{ display: 'flex', gap: '13px', alignItems: 'center' }}>
         <div
+          role={driverClickable ? 'button' : undefined}
+          tabIndex={driverClickable ? 0 : undefined}
+          aria-label={driverClickable ? `Открыть профиль ${driverName}` : undefined}
+          onClick={driverClickable ? openDriverProfile : undefined}
+          onKeyDown={
+            driverClickable
+              ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openDriverProfile();
+                  }
+                }
+              : undefined
+          }
+          className={driverClickable ? 'focus-ring pressable' : undefined}
           style={{
-            position: 'relative',
-            width: '46px',
-            height: '46px',
-            borderRadius: '14px',
-            background: 'var(--gradient-brand)',
-            display: 'grid',
-            placeItems: 'center',
-            fontWeight: 800,
-            color: 'var(--brand-foreground)',
-            fontSize: '18px',
-            flexShrink: 0,
+            display: 'flex',
+            gap: '13px',
+            alignItems: 'center',
+            minWidth: 0,
+            flex: 1,
+            cursor: driverClickable ? 'pointer' : 'default',
           }}
         >
-          {driverAvatar}
-        </div>
-        <div style={{ minWidth: 0, flex: 1 }}>
           <div
             style={{
-              fontSize: '15px',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
+              position: 'relative',
+              width: '46px',
+              height: '46px',
+              borderRadius: '14px',
+              background: 'var(--gradient-brand)',
+              display: 'grid',
+              placeItems: 'center',
+              fontWeight: 800,
+              color: 'var(--brand-foreground)',
+              fontSize: '18px',
+              flexShrink: 0,
             }}
           >
-            {driverName}
+            {driverAvatar}
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div
+              style={{
+                fontSize: '15px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              {driverName}
             <span
               style={{
                 display: 'inline-flex',
@@ -163,9 +234,10 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip }) => {
               {driverRating}
             </span>
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '2px' }}>
-            {car}, белая ·{' '}
-            <span style={{ color: 'var(--success)', fontWeight: 700 }}>в пути</span>
+            <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '2px' }}>
+              {car}, белая ·{' '}
+              <span style={{ color: 'var(--success)', fontWeight: 700 }}>в пути</span>
+            </div>
           </div>
         </div>
         <button
@@ -192,6 +264,94 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip }) => {
           <Icon id="i-msg" style={{ width: '18px', height: '18px' }} />
         </button>
       </Card>
+
+      {/* Попутчики — компактный список, тап открывает публичный профиль */}
+      {canSeeParticipants && (participants.length > 0 || loadingParticipants) && (
+        <Card>
+          <div
+            style={{
+              fontSize: '12px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: 'var(--muted-foreground)',
+              fontWeight: 700,
+              marginBottom: '10px',
+            }}
+          >
+            Кто едет
+          </div>
+          {loadingParticipants && participants.length === 0 ? (
+            <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Загрузка…</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {participants.map((p) => {
+                const clickable = !!onOpenProfile;
+                return (
+                  <div
+                    key={p.user_id}
+                    role={clickable ? 'button' : undefined}
+                    tabIndex={clickable ? 0 : undefined}
+                    aria-label={clickable ? `Открыть профиль ${p.name}` : undefined}
+                    onClick={clickable ? () => handleOpenParticipant(p.user_id) : undefined}
+                    onKeyDown={
+                      clickable
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleOpenParticipant(p.user_id);
+                            }
+                          }
+                        : undefined
+                    }
+                    className={clickable ? 'focus-ring pressable' : undefined}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      cursor: clickable ? 'pointer' : 'default',
+                    }}
+                  >
+                    <Avatar label={p.name.charAt(0)} rating={p.rating || undefined} size={36} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600 }}>{p.name}</div>
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--muted-foreground)',
+                          marginTop: '2px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                      >
+                        <span>{p.role === 'driver' ? 'Водитель' : 'Попутчик'}</span>
+                        {p.rating_count > 0 && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                            ·
+                            <Icon id="i-star" fill style={{ width: '10px', height: '10px', fill: 'var(--star)' }} />
+                            {p.rating}
+                          </span>
+                        )}
+                        {p.license_verified && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--success)', fontWeight: 700 }}>
+                            · <Icon id="i-check" style={{ width: '12px', height: '12px' }} /> ВУ
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {clickable && (
+                      <Icon
+                        id="i-arrow-r"
+                        style={{ width: '16px', height: '16px', marginLeft: 'auto', color: 'var(--muted-foreground)' }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Объяснение «поделиться» */}
       <Card variant="accent" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>

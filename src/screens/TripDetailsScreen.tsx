@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
@@ -8,6 +8,8 @@ import { Icon } from '../components/Icons';
 import PhoneLink from '../components/PhoneLink';
 import { showToast } from '../lib/toast';
 import { Appear } from '../components/Appear';
+import { getTripParticipants } from '../lib/api';
+import type { TripParticipant } from '../types/api';
 import type { Trip } from '../types/navigation';
 
 interface TripDetailsScreenProps {
@@ -64,6 +66,40 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
   const memberSince = trip.driver.memberSince || 'мая 2026';
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+
+  // Участники поездки видны только тем, кто в ней (водитель своей поездки или забронировавший пассажир).
+  const canSeeParticipants = trip.isOwn || trip.booked === true;
+  const [participants, setParticipants] = useState<TripParticipant[]>([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
+
+  useEffect(() => {
+    const tripId = Number(trip.id);
+    if (!canSeeParticipants || !Number.isFinite(tripId)) {
+      setParticipants([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingParticipants(true);
+    getTripParticipants(tripId)
+      .then((res) => {
+        if (!cancelled) setParticipants(res.participants);
+      })
+      .catch((err) => {
+        console.error('Ошибка загрузки участников поездки:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingParticipants(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [trip.id, canSeeParticipants]);
+
+  const handleOpenParticipant = (userId: number) => {
+    if (!onOpenProfile) return;
+    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+    onOpenProfile(userId);
+  };
 
   // Дата+время выезда (для дня недели и определения прошедшей поездки).
   const departedAt = trip.tripDate ? new Date(`${trip.tripDate}T${trip.time}:00`) : null;
@@ -295,6 +331,95 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
         </div>
         </Card>
       </Appear>
+
+      {canSeeParticipants && (participants.length > 0 || loadingParticipants) && (
+        <Appear delay={130}>
+          <Card>
+            <div
+              style={{
+                fontSize: '12px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                color: 'var(--muted-foreground)',
+                fontWeight: 700,
+                marginBottom: '10px',
+              }}
+            >
+              Кто едет
+            </div>
+            {loadingParticipants && participants.length === 0 ? (
+              <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Загрузка…</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {participants.map((p) => {
+                  const clickable = !!onOpenProfile;
+                  return (
+                    <div
+                      key={p.user_id}
+                      role={clickable ? 'button' : undefined}
+                      tabIndex={clickable ? 0 : undefined}
+                      aria-label={clickable ? `Открыть профиль ${p.name}` : undefined}
+                      onClick={clickable ? () => handleOpenParticipant(p.user_id) : undefined}
+                      onKeyDown={
+                        clickable
+                          ? (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleOpenParticipant(p.user_id);
+                              }
+                            }
+                          : undefined
+                      }
+                      className={clickable ? 'focus-ring pressable' : undefined}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        cursor: clickable ? 'pointer' : 'default',
+                      }}
+                    >
+                      <Avatar label={p.name.charAt(0)} rating={p.rating || undefined} size={40} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '15px', fontWeight: 600 }}>{p.name}</div>
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            color: 'var(--muted-foreground)',
+                            marginTop: '2px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                          }}
+                        >
+                          <span>{p.role === 'driver' ? 'Водитель' : 'Попутчик'}</span>
+                          {p.rating_count > 0 && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                              ·
+                              <Icon id="i-star" fill style={{ width: '10px', height: '10px', fill: 'var(--star)' }} />
+                              {p.rating}
+                            </span>
+                          )}
+                          {p.license_verified && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--success)', fontWeight: 700 }}>
+                              · <Icon id="i-check" style={{ width: '12px', height: '12px' }} /> ВУ
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {clickable && (
+                        <Icon
+                          id="i-arrow-r"
+                          style={{ width: '16px', height: '16px', marginLeft: 'auto', color: 'var(--muted-foreground)' }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </Appear>
+      )}
 
       <Appear delay={150}>
         <div
