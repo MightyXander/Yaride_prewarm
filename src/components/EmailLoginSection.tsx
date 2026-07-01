@@ -3,7 +3,7 @@ import Card from './ui/Card';
 import Button from './ui/Button';
 import { Icon } from './Icons';
 import { AuthField, PasswordField, ButtonSpinner, AuthError } from './AuthKit';
-import { getMyCredentials, addMyCredentials, ApiException } from '../lib/api';
+import { getMyCredentials, addMyCredentials, linkMyAccount, ApiException } from '../lib/api';
 import { isTelegramContext } from '../lib/auth';
 import { hapticImpact, hapticNotify } from '../lib/haptics';
 
@@ -47,6 +47,15 @@ const EmailLoginSection: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [doneEmail, setDoneEmail] = useState<string | null>(null);
+  const [linkedDone, setLinkedDone] = useState(false);
+
+  // Режим секции: создать новый вход по email ИЛИ привязать уже существующую
+  // браузерную учётку к этой TG-карточке (issue #300, лечит/предотвращает дубли).
+  const [mode, setMode] = useState<'create' | 'link'>('create');
+  const [linkEmail, setLinkEmail] = useState('');
+  const [linkPassword, setLinkPassword] = useState('');
+  const [linkError, setLinkError] = useState<string | undefined>();
+  const [linkLoading, setLinkLoading] = useState(false);
 
   // Двухступенчатое раскрытие без рывка:
   //  mounted — секция появилась в DOM (после паузы REVEAL_DELAY_MS, чтобы профиль
@@ -136,6 +145,40 @@ const EmailLoginSection: React.FC = () => {
     }
   };
 
+  const handleLink = async () => {
+    if (linkLoading) return;
+    setLinkError(undefined);
+    const em = linkEmail.trim();
+    if (!EMAIL_RE.test(em)) {
+      setLinkError('Введите корректный email');
+      return;
+    }
+    if (linkPassword.length === 0) {
+      setLinkError('Введите пароль');
+      return;
+    }
+    hapticImpact('light');
+    setLinkLoading(true);
+    try {
+      const res = await linkMyAccount({ email: em, password: linkPassword });
+      hapticNotify('success');
+      setLinkedDone(true);
+      setDoneEmail(res.email);
+    } catch (e) {
+      const code = e instanceof ApiException ? (e.details?.code as string | undefined) : undefined;
+      if (code === 'invalid_credentials') {
+        setLinkError('Неверный email или пароль');
+      } else if (code === 'other_telegram') {
+        setLinkError('Этот email привязан к другому Telegram-аккаунту');
+      } else if (code === 'same_account') {
+        setLinkError('Этот аккаунт уже привязан к вашему профилю');
+      } else {
+        setLinkError(e instanceof ApiException ? e.message : 'Не удалось привязать аккаунт. Попробуйте ещё раз.');
+      }
+      setLinkLoading(false);
+    }
+  };
+
   // До завершения проверки статуса или вне области применения — блока нет в DOM.
   const shouldShow = checked && visible;
 
@@ -186,14 +229,89 @@ const EmailLoginSection: React.FC = () => {
           <Icon id="i-check" style={{ width: '18px', height: '18px', strokeWidth: 2.6 }} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '15px', fontWeight: 700 }}>Вход по email включён</div>
+          <div style={{ fontSize: '15px', fontWeight: 700 }}>
+            {linkedDone ? 'Аккаунт привязан' : 'Вход по email включён'}
+          </div>
           <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '3px', lineHeight: 1.45 }}>
-            Теперь в браузер можно войти по{' '}
-            <span style={{ color: 'var(--foreground)', fontWeight: 600, wordBreak: 'break-all' }}>{doneEmail}</span>{' '}
-            и тому же паролю. Это та же карточка — поездки и рейтинг общие.
+            {linkedDone ? (
+              <>
+                Браузерная учётка{' '}
+                <span style={{ color: 'var(--foreground)', fontWeight: 600, wordBreak: 'break-all' }}>{doneEmail}</span>{' '}
+                теперь связана с этим профилем — поездки и рейтинг объединены в одной карточке.
+              </>
+            ) : (
+              <>
+                Теперь в браузер можно войти по{' '}
+                <span style={{ color: 'var(--foreground)', fontWeight: 600, wordBreak: 'break-all' }}>{doneEmail}</span>{' '}
+                и тому же паролю. Это та же карточка — поездки и рейтинг общие.
+              </>
+            )}
           </div>
         </div>
       </Card>
+  ) : mode === 'link' ? (
+    <Card style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div>
+        <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 700, letterSpacing: '-0.01em' }}>Привязать аккаунт</h2>
+        <p style={{ margin: '5px 0 0', fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.45 }}>
+          Уже регистрировались в браузере? Войдите — привяжем ту учётку к этому профилю, история объединится в одной карточке.
+        </p>
+      </div>
+
+      <AuthField
+        label="Email"
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        placeholder="Email браузерной учётки"
+        value={linkEmail}
+        onChange={(v) => {
+          setLinkEmail(v);
+          if (linkError) setLinkError(undefined);
+        }}
+      />
+
+      <PasswordField
+        label="Пароль"
+        autoComplete="current-password"
+        placeholder="Пароль от браузерного входа"
+        value={linkPassword}
+        onChange={(v) => {
+          setLinkPassword(v);
+          if (linkError) setLinkError(undefined);
+        }}
+      />
+
+      {linkError && <AuthError>{linkError}</AuthError>}
+
+      <Button
+        variant="primary"
+        haptic="none"
+        disabled={linkLoading}
+        onClick={() => void handleLink()}
+        style={{ height: '52px', borderRadius: '16px', fontSize: '15px', fontWeight: 700 }}
+      >
+        {linkLoading ? (
+          <>
+            <ButtonSpinner />
+            Привязываем…
+          </>
+        ) : (
+          'Привязать аккаунт'
+        )}
+      </Button>
+
+      <button
+        type="button"
+        onClick={() => { setMode('create'); setLinkError(undefined); }}
+        style={{
+          background: 'none', border: 'none', padding: '2px', cursor: 'pointer', alignSelf: 'center',
+          color: 'var(--muted-foreground)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-sans)',
+        }}
+      >
+        Создать новый вход по email
+      </button>
+    </Card>
   ) : (
     <Card style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
       <div>
@@ -264,6 +382,17 @@ const EmailLoginSection: React.FC = () => {
           'Включить вход по email'
         )}
       </Button>
+
+      <button
+        type="button"
+        onClick={() => { setMode('link'); setFormError(undefined); }}
+        style={{
+          background: 'none', border: 'none', padding: '2px', cursor: 'pointer', alignSelf: 'center',
+          color: 'var(--muted-foreground)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-sans)',
+        }}
+      >
+        Уже регистрировались в браузере? Привязать аккаунт
+      </button>
     </Card>
   );
 

@@ -31,3 +31,4 @@ export * from './ratings.ts';
 export * from './license.ts';
 export * from './notifications.ts';
 export * from './debug.ts';
+export * from './merge.ts';

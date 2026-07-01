@@ -531,6 +531,34 @@ function mockApiPlugin() {
           return;
         }
 
+        // POST /api/me/link-account — привязать браузерную учётку к TG-карточке (#300)
+        if (method === 'POST' && pathname === '/me/link-account') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            const p = JSON.parse(body || '{}');
+            const email = String(p.email ?? '').trim();
+            const password = String(p.password ?? '');
+            if (!EMAIL_RE.test(email) || password.length === 0) {
+              sendJson({ error: 'Укажите email и пароль', field: 'email' }, 400); return;
+            }
+            const idx = mockAuthUsers.findIndex(
+              (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password,
+            );
+            if (idx === -1) {
+              sendJson({ error: 'Неверный email или пароль', code: 'invalid_credentials' }, 401); return;
+            }
+            const web = mockAuthUsers[idx];
+            // «Слияние»: веб-учётка переезжает в текущую карточку, из списка убираем.
+            mockAuthUsers.splice(idx, 1);
+            mockCredentials.hasPassword = true;
+            mockCredentials.email = web.email;
+            mockCredentials.username = web.username;
+            sendJson({ linked: true, email: web.email, username: web.username });
+          });
+          return;
+        }
+
         // GET /api/me/trips
         if (method === 'GET' && pathname === '/me/trips') {
           const status = url.searchParams.get('status');

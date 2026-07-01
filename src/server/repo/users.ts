@@ -178,6 +178,30 @@ export async function findUserByEmail(
   return { ...row, password_hash: row.password_hash };
 }
 
+/**
+ * Веб-аккаунт по email для привязки (issue #300): id, tg_user_id и хеш пароля.
+ * Нужен, чтобы TG-пользователь мог привязать свою ранее заведённую браузерную
+ * учётку (проверка пароля + гварды: другой TG-аккаунт / та же карточка).
+ * Возвращает null, если email не найден или у аккаунта нет пароля.
+ */
+export async function findWebAccountByEmail(
+  email: string,
+): Promise<{ id: number; tg_user_id: number | null; password_hash: string } | null> {
+  await ensureReady();
+  const res = await getPool().query<{ id: number; tg_user_id: number | null; password_hash: string | null }>(
+    `SELECT id, tg_user_id, password_hash
+       FROM users
+      WHERE lower(email) = lower($1) AND password_hash IS NOT NULL
+      LIMIT 1`,
+    [email],
+  );
+  const row = res.rows[0];
+  if (!row || row.password_hash === null) {
+    return null;
+  }
+  return { id: row.id, tg_user_id: row.tg_user_id, password_hash: row.password_hash };
+}
+
 // ============================================================================
 // JIT-профиль из Telegram + карточки профиля.
 // ============================================================================
