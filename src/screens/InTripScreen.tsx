@@ -8,6 +8,7 @@ import type { Trip } from '../types/navigation';
 
 interface InTripScreenProps {
   trip: Trip | null;
+  onOpenProfile?: (userId: number) => void;
 }
 
 // Рыба-данные активной поездки (используется, если selectedTrip не передан).
@@ -17,12 +18,20 @@ const FALLBACK_TRIP = {
   eta: '~18 мин до места',
 };
 
-const InTripScreen: React.FC<InTripScreenProps> = ({ trip }) => {
+const InTripScreen: React.FC<InTripScreenProps> = ({ trip, onOpenProfile }) => {
   const driverName = trip?.driver.name ?? FALLBACK_TRIP.driver.name;
   const driverRating = trip?.driver.rating ?? FALLBACK_TRIP.driver.rating;
   const driverAvatar = trip?.driver.avatar ?? FALLBACK_TRIP.driver.avatar;
   const car = trip?.car ?? FALLBACK_TRIP.car;
   const eta = trip?.route?.duration ? `~${trip.route.duration} до места` : FALLBACK_TRIP.eta;
+
+  const driverId = trip?.driver.id;
+  const driverClickable = !!driverId && !!onOpenProfile;
+  const openDriverProfile = () => {
+    if (!driverId || !onOpenProfile) return;
+    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+    onOpenProfile(driverId);
+  };
 
   const [shared, setShared] = useState(false);
   const [sosArmed, setSosArmed] = useState(false);
@@ -123,33 +132,58 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip }) => {
       {/* Водитель и статус «в пути» */}
       <Card style={{ display: 'flex', gap: '13px', alignItems: 'center' }}>
         <div
+          role={driverClickable ? 'button' : undefined}
+          tabIndex={driverClickable ? 0 : undefined}
+          aria-label={driverClickable ? `Открыть профиль ${driverName}` : undefined}
+          onClick={driverClickable ? openDriverProfile : undefined}
+          onKeyDown={
+            driverClickable
+              ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openDriverProfile();
+                  }
+                }
+              : undefined
+          }
+          className={driverClickable ? 'focus-ring pressable' : undefined}
           style={{
-            position: 'relative',
-            width: '46px',
-            height: '46px',
-            borderRadius: '14px',
-            background: 'var(--gradient-brand)',
-            display: 'grid',
-            placeItems: 'center',
-            fontWeight: 800,
-            color: 'var(--brand-foreground)',
-            fontSize: '18px',
-            flexShrink: 0,
+            display: 'flex',
+            gap: '13px',
+            alignItems: 'center',
+            minWidth: 0,
+            flex: 1,
+            cursor: driverClickable ? 'pointer' : 'default',
           }}
         >
-          {driverAvatar}
-        </div>
-        <div style={{ minWidth: 0, flex: 1 }}>
           <div
             style={{
-              fontSize: '15px',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
+              position: 'relative',
+              width: '46px',
+              height: '46px',
+              borderRadius: '14px',
+              background: 'var(--gradient-brand)',
+              display: 'grid',
+              placeItems: 'center',
+              fontWeight: 800,
+              color: 'var(--brand-foreground)',
+              fontSize: '18px',
+              flexShrink: 0,
             }}
           >
-            {driverName}
+            {driverAvatar}
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div
+              style={{
+                fontSize: '15px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              {driverName}
             <span
               style={{
                 display: 'inline-flex',
@@ -163,9 +197,10 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip }) => {
               {driverRating}
             </span>
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '2px' }}>
-            {car}, белая ·{' '}
-            <span style={{ color: 'var(--success)', fontWeight: 700 }}>в пути</span>
+            <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '2px' }}>
+              {car}, белая ·{' '}
+              <span style={{ color: 'var(--success)', fontWeight: 700 }}>в пути</span>
+            </div>
           </div>
         </div>
         <button

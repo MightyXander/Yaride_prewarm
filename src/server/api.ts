@@ -33,6 +33,7 @@ import {
   getLatestLicenseRequest,
   createRatingById,
   getTripBookings,
+  getTripParticipants,
   cancelBookingByDriver,
   cancelTripByDriver,
   listRoutePoints,
@@ -865,6 +866,32 @@ export async function handleGetTripBookings(req: ApiRequest): Promise<ApiRespons
     return err(403, 'Доступ к броням только у водителя поездки');
   }
   return { status: 200, body: { bookings: result.bookings } };
+}
+
+/**
+ * GET /api/trips/:id/participants — участники поездки (водитель + активные пассажиры).
+ * Доступ у любого участника поездки (водитель ИЛИ пассажир с активной бронью) —
+ * они видят профили друг друга. Только публичные поля; карточка ведёт в /users/:id/profile.
+ */
+export async function handleGetTripParticipants(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const tripId = toPositiveInt(req.params.id);
+  if (tripId === undefined) {
+    return err(400, 'Некорректный id поездки');
+  }
+
+  const result = await getTripParticipants(tripId, userId);
+  if (!result.ok) {
+    if (result.reason === 'not_found') {
+      return err(404, 'Поездка не найдена');
+    }
+    return err(403, 'Список участников доступен только участникам поездки');
+  }
+  return { status: 200, body: { participants: result.participants } };
 }
 
 /** PATCH /api/bookings/:id — отменить бронь водителем. */

@@ -744,6 +744,19 @@ function mockApiPlugin() {
           return;
         }
 
+        // GET /api/trips/:id/participants — участники поездки (водитель + активные пассажиры)
+        if (method === 'GET' && pathname.match(/^\/trips\/\d+\/participants$/)) {
+          const participants = [
+            { user_id: 1, name: 'Андрей К.', role: 'driver', rating: 4.9, rating_count: 25, license_verified: true },
+            ...(forceEmpty ? [] : [
+              { user_id: 500, name: 'Анна С.', role: 'passenger', rating: 4.8, rating_count: 12, license_verified: false },
+              { user_id: 501, name: 'Игорь П.', role: 'passenger', rating: 5.0, rating_count: 3, license_verified: false },
+            ]),
+          ];
+          sendJson({ participants });
+          return;
+        }
+
         // PATCH /api/bookings/:id
         if (method === 'PATCH' && pathname.match(/^\/bookings\/\d+$/)) {
           let body = '';

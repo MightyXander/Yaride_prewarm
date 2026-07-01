@@ -229,7 +229,7 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
   'license-review': (ctx) => (
     <LicenseReviewScreen onFindRide={() => ctx.navigate('main')} onRetry={() => ctx.navigate('become-driver')} />
   ),
-  'in-trip': (ctx) => <InTripScreen trip={ctx.selectedTrip} />,
+  'in-trip': (ctx) => <InTripScreen trip={ctx.selectedTrip} onOpenProfile={ctx.handleOpenUserProfile} />,
   safety: () => <SafetyScreen />,
   'passenger-request': (ctx) => (
     <PassengerRequestScreen direction={ctx.requestDirection} onPublish={() => ctx.navigate('request-published')} />

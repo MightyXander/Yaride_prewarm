@@ -231,6 +231,20 @@ export interface GetTripBookingsResponse {
   bookings: BookingDetail[];
 }
 
+// GET /api/trips/:id/participants
+export interface TripParticipant {
+  user_id: number;
+  name: string;
+  role: 'driver' | 'passenger';
+  rating: number;
+  rating_count: number;
+  license_verified: boolean;
+}
+
+export interface GetTripParticipantsResponse {
+  participants: TripParticipant[];
+}
+
 // PATCH /api/bookings/:id
 export interface CancelBookingRequest {
   action: 'cancel_by_driver';

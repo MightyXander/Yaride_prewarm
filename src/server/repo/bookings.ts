@@ -173,6 +173,76 @@ export async function getTripBookings(
   return { ok: true, bookings: res.rows };
 }
 
+/** Участник поездки (публичные поля) — водитель или пассажир с активной бронью. */
+export interface TripParticipant {
+  user_id: number;
+  name: string;
+  role: 'driver' | 'passenger';
+  rating: number;
+  rating_count: number;
+  license_verified: boolean;
+}
+
+/** Результат запроса участников поездки: список либо причина отказа. */
+export type TripParticipantsResult =
+  | { ok: true; participants: TripParticipant[] }
+  | { ok: false; reason: 'not_found' | 'forbidden' };
+
+/**
+ * Список участников поездки (GET /api/trips/:id/participants).
+ * СКОУП НА УЧАСТНИКОВ: доступ есть у водителя поездки И у любого пассажира
+ * с активной бронью — они видят друг друга. Посторонним — { ok:false, reason:'forbidden' }.
+ * Возвращаются только публичные поля (без телефона/username) — карточка ведёт в /users/:id/profile.
+ */
+export async function getTripParticipants(
+  tripId: number,
+  requesterUserId: number,
+): Promise<TripParticipantsResult> {
+  await ensureReady();
+  const ownerRes = await getPool().query<{ driver_id: number }>(
+    'SELECT driver_id FROM trips WHERE id = $1',
+    [tripId],
+  );
+  const owner = ownerRes.rows[0];
+  if (!owner) {
+    return { ok: false, reason: 'not_found' };
+  }
+
+  // Доступ: водитель ИЛИ пассажир с активной бронью на этой поездке.
+  const isDriver = owner.driver_id === requesterUserId;
+  if (!isDriver) {
+    const bkRes = await getPool().query<{ id: number }>(
+      `SELECT id FROM bookings WHERE trip_id = $1 AND passenger_id = $2 AND status = 'active' LIMIT 1`,
+      [tripId, requesterUserId],
+    );
+    if (bkRes.rows.length === 0) {
+      return { ok: false, reason: 'forbidden' };
+    }
+  }
+
+  // Водитель + все пассажиры с активной бронью, каждый — публичные поля.
+  const res = await getPool().query<TripParticipant>(
+    `SELECT u.id AS user_id, u.name,
+            CASE WHEN u.id = t.driver_id THEN 'driver' ELSE 'passenger' END AS role,
+            u.rating_avg AS rating, u.rating_count,
+            (u.license_status = 'verified') AS license_verified
+     FROM trips t
+     JOIN users u ON u.id = t.driver_id
+     WHERE t.id = $1
+     UNION
+     SELECT u.id AS user_id, u.name, 'passenger' AS role,
+            u.rating_avg AS rating, u.rating_count,
+            (u.license_status = 'verified') AS license_verified
+     FROM bookings b
+     JOIN users u ON u.id = b.passenger_id
+     JOIN trips t ON t.id = b.trip_id
+     WHERE b.trip_id = $1 AND b.status = 'active'
+     ORDER BY role ASC, name ASC`,
+    [tripId],
+  );
+  return { ok: true, participants: res.rows };
+}
+
 export interface CancelBookingResult {
   bookingId: number;
   tripId: number;
