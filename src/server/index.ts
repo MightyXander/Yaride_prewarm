@@ -15,8 +15,6 @@ export {
   getTripCard,
   listRoutePoints,
   createBooking,
-  createRouteAlert,
-  createTripFromTemplate,
   ensureUser,
   listTripTemplates,
   getUserProfile,
@@ -25,12 +23,8 @@ export {
   getTripBookings,
   cancelBookingByDriver,
   cancelTripByDriver,
-  ensureRateReminders,
   createNotification,
-  listNotifications,
   markNotificationRead,
-  listCarsByDriver,
-  createCar,
 } from './repo.ts';
 export type {
   TimeSlot,
