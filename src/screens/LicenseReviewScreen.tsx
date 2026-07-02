@@ -9,8 +9,10 @@ interface LicenseReviewScreenProps {
   onRetry: () => void;
 }
 
-// Статус модерации ВУ.
-type ReviewStatus = 'pending' | 'approved' | 'declined';
+// Статус модерации ВУ. 'none' — заявка ни разу не подавалась (честный empty-state, не фейковый «на проверке»).
+type ReviewStatus = 'none' | 'pending' | 'approved' | 'declined';
+// Подмножество статусов, для которых имеет смысл таймлайн проверки (заявка реально подана).
+type SubmittedReviewStatus = Exclude<ReviewStatus, 'none'>;
 
 interface TimelineStep {
   label: string;
@@ -35,7 +37,7 @@ interface StatusMeta {
   sub: string;
 }
 
-const STATUS_META: Record<ReviewStatus, StatusMeta> = {
+const STATUS_META: Record<SubmittedReviewStatus, StatusMeta> = {
   pending: {
     icon: 'i-clock',
     iconColor: 'var(--brand-foreground)',
@@ -59,7 +61,7 @@ const STATUS_META: Record<ReviewStatus, StatusMeta> = {
   },
 };
 
-const timelineFor = (status: ReviewStatus): TimelineStep[] => [
+const timelineFor = (status: SubmittedReviewStatus): TimelineStep[] => [
   { label: 'Заявка отправлена', done: true },
   {
     label: status === 'pending' ? 'Проверка модератором' : 'Проверена модератором',
@@ -83,7 +85,100 @@ const LicenseReviewScreen: React.FC<LicenseReviewScreenProps> = ({ onFindRide, o
   const { profile } = useProfile();
   const rawStatus = profile?.license_status ?? '';
   const status: ReviewStatus =
-    rawStatus === 'verified' ? 'approved' : rawStatus === 'rejected' || rawStatus === 'declined' ? 'declined' : 'pending';
+    rawStatus === 'verified'
+      ? 'approved'
+      : rawStatus === 'rejected' || rawStatus === 'declined'
+        ? 'declined'
+        : rawStatus === 'none'
+          ? 'none'
+          : 'pending';
+
+  // Заявка не подана — честный empty-state с CTA «Подать заявку», без имитации проверки.
+  if (status === 'none') {
+    return (
+      <div
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '6px 16px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+        }}
+      >
+        <Header title="Заявка водителя" />
+
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            padding: '14px 8px 6px',
+          }}
+        >
+          <div
+            style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '22px',
+              background: 'var(--muted)',
+              display: 'grid',
+              placeItems: 'center',
+              color: 'var(--muted-foreground)',
+              boxShadow: 'var(--shadow-card)',
+            }}
+          >
+            <Icon id="i-shield" style={{ width: '30px', height: '30px', strokeWidth: 2.4 }} />
+          </div>
+          <div style={{ fontWeight: 800, fontSize: '19px', letterSpacing: '-0.01em', marginTop: '12px' }}>
+            Заявка не подана
+          </div>
+          <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', marginTop: '3px' }}>
+            Отправьте ВУ на проверку, чтобы возить пассажиров
+          </div>
+        </div>
+
+        <Card variant="accent" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '12px',
+              background: 'var(--gradient-brand)',
+              display: 'grid',
+              placeItems: 'center',
+              color: 'var(--brand-foreground)',
+              flexShrink: 0,
+            }}
+          >
+            <Icon id="i-bell" style={{ width: '18px', height: '18px' }} />
+          </div>
+          <div style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--foreground)' }}>
+            Проверка обычно занимает пару часов. Пока можно искать поездки как пассажир.
+          </div>
+        </Card>
+
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '9px',
+            marginTop: 'auto',
+            paddingTop: '6px',
+          }}
+        >
+          <Button variant="primary" icon="i-shield" onClick={onRetry}>
+            Подать заявку
+          </Button>
+          <Button variant="ghost" icon="i-search" onClick={onFindRide}>
+            Найти поездку
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const meta = STATUS_META[status];
   const steps = timelineFor(status);
 
