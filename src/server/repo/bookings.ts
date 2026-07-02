@@ -221,6 +221,9 @@ export async function getTripParticipants(
   }
 
   // Водитель + все пассажиры с активной бронью, каждый — публичные поля.
+  // Guard (issue #311): бронь с passenger_id = driver_id этой же поездки (кривые/тестовые
+  // данные — пассажир де-факто сам себе водитель) исключаем из пассажирской ветки, иначе
+  // один и тот же user_id задваивается в списке участников как driver И passenger.
   const res = await getPool().query<TripParticipant>(
     `SELECT u.id AS user_id, u.name,
             CASE WHEN u.id = t.driver_id THEN 'driver' ELSE 'passenger' END AS role,
@@ -236,7 +239,7 @@ export async function getTripParticipants(
      FROM bookings b
      JOIN users u ON u.id = b.passenger_id
      JOIN trips t ON t.id = b.trip_id
-     WHERE b.trip_id = $1 AND b.status = 'active'
+     WHERE b.trip_id = $1 AND b.status = 'active' AND b.passenger_id != t.driver_id
      ORDER BY role ASC, name ASC`,
     [tripId],
   );

@@ -227,7 +227,7 @@ function App() {
         </div>
         <FloatingNav
           currentScreen={currentScreen}
-          onNavigate={(root) => navigate(root === 'profile' ? 'profile' : 'main')}
+          onNavigate={(root) => navigate(root === 'profile' ? 'profile' : 'my-trips')}
           onNotificationsClick={() => navigate('notifications')}
         />
       </div>
