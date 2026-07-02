@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
 import Chip from '../components/ui/Chip';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
-import { createRating, ApiException } from '../lib/api';
+import { createRating, getTripParticipants, ApiException } from '../lib/api';
 import { showToast } from '../lib/toast';
 import type { RatingContext } from '../types/navigation';
+import type { TripParticipant } from '../types/api';
 
 // Экран 11 SPEC: Оценка после поездки
 // Звёзды 1–5, теги настроения, текстовый отзыв (опционально)
@@ -17,22 +18,16 @@ const RATING_TAGS_PASSENGER = ['Пунктуальный', 'Вежливый', '
 
 interface RateTripScreenProps {
   ratingContext?: RatingContext;
-  trip?: {
-    driver: {
-      name: string;
-      avatar: string;
-      rating: number;
-    };
-  };
   onSubmit?: () => void;
   onClose?: () => void;
 }
 
-const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, trip, onSubmit, onClose }) => {
+const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, onSubmit, onClose }) => {
   const [rating, setRating] = useState(5);
   const [selectedTags, setSelectedTags] = useState<string[]>(['Пунктуальный']);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ratee, setRatee] = useState<TripParticipant | null>(null);
 
   // Определяем, оцениваем водителя (passenger) или пассажира (driver)
   const raterRole = ratingContext?.raterRole || 'passenger';
@@ -41,8 +36,32 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, trip, on
   const tags = isRatingPassenger ? RATING_TAGS_PASSENGER : RATING_TAGS_DRIVER;
   const headerTitle = isRatingPassenger ? 'Как прошла поездка с' : 'Как доехали с';
 
-  const driverName = trip?.driver.name || 'Андрей К.';
-  const driverAvatar = trip?.driver.avatar || 'А';
+  // Реальное имя/данные оцениваемого участника — из /api/trips/:id/participants
+  // (та же модель, что и в #302/#311), а не хардкод-заглушка (#314).
+  useEffect(() => {
+    if (!ratingContext) {
+      setRatee(null);
+      return;
+    }
+    const { tripId, rateeId } = ratingContext;
+    let cancelled = false;
+    getTripParticipants(tripId)
+      .then((res) => {
+        if (cancelled) return;
+        const found = res.participants.find((p) => p.user_id === rateeId);
+        setRatee(found ?? null);
+      })
+      .catch((err) => {
+        console.error('Ошибка загрузки участников поездки:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ratingContext]);
+
+  // Пока данные не загружены/недоступны — честный нейтральный фоллбэк, не выдуманное имя.
+  const driverName = ratee?.name || 'Попутчик';
+  const driverAvatar = ratee?.name ? ratee.name.charAt(0) : '?';
 
   const handleStarClick = (stars: number) => {
     setRating(stars);
