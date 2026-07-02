@@ -64,6 +64,7 @@ import {
 } from './repo.ts';
 import {
   getSessionUserFromRequest,
+  reissueSessionForUser,
   hashPassword,
   verifyPassword,
   getDummyHash,
@@ -91,6 +92,14 @@ export interface ApiRequest {
   headers: Record<string, string | undefined>;
   /** IP клиента (req.ip из Express) — для троттлинга входа. */
   ip?: string;
+  /**
+   * Очередь Set-Cookie инструкций, накопленных во время резолва пользователя
+   * (issue #312: переиздание cookie-сессии при рассинхроне с initData — см.
+   * resolveCurrentUserId). Обработчики это поле сами не читают: тонкая обёртка
+   * wrap() в server.js подмешивает его в ApiResponse.cookies после вызова
+   * хендлера, поэтому вызывающие resolveCurrentUserId места менять не нужно.
+   */
+  pendingCookies?: SetCookieInstruction[];
 }
 
 /** Инструкция выставить/очистить cookie (применяется тонкой обёрткой в server.js). */
@@ -197,18 +206,58 @@ function authenticate(
 
 /**
  * Резолв ВНУТРЕННЕГО users.id текущего пользователя для эндпоинтов, общих для
- * браузерных и Telegram-аккаунтов (issue #267). Приоритет — cookie-сессия
- * браузерной авторизации; при её отсутствии — Telegram initData (JIT-профиль).
- * Возвращает внутренний id либо ApiResponse-ошибку 401.
+ * браузерных и Telegram-аккаунтов (issue #267).
+ *
+ * Приоритет (issue #312 — фикс утечки чужого профиля через устаревшую cookie в
+ * общем браузере: https://github.com/MightyXander/Yaride_prewarm/issues/312):
+ *  1) Если запрос несёт ВАЛИДНЫЙ (прошедший проверку подписи) X-Telegram-Init-Data —
+ *     это Telegram-контекст, и initData АВТОРИТЕТНЕЕ cookie-сессии. JIT-резолвим
+ *     профиль по initData. Если cookie-сессии нет либо она принадлежит ДРУГОМУ
+ *     users.id — переиздаём сессию на юзера из initData (обновляем cookie), чтобы
+ *     не осталась «залипшая» чужая сессия. Если cookie уже совпадает с юзером
+ *     initData — ничего не переиздаём (без лишних переизданий на каждый повтор).
+ *  2) Иначе (initData отсутствует ИЛИ не прошёл валидацию подписи) — как раньше,
+ *     резолвим по cookie-сессии браузерной авторизации; email/пароль-флоу без
+ *     initData этот приоритет не задевает.
+ *  3) Если ни один способ не сработал — 401 (тот же контракт ошибки, что и раньше).
+ *
+ * Инструкция Set-Cookie при переиздании кладётся в req.pendingCookies — обёртка
+ * wrap() в server.js подмешивает её в финальный ApiResponse.cookies, поэтому
+ * сигнатуру и ~20 мест использования resolveCurrentUserId трогать не пришлось.
  */
 async function resolveCurrentUserId(req: ApiRequest): Promise<number | ApiResponse> {
-  // 1) Браузерный аккаунт по cookie-сессии — getSessionUser отдаёт внутренний id.
+  const headerInit =
+    req.headers['x-telegram-init-data'] ?? req.headers['X-Telegram-Init-Data'];
+  const hasInitDataHeader = typeof headerInit === 'string' && headerInit.trim() !== '';
+
+  if (hasInitDataHeader) {
+    const initResult = verifyInitData(headerInit as string, process.env.BOT_TOKEN);
+    if (initResult.ok && initResult.user !== null) {
+      const profile = await ensureUser({
+        tgUserId: initResult.user.id,
+        name: telegramDisplayName(initResult.user),
+        username: initResult.user.username ?? null,
+      });
+
+      const webUser = await getSessionUserFromRequest(req);
+      if (webUser === null || webUser.id !== profile.id) {
+        const cookie = await reissueSessionForUser(req, profile.id);
+        req.pendingCookies = [...(req.pendingCookies ?? []), cookie];
+      }
+      return profile.id;
+    }
+    // Заголовок есть, но подпись невалидна — не блокируем сразу: ниже пробуем
+    // cookie-сессию (п.2); если и её нет, ошибка ниже (п.3) повторит ровно то,
+    // что вернула бы верификация initData (тот же authenticate()).
+  }
+
+  // 2) Браузерный аккаунт по cookie-сессии — getSessionUser отдаёт внутренний id.
   const webUser = await getSessionUserFromRequest(req);
   if (webUser !== null) {
     return webUser.id;
   }
 
-  // 2) Telegram-контекст: проверяем initData и JIT-резолвим профиль во внутренний id.
+  // 3) Ни валидного initData, ни валидной cookie-сессии.
   const auth = authenticate(req, req.headers['x-telegram-init-data']);
   if ('status' in auth) {
     return auth;
