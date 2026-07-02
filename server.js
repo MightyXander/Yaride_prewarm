@@ -218,8 +218,15 @@ function wrap(handler) {
       };
       const result = await handler(apiReq);
       // Применить cookies авторизации (httpOnly Set-Cookie / clear), если есть.
-      if (Array.isArray(result.cookies)) {
-        for (const c of result.cookies) {
+      // Источники два: сам ApiResponse (register/login/logout) и apiReq.pendingCookies —
+      // накапливается внутри resolveCurrentUserId при переиздании сессии по свежему
+      // X-Telegram-Init-Data (issue #312), не требуя правки каждого из ~20 хендлеров.
+      const cookies = [
+        ...(Array.isArray(apiReq.pendingCookies) ? apiReq.pendingCookies : []),
+        ...(Array.isArray(result.cookies) ? result.cookies : []),
+      ];
+      if (cookies.length > 0) {
+        for (const c of cookies) {
           if (c.value === null || c.value === undefined) {
             res.clearCookie(c.name, { path: c.options?.path ?? '/' });
           } else {

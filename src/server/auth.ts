@@ -539,6 +539,25 @@ export async function getSessionUserFromRequest(
   return getSessionUser(hashToken(token));
 }
 
+/**
+ * Переиздать cookie-сессию на другого пользователя (issue #312): вызывается, когда
+ * валидный X-Telegram-Init-Data текущего запроса указывает на юзера, отличного от
+ * владельца текущей cookie `yaride_session` (типичный кейс — общий браузер/устройство,
+ * где сменился Telegram-аккаунт без явного logout). В Telegram-контексте initData
+ * авторитетнее устаревшей cookie: создаём новую серверную сессию для targetUserId и
+ * возвращаем инструкцию Set-Cookie, которую вызывающий код добавляет к ответу.
+ * Старую запись сессии (принадлежавшую предыдущему юзеру этой cookie) явно не
+ * трогаем — она протухнет по TTL/sweeper, как любая покинутая сессия без logout.
+ */
+export async function reissueSessionForUser(
+  req: ApiRequest,
+  targetUserId: number,
+): Promise<SetCookieInstruction> {
+  const token = generateToken();
+  await createSession(targetUserId, hashToken(token), new Date(Date.now() + SESSION_TTL_MS));
+  return sessionSetCookie(token, cookieSecure(req));
+}
+
 /** GET /api/auth/me — текущий пользователь по cookie-сессии, либо 401. */
 export async function handleMe(req: ApiRequest): Promise<ApiResponse> {
   const token = readSessionToken(req);
