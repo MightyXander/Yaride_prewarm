@@ -97,6 +97,10 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  // needsTelegram (issue #307/#239): 401 от /api/me/* — нет валидной Telegram-сессии,
+  // это НЕ сетевая проблема. Различаем по образцу ProfileContext.needsTelegram,
+  // чтобы не показывать вводящее в заблуждение «Проверь соединение».
+  const [needsTelegram, setNeedsTelegram] = useState<boolean>(false);
   const [publishing, setPublishing] = useState<boolean>(false);
   const [cars, setCars] = useState<Car[]>([]);
   const [selectedCarId, setSelectedCarId] = useState<number | null>(null);
@@ -115,6 +119,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     try {
       setLoading(true);
       setError(null);
+      setNeedsTelegram(false);
       const [tmpl, pointsResp, carsResp] = await Promise.all([
         getMyTemplate(),
         getRoutePoints(),
@@ -132,8 +137,14 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         setSelectedCarId(carsResp.cars[0].id);
       }
     } catch (err) {
-      const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки данных';
-      setError(msg);
+      if (err instanceof ApiException && err.status === 401) {
+        // Нет валидной Telegram-сессии — не сетевая ошибка (issue #307/#239,
+        // тот же паттерн, что и ProfileContext.needsTelegram).
+        setNeedsTelegram(true);
+      } else {
+        const msg = err instanceof ApiException ? err.message : 'Ошибка загрузки данных';
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -304,6 +315,14 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                 </div>
               </div>
             </div>
+          </Appear>
+        ) : needsTelegram ? (
+          <Appear key="needs-telegram" animateKey="needs-telegram">
+            <LoadErrorState
+              title="Открой в Telegram"
+              subtitle="Открой в Telegram, чтобы создать поездку."
+              onRetry={() => { void loadData(); }}
+            />
           </Appear>
         ) : error ? (
           <Appear key="error" animateKey="error">

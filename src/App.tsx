@@ -5,6 +5,7 @@ import BackButton from './components/BackButton';
 import { ToastHost } from './components/ToastHost';
 import Splash from './components/Splash';
 import ErrorBoundary from './components/ErrorBoundary';
+import ScreenSkeleton from './components/ScreenSkeleton';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -19,6 +20,7 @@ import { useTripHandlers } from './hooks/useTripHandlers';
 import { useUserProfileNav } from './hooks/useUserProfileNav';
 import { loadRole, type UserRole } from './lib/role';
 import { shouldGateBrowserAuth } from './lib/auth';
+import { showToast } from './lib/toast';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { screenRegistry } from './lib/screenRegistry';
 import type { ScreenCtx } from './lib/screenRegistry';
@@ -83,7 +85,9 @@ function App() {
   // Deep-link обработка: при старте Mini App с start_param (например, 'trip-123')
   // открываем экран поездки. Баг ревью #2: deep-link НЕ должен обходить гейт —
   // включаем только когда гейт снят (!needsAuthGate).
-  useStartParam(navigate, undefined, !needsAuthGate);
+  // onError=showToast (issue #304/#236): если поездка недоступна, пользователь
+  // должен увидеть тост «Поездка не найдена», а не молча оказаться на MainScreen.
+  useStartParam(navigate, showToast, !needsAuthGate);
 
   const { routePointsState, morningTripsState, eveningTripsState, morningTrips, eveningTrips } =
     useCorridorTrips(currentScreen);
@@ -214,7 +218,7 @@ function App() {
             }}
           >
             <ErrorBoundary resetKey={currentScreen}>
-            <Suspense fallback={null}>
+            <Suspense fallback={<ScreenSkeleton />}>
             {screenRegistry[currentScreen]?.(screenCtx)}
             </Suspense>
             </ErrorBoundary>
