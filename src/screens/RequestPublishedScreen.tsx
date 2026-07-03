@@ -1,18 +1,44 @@
+import { useState } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
-import { hapticImpact } from '../lib/haptics';
+import { hapticImpact, hapticNotify } from '../lib/haptics';
 
 // Экран 20 SPEC: Заявка опубликована
 // Успех-стейт после публикации заявки пассажира. Показываем что ищем + действия.
 
 interface RequestPublishedScreenProps {
   onEdit?: () => void;
-  onCancel?: () => void;
+  // Может быть синхронным (просто навигация) или асинхронным (сетевой вызов) —
+  // обработчик ниже одинаково безопасен в обоих случаях.
+  onCancel?: () => void | Promise<void>;
 }
 
 const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit, onCancel }) => {
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const handleCancel = async () => {
+    // Защита от гонки: повторный тап, пока первая отмена ещё в полёте, не должен
+    // повторно триггерить навигацию/запрос и рендерить экран поверх удалённой заявки.
+    if (isCancelling) return;
+
+    hapticImpact('light');
+    setCancelError(null);
+    setIsCancelling(true);
+    try {
+      await onCancel?.();
+      // При успехе вызывающая сторона уводит нас с этого экрана навигацией —
+      // сбрасывать isCancelling не нужно, компонент вот-вот размонтируется.
+    } catch (err) {
+      console.error('Ошибка отмены заявки:', err);
+      setCancelError('Не удалось отменить заявку. Попробуй ещё раз.');
+      setIsCancelling(false);
+      hapticNotify('error');
+    }
+  };
+
   return (
     <div
       style={{
@@ -181,6 +207,40 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
         </div>
       </div>
 
+      {cancelError && (
+        <div
+          style={{
+            padding: '12px',
+            background: 'var(--destructive)',
+            color: 'var(--destructive-foreground)',
+            borderRadius: 'var(--radius-lg)',
+            fontSize: '15px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}
+        >
+          <div>{cancelError}</div>
+          <button
+            type="button"
+            onClick={() => setCancelError(null)}
+            style={{
+              background: 'transparent',
+              border: '1px solid currentColor',
+              borderRadius: 'var(--radius-md)',
+              padding: '6px 12px',
+              fontSize: '12px',
+              fontWeight: 700,
+              color: 'inherit',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            Закрыть
+          </button>
+        </div>
+      )}
+
       <div
         style={{
           display: 'flex',
@@ -192,6 +252,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
       >
         <Button
           variant="ghost"
+          disabled={isCancelling}
           onClick={() => {
             hapticImpact('light');
             onEdit?.();
@@ -202,26 +263,26 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
         <button
           type="button"
           onClick={() => {
-            hapticImpact('light');
-            onCancel?.();
+            void handleCancel();
           }}
+          disabled={isCancelling}
           style={{
             background: 'transparent',
             border: 'none',
             fontSize: '12px',
             fontWeight: 700,
             color: 'var(--foreground)',
-            opacity: 0.6,
+            opacity: isCancelling ? 0.35 : 0.6,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '3px',
             padding: '8px',
-            cursor: 'pointer',
+            cursor: isCancelling ? 'default' : 'pointer',
             fontFamily: 'var(--font-sans)',
           }}
         >
-          Отменить
+          {isCancelling ? 'Отменяем…' : 'Отменить'}
         </button>
       </div>
     </div>
