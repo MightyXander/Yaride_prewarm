@@ -26,6 +26,7 @@ try {
     getTrip: mod.handleGetTrip,
     createBooking: mod.handleCreateBooking,
     createAlert: mod.handleCreateAlert,
+    cancelAlert: mod.handleCancelAlert,
     publishTrip: mod.handlePublishTrip,
     getMyProfile: mod.handleGetMyProfile,
     getMyPhone: mod.handleGetMyPhone,
@@ -249,6 +250,7 @@ app.post('/api/trips', wrap(api?.publishTrip));
 app.post('/api/trips/:id/cancel', wrap(api?.cancelTrip));
 app.post('/api/bookings', wrap(api?.createBooking));
 app.post('/api/alerts', wrap(api?.createAlert));
+app.delete('/api/alerts/:id', wrap(api?.cancelAlert));
 
 // Issue #42: новые эндпоинты для профиля, поездок пользователя, рейтингов, броней водителя.
 app.get('/api/me/profile', wrap(api?.getMyProfile));

@@ -11,6 +11,7 @@ import type {
   CreateBookingResponse,
   CreateAlertRequest,
   CreateAlertResponse,
+  CancelAlertResponse,
   PublishTripRequest,
   PublishTripResponse,
   GetMyProfileResponse,
@@ -144,6 +145,13 @@ export async function createAlert(params: CreateAlertRequest): Promise<CreateAle
   return apiFetch<CreateAlertResponse>('/alerts', {
     method: 'POST',
     body: JSON.stringify(params),
+  });
+}
+
+/** DELETE /api/alerts/:id — отменить заявку (только автор, issue #319). */
+export async function cancelAlert(alertId: number): Promise<CancelAlertResponse> {
+  return apiFetch<CancelAlertResponse>(`/alerts/${alertId}`, {
+    method: 'DELETE',
   });
 }
 

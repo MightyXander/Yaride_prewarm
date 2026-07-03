@@ -95,6 +95,7 @@ export interface ScreenCtx {
 
   handleOpenTripById: (tripId: number, backTo?: Screen) => Promise<void>;
   handleCancelOwnTrip: () => Promise<void>;
+  handleCancelAlert: () => Promise<void>;
   handleNotificationNavigate: (
     type: NotificationType,
     refTripId?: number | null,
@@ -232,14 +233,22 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
   'in-trip': (ctx) => <InTripScreen trip={ctx.selectedTrip} onOpenProfile={ctx.handleOpenUserProfile} />,
   safety: () => <SafetyScreen />,
   'passenger-request': (ctx) => (
-    <PassengerRequestScreen direction={ctx.requestDirection} onPublish={() => ctx.navigate('request-published')} />
+    <PassengerRequestScreen
+      direction={ctx.requestDirection}
+      // alertId из ответа POST /api/alerts прокидываем в общий слот publishedTripId
+      // навигации (issue #319) — тот же механизм, что уже используют
+      // BookingConfirmedScreen/DriverBookings для «последнего опубликованного id».
+      onPublish={(alertId) => ctx.navigate('request-published', null, undefined, alertId)}
+    />
   ),
-  // onCancel НЕ использует ctx.goBack: PARENT_SCREEN['request-published'] ведёт на
-  // служебное значение 'empty-state', у которого нет записи в реестре — это давало
-  // белый экран после отмены заявки (issue #317). 'main' — реальный домашний экран,
-  // который сам показывает актуальный empty-state «Оставить заявку» по данным из API.
+  // onCancel вызывает реальную отмену заявки на сервере (issue #319) и уже потом
+  // навигирует на 'main' (не ctx.goBack): PARENT_SCREEN['request-published'] ведёт
+  // на служебное значение 'empty-state', у которого нет записи в реестре — это
+  // давало белый экран после отмены заявки (issue #317). 'main' — реальный домашний
+  // экран, который сам показывает актуальный empty-state «Оставить заявку» по
+  // данным из API.
   'request-published': (ctx) => (
-    <RequestPublishedScreen onEdit={() => ctx.navigate('passenger-request')} onCancel={() => ctx.navigate('main')} />
+    <RequestPublishedScreen onEdit={() => ctx.navigate('passenger-request')} onCancel={ctx.handleCancelAlert} />
   ),
   'my-trips': (ctx) => (
     <MyTripsScreen

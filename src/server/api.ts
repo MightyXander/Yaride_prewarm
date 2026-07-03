@@ -13,6 +13,7 @@
  *   GET  /api/trips/:id
  *   POST /api/bookings        { tripId, seats?, initData }
  *   POST /api/alerts          { fromPointId, toPointId, date, time?, initData }
+ *   DELETE /api/alerts/:id    отмена заявки-алерта, только автор (issue #319)
  *   POST /api/trips           { templateId, date, departureTime, initData }
  *   GET  /api/me/profile      (initData в заголовке X-Telegram-Init-Data)
  *   GET  /api/me/trips?status=upcoming|past
@@ -27,6 +28,9 @@
 
 import {
   createRouteAlertById,
+  cancelRouteAlertById,
+  AlertNotFoundError,
+  AlertNotOwnerError,
   ensureUser,
   findOpenTrips,
   getTripCard,
@@ -474,6 +478,37 @@ export async function handleCreateAlert(req: ApiRequest): Promise<ApiResponse> {
     const message = e instanceof Error ? e.message : 'Не удалось создать подписку';
     const status = message.includes('не найден') ? 404 : 400;
     return err(status, message);
+  }
+}
+
+/**
+ * DELETE /api/alerts/:id — отменить заявку-алерт (issue #319). Доступ только
+ * автору заявки: alert.passenger_id должен совпадать с resolveCurrentUserId,
+ * иначе 403; отсутствующая заявка — 404.
+ */
+export async function handleCancelAlert(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const alertId = toPositiveInt(req.params.id);
+  if (alertId === undefined) {
+    return err(400, 'Некорректный id заявки');
+  }
+
+  try {
+    const result = await cancelRouteAlertById(alertId, userId);
+    return { status: 200, body: { alert: result } };
+  } catch (e) {
+    if (e instanceof AlertNotFoundError) {
+      return err(404, e.message);
+    }
+    if (e instanceof AlertNotOwnerError) {
+      return err(403, e.message);
+    }
+    const message = e instanceof Error ? e.message : 'Не удалось отменить заявку';
+    return err(400, message);
   }
 }
 

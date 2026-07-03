@@ -775,6 +775,18 @@ function mockApiPlugin() {
           return;
         }
 
+        // DELETE /api/alerts/:id (issue #319)
+        if (method === 'DELETE' && pathname.match(/^\/alerts\/\d+$/)) {
+          const alertIdMatch = pathname.match(/^\/alerts\/(\d+)$/);
+          const alertId = alertIdMatch ? parseInt(alertIdMatch[1]) : 0;
+          const alert = {
+            alertId,
+            status: 'cancelled',
+          };
+          sendJson({ alert });
+          return;
+        }
+
         next();
       });
     },
