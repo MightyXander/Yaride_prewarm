@@ -38,7 +38,7 @@ const screenVariants = {
 };
 
 // Экраны, где показываем плавающую навигацию (и резервируем под неё место).
-const NAV_VISIBLE_SCREENS: Screen[] = ['main', 'main-more', 'trip-details', 'profile', 'evening-main', 'user-profile'];
+const NAV_VISIBLE_SCREENS: Screen[] = ['main', 'main-more', 'trip-details', 'profile', 'evening-main', 'user-profile', 'my-trips'];
 // BackButton скрываем на «главных» (списки поездок) и веб-флоу авторизации (без back-хрома).
 const NO_BACK_BUTTON_SCREENS: Screen[] = ['auth-gate', 'login', 'register', 'intro', 'main', 'main-more', 'evening-main'];
 
@@ -231,7 +231,7 @@ function App() {
         </div>
         <FloatingNav
           currentScreen={currentScreen}
-          onNavigate={(root) => navigate(root === 'profile' ? 'profile' : 'my-trips')}
+          onNavigate={(root) => navigate(root === 'profile' ? 'profile' : 'main')}
           onNotificationsClick={() => navigate('notifications')}
         />
       </div>

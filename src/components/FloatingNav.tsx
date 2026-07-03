@@ -35,7 +35,6 @@ const HIDDEN_ON: Screen[] = [
   'passenger-request',
   'request-published',
   'alert-push',
-  'my-trips',
   'rate-trip',
   'evening-publish',
   'my-cars',
