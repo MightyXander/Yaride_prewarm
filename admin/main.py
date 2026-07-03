@@ -241,6 +241,68 @@ def users_list(request: Request, admin: str = Depends(require_login)):
     return render(request, "users_list.html", active="users", users=users)
 
 
+@app.get("/admin/metrics", response_class=HTMLResponse)
+def metrics(request: Request, admin: str = Depends(require_login)):
+    """Минимальный агрегат метрик ликвидности (CEO Council: «мерить НЕМЕДЛЕННО»).
+
+    Читает events (schema v13, захват из Node-слоя api.ts: search/booking_created/
+    alert_created) и сворачивает за 7 дней по коридорам: число поисков, доля
+    поисков с нулевым результатом (props.result_count = 0), число броней,
+    число заявок-алертов (сигнал спроса). Полноценный W4-retention/time-to-
+    first-match здесь намеренно не считается — это только фундамент-захват.
+    """
+    period_days = 7
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                COALESCE(corridor, '(без коридора)') AS corridor,
+                COUNT(*) FILTER (WHERE type = 'search') AS searches,
+                COUNT(*) FILTER (
+                    WHERE type = 'search'
+                      AND COALESCE((props->>'result_count')::int, -1) = 0
+                ) AS zero_result,
+                COUNT(*) FILTER (WHERE type = 'booking_created') AS bookings,
+                COUNT(*) FILTER (WHERE type = 'alert_created') AS alerts
+            FROM events
+            WHERE created_at >= now() - (%s || ' days')::interval
+            GROUP BY corridor
+            ORDER BY searches DESC, corridor ASC
+            """,
+            (str(period_days),),
+        ).fetchall()
+
+    items = []
+    totals = {"searches": 0, "zero_result": 0, "bookings": 0, "alerts": 0}
+    for corridor, searches, zero_result, bookings, alerts in rows:
+        totals["searches"] += searches
+        totals["zero_result"] += zero_result
+        totals["bookings"] += bookings
+        totals["alerts"] += alerts
+        items.append(
+            {
+                "corridor": corridor,
+                "searches": searches,
+                "zero_result": zero_result,
+                "zero_result_rate": (zero_result / searches * 100) if searches else 0.0,
+                "bookings": bookings,
+                "alerts": alerts,
+            }
+        )
+    totals["zero_result_rate"] = (
+        (totals["zero_result"] / totals["searches"] * 100) if totals["searches"] else 0.0
+    )
+
+    return render(
+        request,
+        "metrics.html",
+        active="metrics",
+        period_days=period_days,
+        items=items,
+        totals=totals,
+    )
+
+
 @app.get("/admin/account", response_class=HTMLResponse)
 def account_form(request: Request, admin: str = Depends(require_login)):
     return render(request, "account.html", active="account")

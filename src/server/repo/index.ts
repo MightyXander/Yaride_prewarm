@@ -8,8 +8,9 @@
  *
  * Разбит на доменные модули (issue #289): users, sessions, credentials, trips,
  * bookings, ratings, cars, notifications, license, alerts, push-tokens,
- * templates, debug. Этот barrel реэкспортирует весь публичный контракт слоя —
- * внешние импортёры (`from './repo.ts'`) не меняются.
+ * templates, debug, events (слой метрик ликвидности, CEO Council). Этот barrel
+ * реэкспортирует весь публичный контракт слоя — внешние импортёры
+ * (`from './repo.ts'`) не меняются.
  *
  * internalUserIdByTg — единственный публичный экспорт из внутреннего _shared.ts
  * (мост сессии, issue #258); getInternalUserId/recomputeUserTripCounters там же
@@ -32,3 +33,4 @@ export * from './license.ts';
 export * from './notifications.ts';
 export * from './debug.ts';
 export * from './merge.ts';
+export * from './events.ts';

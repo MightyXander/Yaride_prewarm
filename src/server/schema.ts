@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 12;
+export const CURRENT_SCHEMA_VERSION = 13;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -229,6 +229,22 @@ const BOOTSTRAP_SQL = `
 
   CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, read);
+
+  -- Слой метрик ликвидности (CEO Council): захват событий воронки поиск →
+  -- бронь / заявка-алерт. user_id NULLABLE (событие может случиться до JIT-
+  -- резолва профиля), corridor — "<startPointId>-<endPointId>" либо NULL,
+  -- props — свободная JSONB-полезная нагрузка (result_count, trip_id, alert_id...).
+  CREATE TABLE IF NOT EXISTS events (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    type TEXT NOT NULL,
+    corridor TEXT,
+    props JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_events_type_created ON events(type, created_at);
+  CREATE INDEX IF NOT EXISTS idx_events_corridor_created ON events(corridor, created_at);
 `;
 
 /**
@@ -247,6 +263,9 @@ const BOOTSTRAP_SQL = `
  * v9→v10: FCM push-токены (issue #265) — таблица push_tokens.
  * v10→v11: расширение notifications.type — типы решения модерации ВУ
  *        ('license_approved' / 'license_rejected'), чтобы водитель видел вердикт в ленте.
+ * v12→v13: слой метрик ликвидности (CEO Council) — таблица events (захват
+ *        событий воронки search/booking_created/alert_created) + индексы
+ *        по (type, created_at) и (corridor, created_at).
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -433,6 +452,24 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
       ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
       ALTER TABLE notifications ADD CONSTRAINT notifications_type_check
         CHECK (type IN ('booking', 'booking_confirmed', 'cancel', 'rate_reminder', 'trip_new', 'license_approved', 'license_rejected'));
+    `);
+    return;
+  }
+  if (fromV === 12 && toV === 13) {
+    // Слой метрик ликвидности (CEO Council, «мерить НЕМЕДЛЕННО»). Аддитивно —
+    // новая таблица, ничего существующего не трогает.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS events (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        type TEXT NOT NULL,
+        corridor TEXT,
+        props JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_events_type_created ON events(type, created_at);
+      CREATE INDEX IF NOT EXISTS idx_events_corridor_created ON events(corridor, created_at);
     `);
     return;
   }
