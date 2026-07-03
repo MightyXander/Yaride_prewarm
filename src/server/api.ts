@@ -68,6 +68,7 @@ import {
   isUsernameTaken,
   UserConflictError,
   CredentialsAlreadySetError,
+  logEvent,
   type FindTripsParams,
   type TimeSlot,
   type TripStatusFilter,
@@ -354,6 +355,21 @@ export async function handleListTrips(req: ApiRequest): Promise<ApiResponse> {
   }
 
   const trips = await findOpenTrips(params);
+
+  // Метрики ликвидности (CEO Council): захват события поиска (zero-result
+  // считается на агрегате по props.result_count === 0). Fire-and-forget —
+  // logEvent никогда не бросает и не блокирует ответ.
+  const searchCorridor =
+    params.startPointId !== undefined && params.endPointId !== undefined
+      ? `${params.startPointId}-${params.endPointId}`
+      : null;
+  void logEvent({
+    type: 'search',
+    userId: params.currentUserId ?? null,
+    corridor: searchCorridor,
+    props: { result_count: trips.length },
+  });
+
   return { status: 200, body: { trips } };
 }
 
@@ -418,6 +434,14 @@ export async function handleCreateBooking(req: ApiRequest): Promise<ApiResponse>
     getTripCard(tripId)
       .then((tripCard) => {
         if (tripCard !== null) {
+          // Метрики ликвидности (CEO Council) — событие успешной брони.
+          void logEvent({
+            type: 'booking_created',
+            userId,
+            corridor: `${tripCard.start_point_id}-${tripCard.end_point_id}`,
+            props: { trip_id: tripId, booking_id: result.bookingId },
+          });
+
           void notifyDriverAboutNewBooking({
             tripId,
             bookingId: result.bookingId,
@@ -479,6 +503,15 @@ export async function handleCreateAlert(req: ApiRequest): Promise<ApiResponse> {
       desiredDate: rawDate,
       desiredTime,
     });
+
+    // Метрики ликвидности (CEO Council) — заявка-алерт = явный сигнал спроса.
+    void logEvent({
+      type: 'alert_created',
+      userId,
+      corridor: `${fromPointId}-${toPointId}`,
+      props: { alert_id: alert.alertId },
+    });
+
     return { status: 201, body: { alert } };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не удалось создать подписку';

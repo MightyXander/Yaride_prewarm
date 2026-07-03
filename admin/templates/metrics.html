@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Метрики ликвидности — Yaride Admin{% endblock %}
+{% block content %}
+<h1>Метрики ликвидности <small>за последние {{ period_days }} дней</small></h1>
+
+<div class="cards">
+    <div class="card"><div class="num">{{ totals.searches }}</div><div class="lbl">Поисков</div></div>
+    <div class="card{% if totals.zero_result_rate >= 50 %} warn{% endif %}">
+        <div class="num">{{ '%.0f'|format(totals.zero_result_rate) }}%</div>
+        <div class="lbl">Zero-result rate ({{ totals.zero_result }} из {{ totals.searches }})</div>
+    </div>
+    <div class="card"><div class="num">{{ totals.bookings }}</div><div class="lbl">Броней</div></div>
+    <div class="card"><div class="num">{{ totals.alerts }}</div><div class="lbl">Заявок-алертов (спрос)</div></div>
+</div>
+
+<h1 style="margin-top: 28px;">По коридорам</h1>
+<table>
+    <thead>
+        <tr>
+            <th>Коридор</th><th>Поисков</th><th>Zero-result</th><th>Zero-result rate</th>
+            <th>Броней</th><th>Заявок</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for row in items %}
+        <tr>
+            <td>{{ row.corridor }}</td>
+            <td>{{ row.searches }}</td>
+            <td>{{ row.zero_result }}</td>
+            <td>{{ '%.0f'|format(row.zero_result_rate) }}%</td>
+            <td>{{ row.bookings }}</td>
+            <td>{{ row.alerts }}</td>
+        </tr>
+    {% else %}
+        <tr><td colspan="6" class="empty">Событий пока нет — данные появятся после первых поисков/броней/заявок.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
