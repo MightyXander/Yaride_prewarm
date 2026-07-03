@@ -12,6 +12,7 @@ import type {
   CreateAlertRequest,
   CreateAlertResponse,
   CancelAlertResponse,
+  GetMyAlertsResponse,
   PublishTripRequest,
   PublishTripResponse,
   GetMyProfileResponse,
@@ -153,6 +154,11 @@ export async function cancelAlert(alertId: number): Promise<CancelAlertResponse>
   return apiFetch<CancelAlertResponse>(`/alerts/${alertId}`, {
     method: 'DELETE',
   });
+}
+
+/** GET /api/me/alerts — активные заявки текущего юзера (issue #321). */
+export async function getMyAlerts(): Promise<GetMyAlertsResponse> {
+  return apiFetch<GetMyAlertsResponse>('/me/alerts');
 }
 
 /** POST /api/trips */

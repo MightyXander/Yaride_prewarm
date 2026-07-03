@@ -27,6 +27,7 @@ try {
     createBooking: mod.handleCreateBooking,
     createAlert: mod.handleCreateAlert,
     cancelAlert: mod.handleCancelAlert,
+    getMyAlerts: mod.handleGetMyAlerts,
     publishTrip: mod.handlePublishTrip,
     getMyProfile: mod.handleGetMyProfile,
     getMyPhone: mod.handleGetMyPhone,
@@ -262,6 +263,8 @@ app.post('/api/me/credentials', wrap(api?.addMyCredentials));
 app.post('/api/me/link-account', wrap(api?.linkMyAccount));
 app.post('/api/me/push-token', wrap(api?.savePushToken));
 app.get('/api/me/trips', wrap(api?.getMyTrips));
+// Issue #321: активные заявки текущего юзера (устойчивая точка входа к отмене #319).
+app.get('/api/me/alerts', wrap(api?.getMyAlerts));
 app.get('/api/me/template', wrap(api?.getMyTemplate));
 app.get('/api/me/cars', wrap(api?.listMyCars));
 app.post('/api/me/cars', wrap(api?.addCar));

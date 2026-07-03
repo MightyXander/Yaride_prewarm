@@ -18,6 +18,8 @@ interface ProfileScreenProps {
   onMyTrips?: () => void;
   /** Открыть экран «Мои машины» / добавление машины. */
   onMyCars?: () => void;
+  /** Открыть экран «Мои заявки» (активные заявки на маршрут, issue #321). */
+  onMyAlerts?: () => void;
   /** Текущий режим темы (light/dark/system) — паритет с Android. */
   themeMode?: ThemeMode;
   /** Выбрать режим темы. */
@@ -121,7 +123,7 @@ const THEME_MODE_LABEL: Record<ThemeMode, string> = {
   system: 'Авто',
 };
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, themeMode = 'system', onSetThemeMode, theme, onOpenProfile, onLogout }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onMyAlerts, themeMode = 'system', onSetThemeMode, theme, onOpenProfile, onLogout }) => {
   const { profile, loading, needsTelegram, refetch } = useProfile();
   const [carsCount, setCarsCount] = useState(0);
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
@@ -266,6 +268,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
           onClick={onMyCars}
           icon={<svg viewBox="0 0 24 24" style={navIconStyle}><path d="M5 11l1.7-4.3A2 2 0 0 1 8.6 5.4h6.8a2 2 0 0 1 1.9 1.3L19 11" /><rect x="3" y="11" width="18" height="6" rx="2.2" /><circle cx="7.5" cy="17.5" r="1.4" /><circle cx="16.5" cy="17.5" r="1.4" /></svg>}
           label={<>Мои машины{carsCount > 0 && <span style={{ color: 'var(--muted-foreground)', fontWeight: 600 }}> · {carsCount}</span>}</>}
+        />
+        <MenuRow
+          onClick={onMyAlerts}
+          icon={<svg viewBox="0 0 24 24" style={navIconStyle}><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>}
+          label="Мои заявки"
         />
         <MenuRow
           onClick={onLicenseReview}

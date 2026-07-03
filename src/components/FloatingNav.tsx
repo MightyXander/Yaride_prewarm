@@ -40,6 +40,7 @@ const HIDDEN_ON: Screen[] = [
   'evening-publish',
   'my-cars',
   'add-car',
+  'my-alerts',
 ];
 
 // Маппинг экрана → корневой таб. Поток поездок → Поездки; профиль → Профиль.
@@ -74,6 +75,7 @@ const SCREEN_TO_TAB: Record<Screen, NavTabRoot | 'notifications' | null> = {
   'user-profile': null,
   notifications: 'notifications',
   'add-car': 'profile',
+  'my-alerts': 'profile',
 };
 
 /** Высота pill без внешних отступов. */

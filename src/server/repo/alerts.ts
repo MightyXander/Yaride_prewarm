@@ -8,8 +8,9 @@
  * (мост сессии, issue #258) — единственная используемая точка входа.
  */
 
-import { ensureReady, withTransaction } from '../db.ts';
+import { ensureReady, getPool, withTransaction } from '../db.ts';
 import { getInternalUserId } from './_shared.ts';
+import { todayISO } from '../seed.ts';
 
 export interface RouteAlertParams {
   tgPassengerId: number;
@@ -177,4 +178,67 @@ export async function cancelRouteAlertById(
       status: upd.rows[0].status,
     };
   });
+}
+
+export interface MyAlertItem {
+  id: number;
+  fromPointId: number;
+  toPointId: number;
+  fromTitle: string;
+  toTitle: string;
+  desiredDate: string;
+  desiredTime: string | null;
+  status: string;
+  createdAt: string;
+}
+
+/**
+ * Активные заявки текущего юзера для GET /api/me/alerts (issue #321).
+ *
+ * «Активные» = status='active' И desired_date ещё не в прошлом. В схеме нет
+ * фонового job'а, который переводит просроченные заявки в отдельный статус
+ * (route_alerts.status — только active/notified/cancelled), поэтому просрочку
+ * считаем на чтении по дате — тот же приём, что getUserTripsById использует
+ * для upcoming/past (сравнение с todayISO() в SQL, не в JS).
+ */
+export async function listActiveAlertsByPassengerId(
+  passengerId: number,
+): Promise<MyAlertItem[]> {
+  await ensureReady();
+  const pool = getPool();
+  const today = todayISO();
+
+  const res = await pool.query<{
+    id: number;
+    from_point_id: number;
+    to_point_id: number;
+    from_title: string;
+    to_title: string;
+    desired_date: string;
+    desired_time: string | null;
+    status: string;
+    created_at: string;
+  }>(
+    `SELECT ra.id, ra.from_point_id, ra.to_point_id,
+            fp.title AS from_title, tp.title AS to_title,
+            ra.desired_date, ra.desired_time, ra.status, ra.created_at
+     FROM route_alerts ra
+     JOIN route_points fp ON fp.id = ra.from_point_id
+     JOIN route_points tp ON tp.id = ra.to_point_id
+     WHERE ra.passenger_id = $1 AND ra.status = 'active' AND ra.desired_date >= $2
+     ORDER BY ra.desired_date ASC, ra.desired_time ASC`,
+    [passengerId, today],
+  );
+
+  return res.rows.map((r) => ({
+    id: r.id,
+    fromPointId: r.from_point_id,
+    toPointId: r.to_point_id,
+    fromTitle: r.from_title,
+    toTitle: r.to_title,
+    desiredDate: r.desired_date,
+    desiredTime: r.desired_time,
+    status: r.status,
+    createdAt: r.created_at,
+  }));
 }
