@@ -4,20 +4,40 @@ import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { hapticImpact, hapticNotify } from '../lib/haptics';
+import { buildAlertDeepLink, shareToTelegram } from '../lib/share';
 
 // Экран 20 SPEC: Заявка опубликована
 // Успех-стейт после публикации заявки пассажира. Показываем что ищем + действия.
+
+// Отображаемые детали заявки (пока статичные — экран ещё не принимает реальные
+// данные маршрута/времени как props, см. TODO в SPEC). Вынесены в константы,
+// чтобы текст шеринга не разъезжался с тем, что видно на экране.
+const FROM_LABEL = 'Брагино, ул. Урицкого, 12';
+const TO_LABEL = 'Центр, пл. Волкова';
+const DESIRED_TIME = '8:30';
+const SEATS_LABEL = '1 пассажир';
 
 interface RequestPublishedScreenProps {
   onEdit?: () => void;
   // Может быть синхронным (просто навигация) или асинхронным (сетевой вызов) —
   // обработчик ниже одинаково безопасен в обоих случаях.
   onCancel?: () => void | Promise<void>;
+  // id заявки (ответ POST /api/alerts), доходит через общий слот навигации
+  // publishedTripId (issue #319/#321) — нужен для deep-link в шеринге.
+  alertId?: number | null;
 }
 
-const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit, onCancel }) => {
+const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit, onCancel, alertId }) => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const handleShare = () => {
+    hapticImpact('light');
+    const text =
+      `Ищу попутку: ${FROM_LABEL} → ${TO_LABEL}, к ${DESIRED_TIME}. ` +
+      `Если едешь этим маршрутом — откликнись в Yaride:`;
+    shareToTelegram(text, buildAlertDeepLink(alertId));
+  };
 
   const handleCancel = async () => {
     // Защита от гонки: повторный тап, пока первая отмена ещё в полёте, не должен
@@ -136,7 +156,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
                 flexShrink: 0,
               }}
             />
-            Брагино, ул. Урицкого, 12
+            {FROM_LABEL}
           </div>
           <div
             style={{
@@ -165,12 +185,12 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
                 flexShrink: 0,
               }}
             />
-            Центр, пл. Волкова
+            {TO_LABEL}
           </div>
         </div>
         <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
         <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '8px' }}>
-          К <b style={{ color: 'var(--foreground)', fontWeight: 700 }}>8:30</b> · 1 пассажир
+          К <b style={{ color: 'var(--foreground)', fontWeight: 700 }}>{DESIRED_TIME}</b> · {SEATS_LABEL}
         </div>
       </Card>
 
@@ -250,6 +270,14 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
           paddingTop: '6px',
         }}
       >
+        <Button
+          variant="primary"
+          icon="i-share"
+          disabled={isCancelling}
+          onClick={handleShare}
+        >
+          Поделиться заявкой
+        </Button>
         <Button
           variant="ghost"
           disabled={isCancelling}

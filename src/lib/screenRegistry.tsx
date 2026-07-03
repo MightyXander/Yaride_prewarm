@@ -250,7 +250,11 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
   // экран, который сам показывает актуальный empty-state «Оставить заявку» по
   // данным из API.
   'request-published': (ctx) => (
-    <RequestPublishedScreen onEdit={() => ctx.navigate('passenger-request')} onCancel={ctx.handleCancelAlert} />
+    <RequestPublishedScreen
+      alertId={ctx.publishedTripId}
+      onEdit={() => ctx.navigate('passenger-request')}
+      onCancel={ctx.handleCancelAlert}
+    />
   ),
   'my-trips': (ctx) => (
     <MyTripsScreen

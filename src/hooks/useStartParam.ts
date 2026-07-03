@@ -7,6 +7,11 @@ import { mapTripCardToTrip } from '../lib/mappers';
  * Хук для обработки deep-link через start_param Telegram Mini App.
  * Схема start_param:
  * - 'trip-<id>' → открыть карточку поездки
+ * - 'alert-<id>' → шеринг заявки пассажира наружу (виральная петля, CEO Council):
+ *   отдельного экрана-детали заявки для водителя пока нет, поэтому ведём в главный
+ *   коридор ('main'), где можно опубликовать поездку по подходящему маршруту.
+ *   id заявки в самом параметре пока не используется — оставлен для будущего
+ *   экрана-детали и для аналитики источника перехода.
  * - (будущие) 'bookings-<tripId>', 'my-trips'
  */
 export const useStartParam = (
@@ -76,6 +81,13 @@ export const useStartParam = (
           }
           navigate('main');
         }
+        return;
+      }
+
+      // alert-<id>: переход по шеринг-ссылке заявки пассажира — мягко на main,
+      // без сетевого запроса (детального экрана заявки для водителя пока нет).
+      if (param.startsWith('alert-')) {
+        navigate('main');
         return;
       }
 
