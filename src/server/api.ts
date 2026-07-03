@@ -162,6 +162,44 @@ const TIME_SLOTS: readonly TimeSlot[] = ['morning', 'evening'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
 
+/** Минимальный запас времени (в минутах) между «сейчас» и моментом выезда (issue #330). */
+const MIN_LEAD_MINUTES = 10;
+
+/** Фиксированный сдвиг Europe/Moscow (UTC+3, без перехода на летнее время). */
+const MSK_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+/** Тексты ошибок — единые с клиентом, см. src/lib/dateLocal.ts:DEPARTURE_ERROR_MESSAGES. */
+const DEPARTURE_ERROR_MESSAGES: Record<'past' | 'too_soon', string> = {
+  past: 'Это время уже прошло — выберите другое',
+  too_soon: `Поездку можно создать не позже чем за ${MIN_LEAD_MINUTES} минут до выезда`,
+};
+
+/**
+ * Проверяет момент выезда (dateStr YYYY-MM-DD + timeStr HH:MM) на сервере:
+ * нельзя публиковать в прошлом или менее чем за MIN_LEAD_MINUTES минут до
+ * старта. «Сейчас» считаем в фиксированном МСК (UTC+3) — TZ хоста сервера
+ * не гарантирована, вся аудитория в Ярославле (issue #330).
+ *
+ * Логика — зеркало src/lib/dateLocal.ts:validateDeparture. Модуль не шарится
+ * между client/server сборками: tsconfig.server.json задаёт rootDir
+ * "./src/server", импорт из src/lib сломал бы `tsc -b`.
+ */
+function validateDepartureMsk(dateStr: string, timeStr: string): 'past' | 'too_soon' | null {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hour, minute] = timeStr.split(':').map(Number);
+  if (!year || !month || !day || Number.isNaN(hour) || Number.isNaN(minute)) {
+    return null;
+  }
+
+  // Момент выезда как UTC-timestamp, если бы часы/минуты были стенным временем МСК.
+  const departureUtcMs = Date.UTC(year, month - 1, day, hour, minute) - MSK_OFFSET_MS;
+  const diffMs = departureUtcMs - Date.now();
+
+  if (diffMs < 0) return 'past';
+  if (diffMs < MIN_LEAD_MINUTES * 60 * 1000) return 'too_soon';
+  return null;
+}
+
 function toTimeSlot(value: unknown): TimeSlot | undefined {
   if (typeof value === 'string' && (TIME_SLOTS as readonly string[]).includes(value)) {
     return value as TimeSlot;
@@ -496,6 +534,15 @@ export async function handleCreateAlert(req: ApiRequest): Promise<ApiResponse> {
     desiredTime = body.time.trim();
   }
 
+  // Проверка «не в прошлом / не раньше MIN_LEAD_MINUTES» применима только когда
+  // задано конкретное желаемое время (issue #330); date без time — окно на весь день.
+  if (desiredTime !== null) {
+    const departureIssue = validateDepartureMsk(rawDate, desiredTime);
+    if (departureIssue !== null) {
+      return err(400, DEPARTURE_ERROR_MESSAGES[departureIssue]);
+    }
+  }
+
   try {
     const alert = await createRouteAlertById(userId, {
       fromPointId,
@@ -592,6 +639,11 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
     typeof body.departureTime === 'string' ? body.departureTime.trim() : '';
   if (!TIME_RE.test(rawTime)) {
     return err(400, 'departureTime обязателен в формате HH:MM');
+  }
+
+  const departureIssue = validateDepartureMsk(rawDate, rawTime);
+  if (departureIssue !== null) {
+    return err(400, DEPARTURE_ERROR_MESSAGES[departureIssue]);
   }
 
   const reverse = typeof body.reverse === 'boolean' ? body.reverse : false;

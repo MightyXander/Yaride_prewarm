@@ -13,6 +13,7 @@ import PhoneField from '../components/PhoneField';
 import { hapticSelection } from '../lib/haptics';
 import { getMyTemplate, publishTrip, ApiException, getRoutePoints, getMyCars } from '../lib/api';
 import { showToast } from '../lib/toast';
+import { localDateStr, validateDeparture, DEPARTURE_ERROR_MESSAGES } from '../lib/dateLocal';
 import { Appear } from '../components/Appear';
 import type { SelectOption } from '../components/ui/Select';
 import type { GetMyTemplateResponse, RoutePoint, Car } from '../types/api';
@@ -91,7 +92,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const [seats, setSeats] = useState<number>(3);
   const [fromPointId, setFromPointId] = useState<string>('');
   const [toPointId, setToPointId] = useState<string>('');
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState<string>(localDateStr());
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [template, setTemplate] = useState<GetMyTemplateResponse | null>(null);
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
@@ -197,6 +198,13 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     // Телефон обязателен перед публикацией (issue #267).
     if (!phoneReady) {
       showToast('Сначала укажите телефон для связи');
+      return;
+    }
+
+    // Нельзя публиковать поездку в прошлом или менее чем за 10 минут до выезда (issue #330).
+    const departureIssue = validateDeparture(date, formatTimeToHHMM(actualTime));
+    if (departureIssue !== null) {
+      showToast(DEPARTURE_ERROR_MESSAGES[departureIssue]);
       return;
     }
 

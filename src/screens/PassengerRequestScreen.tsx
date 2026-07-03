@@ -9,6 +9,8 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
 import { createAlert, getRoutePoints } from '../lib/api';
 import { ApiException } from '../lib/api';
+import { showToast } from '../lib/toast';
+import { localDateStr, validateDeparture, DEPARTURE_ERROR_MESSAGES } from '../lib/dateLocal';
 import type { RoutePoint } from '../types/api';
 
 // Экран 12 SPEC: Заявка пассажира
@@ -152,9 +154,18 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
         return;
       }
 
-      // Получение текущей даты в формате YYYY-MM-DD
-      const today = new Date();
-      const dateStr = today.toISOString().split('T')[0];
+      // Получение текущей локальной даты в формате YYYY-MM-DD (issue #330:
+      // toISOString() конвертирует в UTC и откатывает дату на вчера ночью).
+      const dateStr = localDateStr();
+
+      // Нельзя оставить заявку на прошедшее время или менее чем за 10 минут
+      // до выезда (issue #330).
+      const departureIssue = validateDeparture(dateStr, formatTimeToHHMM(actualTime));
+      if (departureIssue !== null) {
+        showToast(DEPARTURE_ERROR_MESSAGES[departureIssue]);
+        setIsPublishing(false);
+        return;
+      }
 
       // Создание заявки через API (форматирование времени в HH:MM)
       const response = await createAlert({
