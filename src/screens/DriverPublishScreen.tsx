@@ -92,6 +92,12 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   const [seats, setSeats] = useState<number>(3);
   const [fromPointId, setFromPointId] = useState<string>('');
   const [toPointId, setToPointId] = useState<string>('');
+  // Группы (анкеры-районы) текущего направления (issue #331): fromPointId/toPointId
+  // теперь хранят id конкретной ОСТАНОВКИ группы, а не сам анкер. startAnchorId/
+  // endAnchorId — id анкера (template.start_point_id/end_point_id), задают, остановки
+  // КАКОЙ группы показывать в from-/to-Select. Swap меняет группы и точки местами.
+  const [startAnchorId, setStartAnchorId] = useState<number | undefined>(undefined);
+  const [endAnchorId, setEndAnchorId] = useState<number | undefined>(undefined);
   const [date, setDate] = useState<string>(localDateStr());
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [template, setTemplate] = useState<GetMyTemplateResponse | null>(null);
@@ -129,9 +135,21 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
       setTemplate(tmpl);
       setRoutePoints(pointsResp.points);
       setSeats(tmpl.seats_total);
-      // Инициализация точек маршрута из шаблона с учётом начального направления (reverse)
-      setFromPointId(String(reverse ? tmpl.end_point_id : tmpl.start_point_id));
-      setToPointId(String(reverse ? tmpl.start_point_id : tmpl.end_point_id));
+      // Инициализация групп маршрута из шаблона с учётом начального направления
+      // (reverse) — startAnchorId/endAnchorId задают группу (район-анкер) для
+      // from-/to-Select (issue #331: выбор конкретной остановки внутри группы).
+      const initialStartAnchor = reverse ? tmpl.end_point_id : tmpl.start_point_id;
+      const initialEndAnchor = reverse ? tmpl.start_point_id : tmpl.end_point_id;
+      setStartAnchorId(initialStartAnchor);
+      setEndAnchorId(initialEndAnchor);
+      // Дефолт — первая остановка группы (по id); если остановок группы ещё нет
+      // (миграция не применена/dev-мок) — падаем назад на сам анкер.
+      const firstStopOf = (anchorId: number): number => {
+        const stop = pointsResp.points.find((p) => p.kind === 'stop' && p.parent_point_id === anchorId);
+        return stop ? stop.id : anchorId;
+      };
+      setFromPointId(String(firstStopOf(initialStartAnchor)));
+      setToPointId(String(firstStopOf(initialEndAnchor)));
       setCars(carsResp.cars);
       // Выбрать первую машину по умолчанию, если есть
       if (carsResp.cars.length > 0) {
@@ -208,8 +226,10 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
       return;
     }
 
-    // Направление коридора для API: reverse=true, если старт совпал с конечной точкой шаблона
-    const reverseForApi = Number(fromPointId) === template.end_point_id;
+    // Направление коридора для API: reverse=true, если группа старта совпала с
+    // конечной точкой шаблона (issue #331: fromPointId — id конкретной остановки,
+    // сравниваем группу-анкер, а не саму точку).
+    const reverseForApi = startAnchorId === template.end_point_id;
 
     try {
       setPublishing(true);
@@ -219,6 +239,10 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         departureTime: formatTimeToHHMM(actualTime),
         reverse: reverseForApi,
         carId: selectedCarId ?? undefined,
+        // Конкретные точки сбора/финиша (issue #331) — сервер приоритезирует их
+        // над reverse; при их наличии не важно, что в reverse (совместимость).
+        startPointId: Number(fromPointId),
+        endPointId: Number(toPointId),
       });
       // Названия точек для экрана подтверждения берём из выбранного маршрута.
       const startTitle = routePoints.find((p) => p.id === Number(fromPointId))?.title ?? '';
@@ -242,9 +266,13 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
 
   const handleSwapDirection = () => {
     hapticSelection();
-    // Реально меняем точки местами (обе редактируемые) — без CSS order и блокировки
+    // Реально меняем точки местами (обе редактируемые) — без CSS order и блокировки.
+    // Группы (анкеры) меняются местами синхронно с точками (issue #331), поэтому
+    // выбранная остановка каждой стороны остаётся в правильной (новой) группе.
     setFromPointId(toPointId);
     setToPointId(fromPointId);
+    setStartAnchorId(endAnchorId);
+    setEndAnchorId(startAnchorId);
   };
 
   const handleCarSelect = (carId: number) => {
@@ -261,13 +289,15 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
     }
   };
 
-  // Опции маршрута — концы коридора из шаблона (стартовая и конечная точки).
-  // Обе точки редактируемые; свап и выбор задают направление (reverse вычисляется при публикации).
-  const corridorOptions: SelectOption[] = template
-    ? routePoints
-        .filter((p) => p.id === template.start_point_id || p.id === template.end_point_id)
-        .map((p) => ({ value: String(p.id), label: p.title }))
-    : [];
+  // Опции маршрута (issue #331): from-Select — конкретные остановки ГРУППЫ старта
+  // текущего направления, to-Select — остановки группы финиша (kind='stop',
+  // parent_point_id === анкер группы). Свап меняет группы местами (handleSwapDirection).
+  const fromPointOptions: SelectOption[] = routePoints
+    .filter((p) => p.kind === 'stop' && p.parent_point_id === startAnchorId)
+    .map((p) => ({ value: String(p.id), label: p.title }));
+  const toPointOptions: SelectOption[] = routePoints
+    .filter((p) => p.kind === 'stop' && p.parent_point_id === endAnchorId)
+    .map((p) => ({ value: String(p.id), label: p.title }));
 
   const selectedCar = cars.find((c) => c.id === selectedCarId);
 
@@ -358,7 +388,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <Select
                         variant="field"
-                        options={corridorOptions}
+                        options={fromPointOptions}
                         value={fromPointId}
                         onChange={(val) => {
                           hapticSelection();
@@ -378,7 +408,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <Select
                         variant="field"
-                        options={corridorOptions}
+                        options={toPointOptions}
                         value={toPointId}
                         onChange={(val) => {
                           hapticSelection();

@@ -434,11 +434,23 @@ function mockApiPlugin() {
           return;
         }
 
-        // GET /api/route-points
+        // GET /api/route-points (issue #331: анкеры-районы kind='locality' +
+        // конкретные остановки kind='stop' с parent_point_id на свой анкер).
         if (method === 'GET' && pathname === '/route-points') {
           const points = [
-            { id: 1, locality: 'Ярославль', district: 'Брагино', admin_area: 'Ярославская область', title: 'Брагино, ул. Урицкого, 12', kind: 'house', latitude: 57.6298, longitude: 39.8737 },
-            { id: 2, locality: 'Ярославль', district: 'Центральный', admin_area: 'Ярославская область', title: 'Центр, пл. Волкова', kind: 'locality', latitude: 57.6261, longitude: 39.8845 },
+            { id: 1, locality: 'Ярославль', district: 'Брагино', admin_area: 'Ярославская область', title: 'Брагино, ул. Урицкого, 12', kind: 'locality', latitude: 57.6298, longitude: 39.8737, parent_point_id: null },
+            { id: 2, locality: 'Ярославль', district: 'Центральный', admin_area: 'Ярославская область', title: 'Центр, пл. Волкова', kind: 'locality', latitude: 57.6261, longitude: 39.8845, parent_point_id: null },
+            // Остановки сбора в Брагино (группа — точка id=1).
+            { id: 3, locality: 'Ярославль', district: 'Брагино', admin_area: 'Ярославская область', title: 'ТРК Альтаир', kind: 'stop', latitude: 57.686, longitude: 39.772, parent_point_id: 1 },
+            { id: 4, locality: 'Ярославль', district: 'Брагино', admin_area: 'Ярославская область', title: 'ТЦ Космос', kind: 'stop', latitude: 57.665, longitude: 39.809, parent_point_id: 1 },
+            { id: 5, locality: 'Ярославль', district: 'Брагино', admin_area: 'Ярославская область', title: 'Проспект Дзержинского', kind: 'stop', latitude: 57.672, longitude: 39.793, parent_point_id: 1 },
+            { id: 6, locality: 'Ярославль', district: 'Брагино', admin_area: 'Ярославская область', title: 'ТРЦ РИО', kind: 'stop', latitude: 57.652, longitude: 39.836, parent_point_id: 1 },
+            // Остановки финиша в центре (группа — точка id=2).
+            { id: 7, locality: 'Ярославль', district: 'Центральный', admin_area: 'Ярославская область', title: 'Шинный завод', kind: 'stop', latitude: 57.601, longitude: 39.860, parent_point_id: 2 },
+            { id: 8, locality: 'Ярославль', district: 'Центральный', admin_area: 'Ярославская область', title: 'Площадь Богоявления', kind: 'stop', latitude: 57.629, longitude: 39.896, parent_point_id: 2 },
+            { id: 9, locality: 'Ярославль', district: 'Центральный', admin_area: 'Ярославская область', title: 'Волковский театр', kind: 'stop', latitude: 57.627, longitude: 39.898, parent_point_id: 2 },
+            { id: 10, locality: 'Ярославль', district: 'Центральный', admin_area: 'Ярославская область', title: 'ТЦ Гигант', kind: 'stop', latitude: 57.615, longitude: 39.855, parent_point_id: 2 },
+            { id: 11, locality: 'Ярославль', district: 'Центральный', admin_area: 'Ярославская область', title: 'Ярославль-Главный', kind: 'stop', latitude: 57.611, longitude: 39.835, parent_point_id: 2 },
           ];
           sendJson({ points });
           return;
@@ -490,7 +502,10 @@ function mockApiPlugin() {
           return;
         }
 
-        // POST /api/trips (publish)
+        // POST /api/trips (publish) — принимает опциональные startPointId/endPointId
+        // (issue #331, конкретные точки сбора/финиша); без них — прежнее поведение
+        // (обратная совместимость со старым body, mock их просто не использует
+        // для матчинга — это дев-заглушка без реальной БД точек).
         if (method === 'POST' && pathname === '/trips') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
@@ -504,6 +519,8 @@ function mockApiPlugin() {
               timeSlot: params.departureTime < '12:00' ? 'morning' : 'evening',
               seatsTotal: 3,
               priceRub: 80,
+              startPointId: params.startPointId ?? null,
+              endPointId: params.endPointId ?? null,
             };
             sendJson({ trip }, 201);
           });

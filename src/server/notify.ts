@@ -82,6 +82,10 @@ export async function notifyPassengersAboutNewTrip(params: {
     //   - час < 12 → 'morning'
     //   - час >= 12 → 'evening'
     //   - desired_time IS NULL → любой слот (не исключаем)
+    // Матчинг по ГРУППЕ точки (issue #331: поездки теперь точка→точка, заявки —
+    // по-прежнему район→район), а не по точному равенству point_id: точка
+    // заявки сравнивается с точкой поездки через COALESCE(parent_point_id, id)
+    // на обеих сторонах (self-JOIN на route_points).
     const alertsRes = await pool.query<{
       alert_id: number;
       passenger_id: number;
@@ -90,8 +94,12 @@ export async function notifyPassengersAboutNewTrip(params: {
       `SELECT ra.id AS alert_id, ra.passenger_id, u.tg_user_id
        FROM route_alerts ra
        JOIN users u ON u.id = ra.passenger_id
-       WHERE ra.from_point_id = $1
-         AND ra.to_point_id = $2
+       JOIN route_points rp_from ON rp_from.id = ra.from_point_id
+       JOIN route_points rp_to ON rp_to.id = ra.to_point_id
+       JOIN route_points rp_trip_start ON rp_trip_start.id = $1
+       JOIN route_points rp_trip_end ON rp_trip_end.id = $2
+       WHERE COALESCE(rp_from.parent_point_id, rp_from.id) = COALESCE(rp_trip_start.parent_point_id, rp_trip_start.id)
+         AND COALESCE(rp_to.parent_point_id, rp_to.id) = COALESCE(rp_trip_end.parent_point_id, rp_trip_end.id)
          AND ra.status = 'active'
          AND ra.desired_date = $3
          AND (

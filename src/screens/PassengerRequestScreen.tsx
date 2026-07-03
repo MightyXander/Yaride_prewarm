@@ -81,17 +81,14 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
         // Устанавливаем дефолтные значения по направлению
         // morning: Брагино (откуда) → Центр (куда)
         // evening: Центр (откуда) → Брагино (куда)
+        // Пассажир выбирает только анкеры-районы (issue #331: эвристика упрощена
+        // до parent_point_id === null — конкретные остановки внутри района
+        // выбирает водитель, здесь всегда район целиком).
         const bragino = response.points.find(
-          (p) =>
-            p.title.includes('Брагино') ||
-            p.district === 'Брагино' ||
-            p.title.includes('Урицкого')
+          (p) => p.parent_point_id === null && p.title === 'Брагино'
         );
         const centr = response.points.find(
-          (p) =>
-            p.title.includes('Центр') ||
-            p.title.includes('Волкова') ||
-            p.district === 'Центр'
+          (p) => p.parent_point_id === null && p.title === 'Центр'
         );
 
         if (direction === 'morning') {
@@ -192,6 +189,13 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
     }
   };
 
+  // Пассажир по-прежнему выбирает только район→район (issue #331): Select-ы
+  // заявки ограничены анкерами (parent_point_id === null), конкретные остановки
+  // внутри района — только у водителя при публикации поездки.
+  const anchorOptions: SelectOption[] = routePoints
+    .filter((point) => point.parent_point_id === null)
+    .map((point): SelectOption => ({ value: String(point.id), label: point.title }));
+
   return (
     <div
       style={{
@@ -256,10 +260,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <Select
                     variant="field"
-                    options={routePoints.map((point): SelectOption => ({
-                      value: String(point.id),
-                      label: point.title,
-                    }))}
+                    options={anchorOptions}
                     value={fromPointId}
                     onChange={(value) => {
                       setFromPointId(value);
@@ -278,10 +279,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <Select
                     variant="field"
-                    options={routePoints.map((point): SelectOption => ({
-                      value: String(point.id),
-                      label: point.title,
-                    }))}
+                    options={anchorOptions}
                     value={toPointId}
                     onChange={(value) => {
                       setToPointId(value);

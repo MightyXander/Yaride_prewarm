@@ -51,6 +51,15 @@ export interface PublishTripParams {
   reverse?: boolean;
   /** Выбранная машина водителя; её модель/цвет/номер пишутся в поездку. */
   carId?: number;
+  /**
+   * Опциональные конкретные точки сбора/финиша (issue #331). Заданы вместе —
+   * приоритезируются над reverse/точками шаблона; сервер валидирует, что обе
+   * существуют, kind='stop' и их группы (COALESCE(parent_point_id, id))
+   * различны. Не заданы — прежнее поведение (точки шаблона + reverse),
+   * обратная совместимость со старым body (Android-клиент) обязательна.
+   */
+  startPointId?: number;
+  endPointId?: number;
 }
 
 export interface PublishTripResult {
@@ -82,9 +91,36 @@ export async function createTripFromTemplateById(
       throw new Error('Шаблон поездки не найден.');
     }
 
-    // Если reverse=true, меняем местами точки старта/финиша
-    const startPointId = params.reverse ? tpl.end_point_id : tpl.start_point_id;
-    const endPointId = params.reverse ? tpl.start_point_id : tpl.end_point_id;
+    // Точки старта/финиша: приоритет — явно выбранные водителем startPointId/endPointId
+    // (issue #331, конкретные остановки), иначе прежнее поведение — точки шаблона + reverse.
+    let startPointId: number;
+    let endPointId: number;
+    if (params.startPointId !== undefined && params.endPointId !== undefined) {
+      const pointsRes = await client.query<{ id: number; kind: string; parent_point_id: number | null }>(
+        `SELECT id, kind, parent_point_id FROM route_points WHERE id = ANY($1::int[])`,
+        [[params.startPointId, params.endPointId]],
+      );
+      const byId = new Map(pointsRes.rows.map((p) => [p.id, p]));
+      const startPoint = byId.get(params.startPointId);
+      const endPoint = byId.get(params.endPointId);
+      if (!startPoint || !endPoint) {
+        throw new Error('Точка сбора/финиша не найдена.');
+      }
+      if (startPoint.kind !== 'stop' || endPoint.kind !== 'stop') {
+        throw new Error('Точка сбора/финиша должна быть конкретной остановкой.');
+      }
+      const startGroup = startPoint.parent_point_id ?? startPoint.id;
+      const endGroup = endPoint.parent_point_id ?? endPoint.id;
+      if (startGroup === endGroup) {
+        throw new Error('Точки сбора и финиша должны относиться к разным районам маршрута.');
+      }
+      startPointId = params.startPointId;
+      endPointId = params.endPointId;
+    } else {
+      // Если reverse=true, меняем местами точки старта/финиша шаблона
+      startPointId = params.reverse ? tpl.end_point_id : tpl.start_point_id;
+      endPointId = params.reverse ? tpl.start_point_id : tpl.end_point_id;
+    }
 
     // Вычислить time_slot из departureTime (час < 12 → morning, иначе evening)
     const departureHour = Number.parseInt(params.departureTime.split(':')[0], 10);

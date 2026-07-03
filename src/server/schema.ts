@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 14;
+export const CURRENT_SCHEMA_VERSION = 15;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -99,7 +99,12 @@ const BOOTSTRAP_SQL = `
     title TEXT NOT NULL,
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
-    kind TEXT NOT NULL DEFAULT 'stop' CHECK (kind IN ('stop', 'locality'))
+    kind TEXT NOT NULL DEFAULT 'stop' CHECK (kind IN ('stop', 'locality')),
+    -- Фиксированные точки сбора/финиша (issue #331): группировка остановок под
+    -- районом-анкером. NULL у самих анкеров-районов (kind='locality'); у
+    -- конкретной остановки (kind='stop') указывает на её анкер. Группа точки
+    -- для сравнений (матчинг, фильтры листинга) = COALESCE(parent_point_id, id).
+    parent_point_id INTEGER REFERENCES route_points(id)
   );
 
   CREATE UNIQUE INDEX IF NOT EXISTS uq_route_point
@@ -289,6 +294,13 @@ const BOOTSTRAP_SQL = `
  * v13→v14: SMS-подтверждение номера (issue #328) — users.phone_verified/
  *        phone_verified_at + таблица phone_verification_codes. Модуль
  *        включается только кредами SMSC_LOGIN/SMSC_PASSWORD в env (no-op без них).
+ * v14→v15: фиксированные точки сбора/финиша (issue #331) — route_points.parent_point_id
+ *        (группировка остановок под анкером-районом); анкеры «Брагино»/«Центр»
+ *        переводятся в kind='locality'; вставляются 9 конкретных остановок
+ *        (4 в Брагино, 5 в центре) с parent_point_id на свой анкер. Идемпотентно:
+ *        UPDATE по точному natural-key анкеров + INSERT ... ON CONFLICT DO NOTHING
+ *        по uq_route_point. Существующие trips/route_alerts НЕ мигрируются —
+ *        их ссылки на анкеры остаются валидными (группа анкера = сам анкер).
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -530,6 +542,72 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
       );
 
       CREATE INDEX IF NOT EXISTS idx_phone_verification_codes_user ON phone_verification_codes(user_id);
+    `);
+    return;
+  }
+  if (fromV === 14 && toV === 15) {
+    // Фиксированные точки сбора/финиша (issue #331). Аддитивно:
+    // 1) новая колонка parent_point_id (NULL у анкеров-районов, id анкера у остановки);
+    // 2) существующие анкеры «Брагино»/«Центр» переводятся из kind='stop' в kind='locality'
+    //    (их id НЕ меняются — ссылки в trips/trip_templates/route_alerts остаются валидными,
+    //    группа анкера = COALESCE(NULL, id) = сам id, как и раньше);
+    // 3) 9 конкретных остановок (4 в Брагино, 5 в центре) вставляются идемпотентно
+    //    (ON CONFLICT DO NOTHING по uq_route_point(locality, district, admin_area, title))
+    //    с parent_point_id, найденным подзапросом по natural-key анкера.
+    await pool.query(`
+      ALTER TABLE route_points ADD COLUMN IF NOT EXISTS parent_point_id INTEGER REFERENCES route_points(id);
+
+      UPDATE route_points SET kind = 'locality'
+        WHERE locality = 'Ярославль' AND district = 'Дзержинский район' AND admin_area = '' AND title = 'Брагино';
+      UPDATE route_points SET kind = 'locality'
+        WHERE locality = 'Ярославль' AND district = 'Кировский район' AND admin_area = '' AND title = 'Центр';
+
+      -- Остановки сбора в Брагино (группа — анкер «Брагино»).
+      INSERT INTO route_points(locality, district, admin_area, title, latitude, longitude, kind, parent_point_id)
+      SELECT 'Ярославль', 'Дзержинский район', '', 'ТРК Альтаир', 57.686, 39.772, 'stop',
+             (SELECT id FROM route_points WHERE locality = 'Ярославль' AND district = 'Дзержинский район' AND admin_area = '' AND title = 'Брагино')
+      ON CONFLICT (locality, district, admin_area, title) DO NOTHING;
+
+      INSERT INTO route_points(locality, district, admin_area, title, latitude, longitude, kind, parent_point_id)
+      SELECT 'Ярославль', 'Дзержинский район', '', 'ТЦ Космос', 57.665, 39.809, 'stop',
+             (SELECT id FROM route_points WHERE locality = 'Ярославль' AND district = 'Дзержинский район' AND admin_area = '' AND title = 'Брагино')
+      ON CONFLICT (locality, district, admin_area, title) DO NOTHING;
+
+      INSERT INTO route_points(locality, district, admin_area, title, latitude, longitude, kind, parent_point_id)
+      SELECT 'Ярославль', 'Дзержинский район', '', 'Проспект Дзержинского', 57.672, 39.793, 'stop',
+             (SELECT id FROM route_points WHERE locality = 'Ярославль' AND district = 'Дзержинский район' AND admin_area = '' AND title = 'Брагино')
+      ON CONFLICT (locality, district, admin_area, title) DO NOTHING;
+
+      INSERT INTO route_points(locality, district, admin_area, title, latitude, longitude, kind, parent_point_id)
+      SELECT 'Ярославль', 'Дзержинский район', '', 'ТРЦ РИО', 57.652, 39.836, 'stop',
+             (SELECT id FROM route_points WHERE locality = 'Ярославль' AND district = 'Дзержинский район' AND admin_area = '' AND title = 'Брагино')
+      ON CONFLICT (locality, district, admin_area, title) DO NOTHING;
+
+      -- Остановки финиша в центре (группа — анкер «Центр»).
+      INSERT INTO route_points(locality, district, admin_area, title, latitude, longitude, kind, parent_point_id)
+      SELECT 'Ярославль', 'Кировский район', '', 'Шинный завод', 57.601, 39.860, 'stop',
+             (SELECT id FROM route_points WHERE locality = 'Ярославль' AND district = 'Кировский район' AND admin_area = '' AND title = 'Центр')
+      ON CONFLICT (locality, district, admin_area, title) DO NOTHING;
+
+      INSERT INTO route_points(locality, district, admin_area, title, latitude, longitude, kind, parent_point_id)
+      SELECT 'Ярославль', 'Кировский район', '', 'Площадь Богоявления', 57.629, 39.896, 'stop',
+             (SELECT id FROM route_points WHERE locality = 'Ярославль' AND district = 'Кировский район' AND admin_area = '' AND title = 'Центр')
+      ON CONFLICT (locality, district, admin_area, title) DO NOTHING;
+
+      INSERT INTO route_points(locality, district, admin_area, title, latitude, longitude, kind, parent_point_id)
+      SELECT 'Ярославль', 'Кировский район', '', 'Волковский театр', 57.627, 39.898, 'stop',
+             (SELECT id FROM route_points WHERE locality = 'Ярославль' AND district = 'Кировский район' AND admin_area = '' AND title = 'Центр')
+      ON CONFLICT (locality, district, admin_area, title) DO NOTHING;
+
+      INSERT INTO route_points(locality, district, admin_area, title, latitude, longitude, kind, parent_point_id)
+      SELECT 'Ярославль', 'Кировский район', '', 'ТЦ Гигант', 57.615, 39.855, 'stop',
+             (SELECT id FROM route_points WHERE locality = 'Ярославль' AND district = 'Кировский район' AND admin_area = '' AND title = 'Центр')
+      ON CONFLICT (locality, district, admin_area, title) DO NOTHING;
+
+      INSERT INTO route_points(locality, district, admin_area, title, latitude, longitude, kind, parent_point_id)
+      SELECT 'Ярославль', 'Кировский район', '', 'Ярославль-Главный', 57.611, 39.835, 'stop',
+             (SELECT id FROM route_points WHERE locality = 'Ярославль' AND district = 'Кировский район' AND admin_area = '' AND title = 'Центр')
+      ON CONFLICT (locality, district, admin_area, title) DO NOTHING;
     `);
     return;
   }

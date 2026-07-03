@@ -141,6 +141,13 @@ export interface PublishTripRequest {
   reverse?: boolean;
   /** Выбранная машина водителя (опц.) — её модель/цвет/номер попадут в поездку. */
   carId?: number;
+  /**
+   * Опциональные конкретные точки сбора/финиша (issue #331): заданы вместе —
+   * сервер приоритезирует их над reverse (валидирует существование/kind='stop'/
+   * разные группы). Не заданы — прежнее поведение (точки шаблона + reverse).
+   */
+  startPointId?: number;
+  endPointId?: number;
 }
 
 export interface PublishTripResult {
@@ -340,6 +347,8 @@ export interface RoutePoint {
   kind: string;
   latitude: number | null;
   longitude: number | null;
+  /** Группа точки (issue #331): NULL у анкеров-районов, id анкера у конкретной остановки. */
+  parent_point_id: number | null;
 }
 
 export interface GetRoutePointsResponse {

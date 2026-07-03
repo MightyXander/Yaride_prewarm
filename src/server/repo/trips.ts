@@ -144,13 +144,21 @@ export async function findOpenTrips(
     query += ` AND t.departure_time >= $${args.length}`;
   }
 
+  // Сравнение по ГРУППЕ точки (issue #331: точки сбора/финиша теперь конкретные
+  // остановки, а не только анкеры-районы) — COALESCE(parent_point_id, id) на
+  // обеих сторонах. Параметр может быть как id анкера (parent_point_id IS NULL,
+  // группа = сам id), так и id конкретной остановки (группа = её анкер).
   if (params.startPointId !== undefined) {
     args.push(params.startPointId);
-    query += ` AND t.start_point_id = $${args.length}`;
+    query += ` AND COALESCE(sp.parent_point_id, sp.id) = COALESCE(
+      (SELECT parent_point_id FROM route_points WHERE id = $${args.length}), $${args.length}
+    )`;
   }
   if (params.endPointId !== undefined) {
     args.push(params.endPointId);
-    query += ` AND t.end_point_id = $${args.length}`;
+    query += ` AND COALESCE(ep.parent_point_id, ep.id) = COALESCE(
+      (SELECT parent_point_id FROM route_points WHERE id = $${args.length}), $${args.length}
+    )`;
   }
   if (params.timeSlot !== undefined) {
     args.push(params.timeSlot);
@@ -252,6 +260,8 @@ export async function listRoutePoints(): Promise<
     kind: string;
     latitude: number | null;
     longitude: number | null;
+    /** Группа точки (issue #331): NULL у анкеров-районов, id анкера у конкретной остановки. */
+    parent_point_id: number | null;
   }>
 > {
   await ensureReady();
@@ -264,8 +274,9 @@ export async function listRoutePoints(): Promise<
     kind: string;
     latitude: number | null;
     longitude: number | null;
+    parent_point_id: number | null;
   }>(
-    'SELECT id, locality, district, admin_area, title, kind, latitude, longitude FROM route_points ORDER BY id ASC',
+    'SELECT id, locality, district, admin_area, title, kind, latitude, longitude, parent_point_id FROM route_points ORDER BY id ASC',
   );
   return res.rows;
 }

@@ -661,6 +661,25 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
   // Опциональная выбранная машина: её модель/цвет/номер попадут в поездку.
   const carId = toPositiveInt(body.carId);
 
+  // Опциональные конкретные точки сбора/финиша (issue #331). Заданы вместе —
+  // приоритезируются над reverse (валидация существования/kind/группы — в
+  // createTripFromTemplateById). Не заданы — прежнее поведение (обратная
+  // совместимость: Android-клиент шлёт старый body без этих полей).
+  const startPointIdGiven = body.startPointId !== undefined;
+  const endPointIdGiven = body.endPointId !== undefined;
+  if (startPointIdGiven !== endPointIdGiven) {
+    return err(400, 'startPointId и endPointId должны быть заданы вместе');
+  }
+  let startPointId: number | undefined;
+  let endPointId: number | undefined;
+  if (startPointIdGiven && endPointIdGiven) {
+    startPointId = toPositiveInt(body.startPointId);
+    endPointId = toPositiveInt(body.endPointId);
+    if (startPointId === undefined || endPointId === undefined) {
+      return err(400, 'startPointId и endPointId должны быть положительными целыми');
+    }
+  }
+
   try {
     const trip = await createTripFromTemplateById(userId, {
       templateId,
@@ -668,6 +687,8 @@ export async function handlePublishTrip(req: ApiRequest): Promise<ApiResponse> {
       departureTime: rawTime,
       reverse,
       carId,
+      startPointId,
+      endPointId,
     });
 
     // Fire-and-forget уведомления пассажирам по route_alerts (не блокируем ответ)
