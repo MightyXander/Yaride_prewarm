@@ -33,6 +33,11 @@ declare global {
         };
         showAlert?: (message: string) => void;
         showPopup?: (params: { message: string; buttons?: Array<{ text: string }> }) => void;
+        // openTelegramLink — для t.me-ссылок (deep-link в бота, t.me/share/url и т.п.):
+        // Telegram обрабатывает их сам (нативный шит выбора чата и т.д.).
+        // openLink — для произвольных внешних URL. Разные методы намеренно (Bot API docs).
+        openTelegramLink?: (url: string) => void;
+        openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
       };
     };
   }
