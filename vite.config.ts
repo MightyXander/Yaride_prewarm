@@ -30,6 +30,30 @@ function privacyPagePlugin() {
   };
 }
 
+// Публичная страница «Публичная оферта» по «красивому» URL /offer — тот же приём,
+// что и privacyPagePlugin выше (issue #234), только для public/offer.html.
+function offerPagePlugin() {
+  const file = fileURLToPath(new URL('./public/offer.html', import.meta.url));
+  return {
+    name: 'offer-page',
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use((req, res, next) => {
+        const pathname = (req.url || '').split('?')[0];
+        if (pathname === '/offer' || pathname === '/offer/') {
+          try {
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.end(readFileSync(file, 'utf-8'));
+            return;
+          } catch {
+            // если файл не найден — отдать обычный поток обработки (404 Vite)
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
 // Mock API middleware для QA (когда backend недоступен)
 function mockApiPlugin() {
   return {
@@ -110,6 +134,13 @@ function mockApiPlugin() {
         hasPassword: false,
         email: null,
         username: 'tg_snapshot',
+      };
+      // In-memory согласие с Политикой ПДн/Офертой текущего (TG) пользователя (#234).
+      // null-версии → ConsentGate в IntroScreen должен показать шаг согласия;
+      // после POST /api/me/consent переживает между запросами, как mockPhone/mockCredentials.
+      let mockConsent: { pdnConsentVersion: string | null; offerConsentVersion: string | null } = {
+        pdnConsentVersion: null,
+        offerConsentVersion: null,
       };
       const normalizeRuPhoneMock = (raw: string): string | null => {
         const digits = String(raw).replace(/\D/g, '');
@@ -497,6 +528,33 @@ function mockApiPlugin() {
           return;
         }
 
+        // GET /api/me/consent — статус согласия с Политикой ПДн/Офертой (#234)
+        if (method === 'GET' && pathname === '/me/consent') {
+          sendJson({
+            pdnConsentVersion: mockConsent.pdnConsentVersion,
+            offerConsentVersion: mockConsent.offerConsentVersion,
+          });
+          return;
+        }
+
+        // POST /api/me/consent — зафиксировать согласие (#234)
+        if (method === 'POST' && pathname === '/me/consent') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            const p = JSON.parse(body || '{}');
+            const pdnConsentVersion = String(p.pdnConsentVersion ?? '').trim();
+            const offerConsentVersion = String(p.offerConsentVersion ?? '').trim();
+            if (!pdnConsentVersion || !offerConsentVersion) {
+              sendJson({ error: 'Не указана версия документа' }, 400);
+              return;
+            }
+            mockConsent = { pdnConsentVersion, offerConsentVersion };
+            sendJson({ pdnConsentVersion, offerConsentVersion });
+          });
+          return;
+        }
+
         // GET /api/me/phone — телефон для префилла (#267)
         if (method === 'GET' && pathname === '/me/phone') {
           sendJson({ phone: mockPhone });
@@ -853,5 +911,5 @@ function mockApiPlugin() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), mockApiPlugin(), privacyPagePlugin()],
+  plugins: [react(), mockApiPlugin(), privacyPagePlugin(), offerPagePlugin()],
 })

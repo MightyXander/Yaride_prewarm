@@ -1,22 +1,61 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '../components/Icons';
+import ConsentGate from '../components/ConsentGate';
 import { hapticImpact } from '../lib/haptics';
+import { getMyConsent, setMyConsent } from '../lib/api';
+import { OFFER_VERSION, POLICY_VERSION } from '../lib/policy';
 import type { UserRole } from '../lib/role';
 
 /**
- * IntroScreen — первый вход: выбор роли (пассажир/водитель).
+ * IntroScreen — первый вход: согласие 152-ФЗ (issue #234) + выбор роли (пассажир/водитель).
  * Стиль приведён к остальному приложению:
  *  - карточки ролей на --elevated + --shadow-card;
  *  - выбранная: фон --accent, бренд-граница, иконка на --gradient-brand с --brand-foreground;
  *  - кнопка «Продолжить»: --gradient-brand + --brand-foreground + --shadow-hero.
  * Только inline-стили + токены тем. Без новых зависимостей.
+ *
+ * Согласие (issue #234 — главный фикс блокера 152-ФЗ для Telegram-юзеров):
+ * до выбора роли проверяем GET /api/me/consent. Если версия согласия не совпадает
+ * с текущей (POLICY_VERSION/OFFER_VERSION) или согласия ещё нет — показываем
+ * ConsentGate вместо выбора роли; JIT-профиль Telegram-юзера (ensureUser) при этом
+ * уже создан самим запросом /api/me/consent, но БЕЗ согласия — его пишет отдельный
+ * POST /api/me/consent при принятии. Ошибку проверки (сеть/дев-режим без бэкенда)
+ * не блокируем — fail-open, чтобы не забаррикадировать вход в Сервис.
  */
 interface IntroScreenProps {
   onRoleSelect: (role: UserRole) => void;
 }
 
+type ConsentState = 'checking' | 'required' | 'granted';
+
 const IntroScreen: React.FC<IntroScreenProps> = ({ onRoleSelect }) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>('passenger');
+  const [consentState, setConsentState] = useState<ConsentState>('checking');
+
+  useEffect(() => {
+    let cancelled = false;
+    getMyConsent()
+      .then((res) => {
+        if (cancelled) return;
+        const upToDate =
+          res.pdnConsentVersion === POLICY_VERSION && res.offerConsentVersion === OFFER_VERSION;
+        setConsentState(upToDate ? 'granted' : 'required');
+      })
+      .catch(() => {
+        // Fail-open: не блокируем вход в Сервис, если проверка недоступна
+        // (сеть/дев-режим без бэкенда). Согласие останется незафиксированным
+        // до следующей успешной проверки — но не режет доступ к приложению.
+        if (!cancelled) setConsentState('granted');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleAcceptConsent = async () => {
+    await setMyConsent({ pdnConsentVersion: POLICY_VERSION, offerConsentVersion: OFFER_VERSION });
+    setConsentState('granted');
+  };
 
   const handleSelect = (role: UserRole) => {
     setSelectedRole(role);
@@ -37,6 +76,17 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onRoleSelect }) => {
       handleSelect(role === 'passenger' ? 'driver' : 'passenger');
     }
   };
+
+  // Пока идёт проверка согласия — пустой каркас экрана (без мигания ролей до
+  // ответа сервера). Запрос идёт на тот же origin и обычно укладывается в один
+  // кадр; отдельный скелетон ради этого не заводим (issue #234).
+  if (consentState === 'checking') {
+    return <div style={{ flex: 1 }} />;
+  }
+
+  if (consentState === 'required') {
+    return <ConsentGate onAccept={handleAcceptConsent} />;
+  }
 
   return (
     <div
