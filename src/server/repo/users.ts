@@ -369,11 +369,21 @@ export async function getUserPhoneById(userId: number): Promise<string | null> {
  * Сохранить/обновить телефон пользователя (сбор «по требованию», issue #267).
  * Номер ожидается уже нормализованным (+7XXXXXXXXXX). Возвращает false, если
  * пользователь не найден.
+ *
+ * SMS-верификация (issue #328): если новый номер отличается от сохранённого,
+ * статус phone_verified сбрасывается (старая верификация относилась к другому
+ * номеру) — сравнение и сброс делает один атомарный UPDATE (IS DISTINCT FROM
+ * учитывает NULL при первом сохранении номера). Повторное сохранение ТОГО ЖЕ
+ * номера verified не трогает.
  */
 export async function updateUserPhone(userId: number, phone: string): Promise<boolean> {
   await ensureReady();
   const res = await getPool().query(
-    'UPDATE users SET phone = $2 WHERE id = $1',
+    `UPDATE users
+        SET phone = $2,
+            phone_verified = CASE WHEN phone IS DISTINCT FROM $2 THEN false ELSE phone_verified END,
+            phone_verified_at = CASE WHEN phone IS DISTINCT FROM $2 THEN NULL ELSE phone_verified_at END
+      WHERE id = $1`,
     [userId, phone],
   );
   return (res.rowCount ?? 0) > 0;

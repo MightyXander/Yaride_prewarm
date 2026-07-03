@@ -59,6 +59,8 @@ export {
   handleSetMyConsent,
   handleGetMyPhone,
   handleSaveMyPhone,
+  handleSendPhoneVerificationCode,
+  handleVerifyPhoneCode,
   handleGetMyCredentials,
   handleAddMyCredentials,
   handleLinkMyAccount,

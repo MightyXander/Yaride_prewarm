@@ -3,7 +3,13 @@ import Button from './ui/Button';
 import { Icon } from './Icons';
 import { hapticNotify, hapticSelection } from '../lib/haptics';
 import { showToast } from '../lib/toast';
-import { getMyPhone, saveMyPhone, ApiException } from '../lib/api';
+import {
+  getMyPhone,
+  saveMyPhone,
+  sendPhoneVerificationCode,
+  verifyPhoneCode,
+  ApiException,
+} from '../lib/api';
 
 /**
  * Сбор номера телефона «по требованию» (issue #267).
@@ -14,6 +20,10 @@ import { getMyPhone, saveMyPhone, ApiException } from '../lib/api';
  *
  * Готовность (телефон задан в профиле) сообщается наверх через onReadyChange,
  * чтобы экран мог разблокировать основную кнопку только когда номер сохранён.
+ *
+ * SMS-подтверждение (issue #328): блок «Подтвердить номер» показывается ТОЛЬКО
+ * когда бэк вернул verificationEnabled=true (сконфигурированы креды SMSC.ru) —
+ * до этого поведение не меняется, номер просто сохраняется без верификации.
  */
 
 interface PhoneFieldProps {
@@ -26,6 +36,9 @@ interface PhoneFieldProps {
 }
 
 type Status = 'loading' | 'editing' | 'saving' | 'saved' | 'load-error';
+
+/** Шаг SMS-подтверждения номера (issue #328), независим от Status выше. */
+type CodeStep = 'idle' | 'awaiting-code' | 'sending' | 'verifying';
 
 /**
  * Нормализация РФ-номера (зеркало серверной в api.ts): 8/+7/7 + 10 цифр,
@@ -82,16 +95,24 @@ const fieldStyle: React.CSSProperties = {
 
 const PhoneField: React.FC<PhoneFieldProps> = ({
   label = 'Телефон для связи',
-  hint = 'Виден водителю/пассажиру этой поездки. Подтверждение по SMS добавим позже.',
+  hint = 'Виден водителю/пассажиру этой поездки.',
   onReadyChange,
 }) => {
   const [status, setStatus] = useState<Status>('loading');
   const [value, setValue] = useState<string>('');
   const [saved, setSaved] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // SMS-подтверждение номера (issue #328).
+  const [verified, setVerified] = useState(false);
+  const [verificationEnabled, setVerificationEnabled] = useState(false);
+  const [codeStep, setCodeStep] = useState<CodeStep>('idle');
+  const [codeValue, setCodeValue] = useState('');
+  const [codeError, setCodeError] = useState<string | null>(null);
   const inputId = useId();
   const hintId = useId();
   const errorId = useId();
+  const codeInputId = useId();
+  const codeErrorId = useId();
 
   const emitReady = useCallback(
     (phone: string | null) => {
@@ -107,6 +128,8 @@ const PhoneField: React.FC<PhoneFieldProps> = ({
       try {
         const res = await getMyPhone();
         if (cancelled) return;
+        setVerificationEnabled(res.verificationEnabled);
+        setVerified(res.verified);
         if (res.phone) {
           setSaved(res.phone);
           setValue(formatPhoneDisplay(res.phone));
@@ -148,6 +171,12 @@ const PhoneField: React.FC<PhoneFieldProps> = ({
       setSaved(res.phone);
       setValue(formatPhoneDisplay(res.phone));
       setStatus('saved');
+      // Сервер сбрасывает phone_verified при смене номера (updateUserPhone) —
+      // отражаем это сразу, не дожидаясь повторного GET /me/phone.
+      setVerified(false);
+      setCodeStep('idle');
+      setCodeValue('');
+      setCodeError(null);
       hapticNotify('success');
       emitReady(res.phone);
     } catch (err) {
@@ -166,6 +195,51 @@ const PhoneField: React.FC<PhoneFieldProps> = ({
     hapticSelection();
     setStatus('editing');
     setError(null);
+  };
+
+  /** Запросить код подтверждения на сохранённый номер (issue #328). */
+  const handleSendCode = async () => {
+    if (saved === null) return;
+    setCodeStep('sending');
+    setCodeError(null);
+    try {
+      await sendPhoneVerificationCode({ phone: saved });
+      setCodeStep('awaiting-code');
+      setCodeValue('');
+      hapticNotify('success');
+    } catch (err) {
+      const message =
+        err instanceof ApiException
+          ? err.message
+          : 'Не удалось отправить код. Попробуйте ещё раз.';
+      setCodeStep('idle');
+      showToast(message);
+      hapticNotify('error');
+    }
+  };
+
+  /** Подтвердить введённый код (issue #328). */
+  const handleVerifyCode = async () => {
+    if (codeValue.trim() === '') {
+      setCodeError('Введите код из звонка/SMS');
+      hapticNotify('error');
+      return;
+    }
+    setCodeStep('verifying');
+    setCodeError(null);
+    try {
+      await verifyPhoneCode({ code: codeValue.trim() });
+      setVerified(true);
+      setCodeStep('idle');
+      setCodeValue('');
+      hapticNotify('success');
+    } catch (err) {
+      const message =
+        err instanceof ApiException ? err.message : 'Не удалось подтвердить код.';
+      setCodeError(message);
+      setCodeStep('awaiting-code');
+      hapticNotify('error');
+    }
   };
 
   // Состояние «сохранён»: компактная подтверждённая строка + «Изменить».
@@ -210,6 +284,116 @@ const PhoneField: React.FC<PhoneFieldProps> = ({
         >
           Изменить номер
         </button>
+
+        {verificationEnabled && (
+          <div style={{ marginTop: '12px' }}>
+            {verified ? (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: 'var(--success)',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                }}
+              >
+                <Icon id="i-shield" style={{ width: '15px', height: '15px' }} />
+                Номер подтверждён
+              </div>
+            ) : codeStep === 'idle' || codeStep === 'sending' ? (
+              <Button
+                variant="secondary"
+                icon="i-shield"
+                onClick={handleSendCode}
+                disabled={codeStep === 'sending'}
+              >
+                {codeStep === 'sending' ? 'Отправляем код…' : 'Подтвердить номер'}
+              </Button>
+            ) : (
+              <div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    lineHeight: 1.4,
+                    color: 'var(--muted-foreground)',
+                    marginBottom: '8px',
+                  }}
+                >
+                  Вам позвонит робот — введите последние 4 цифры звонящего номера.
+                </div>
+                <input
+                  id={codeInputId}
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={codeValue}
+                  disabled={codeStep === 'verifying'}
+                  onChange={(e) => {
+                    setCodeValue(e.target.value);
+                    if (codeError) setCodeError(null);
+                  }}
+                  placeholder="1234"
+                  maxLength={4}
+                  aria-describedby={codeError ? codeErrorId : undefined}
+                  aria-invalid={codeError ? true : undefined}
+                  className="focus-ring"
+                  style={{
+                    ...fieldStyle,
+                    width: '100%',
+                    fontFamily: 'var(--font-sans)',
+                    opacity: codeStep === 'verifying' ? 0.6 : 1,
+                    borderColor: codeError ? 'var(--destructive)' : 'var(--border)',
+                  }}
+                />
+                {codeError && (
+                  <div
+                    id={codeErrorId}
+                    role="alert"
+                    style={{
+                      marginTop: '6px',
+                      fontSize: '12px',
+                      lineHeight: 1.4,
+                      color: 'var(--destructive)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {codeError}
+                  </div>
+                )}
+                <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+                  <Button
+                    variant="secondary"
+                    icon="i-check"
+                    onClick={handleVerifyCode}
+                    disabled={codeStep === 'verifying' || codeValue.trim() === ''}
+                  >
+                    {codeStep === 'verifying' ? 'Проверяем…' : 'Подтвердить'}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={handleSendCode}
+                    disabled={codeStep === 'verifying'}
+                    className="focus-ring"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      padding: '4px 2px',
+                      minHeight: '32px',
+                      color: 'var(--brand-dark)',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      cursor: codeStep === 'verifying' ? 'not-allowed' : 'pointer',
+                      fontFamily: 'var(--font-sans)',
+                    }}
+                  >
+                    Отправить код ещё раз
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }

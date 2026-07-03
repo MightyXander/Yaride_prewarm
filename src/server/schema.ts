@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 13;
+export const CURRENT_SCHEMA_VERSION = 14;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -45,6 +45,11 @@ const BOOTSTRAP_SQL = `
     -- независимо (Оферта и Политика ПДн — разные документы, см. src/lib/policy.ts).
     offer_consent_at TIMESTAMPTZ,
     offer_consent_version TEXT,
+    -- SMS-подтверждение номера (issue #328): статус верификации телефона.
+    -- Модуль включается ТОЛЬКО кредами SMSC_LOGIN/SMSC_PASSWORD в env — без них
+    -- verificationEnabled=false и эти поля остаются false/NULL для всех.
+    phone_verified BOOLEAN NOT NULL DEFAULT false,
+    phone_verified_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     -- Инвариант «хотя бы один способ входа»: либо Telegram, либо email+пароль.
     CONSTRAINT users_login_method_check
@@ -245,6 +250,21 @@ const BOOTSTRAP_SQL = `
 
   CREATE INDEX IF NOT EXISTS idx_events_type_created ON events(type, created_at);
   CREATE INDEX IF NOT EXISTS idx_events_corridor_created ON events(corridor, created_at);
+
+  -- SMS-подтверждение номера (issue #328): активные коды подтверждения.
+  -- Хранится sha256-хэш кода (не сам код). Один пользователь — обычно одна
+  -- активная строка (старые коды удаляются при выпуске нового, см. repo/sms-verification.ts).
+  CREATE TABLE IF NOT EXISTS phone_verification_codes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    phone TEXT NOT NULL,
+    code_hash TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_phone_verification_codes_user ON phone_verification_codes(user_id);
 `;
 
 /**
@@ -266,6 +286,9 @@ const BOOTSTRAP_SQL = `
  * v12→v13: слой метрик ликвидности (CEO Council) — таблица events (захват
  *        событий воронки search/booking_created/alert_created) + индексы
  *        по (type, created_at) и (corridor, created_at).
+ * v13→v14: SMS-подтверждение номера (issue #328) — users.phone_verified/
+ *        phone_verified_at + таблица phone_verification_codes. Модуль
+ *        включается только кредами SMSC_LOGIN/SMSC_PASSWORD в env (no-op без них).
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -485,6 +508,28 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
       );
       CREATE UNIQUE INDEX IF NOT EXISTS uq_push_tokens_token ON push_tokens(token);
       CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id);
+    `);
+    return;
+  }
+  if (fromV === 13 && toV === 14) {
+    // SMS-подтверждение номера (issue #328). Аддитивно — новые колонки users
+    // (дефолт false/NULL сохраняет текущее поведение для всех существующих
+    // строк) + новая таблица кодов подтверждения.
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMPTZ;
+
+      CREATE TABLE IF NOT EXISTS phone_verification_codes (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        phone TEXT NOT NULL,
+        code_hash TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_phone_verification_codes_user ON phone_verification_codes(user_id);
     `);
     return;
   }

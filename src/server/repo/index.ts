@@ -8,7 +8,8 @@
  *
  * Разбит на доменные модули (issue #289): users, sessions, credentials, trips,
  * bookings, ratings, cars, notifications, license, alerts, push-tokens,
- * templates, debug, events (слой метрик ликвидности, CEO Council). Этот barrel
+ * templates, debug, events (слой метрик ликвидности, CEO Council),
+ * sms-verification (SMS-подтверждение номера, issue #328). Этот barrel
  * реэкспортирует весь публичный контракт слоя — внешние импортёры
  * (`from './repo.ts'`) не меняются.
  *
@@ -34,3 +35,4 @@ export * from './notifications.ts';
 export * from './debug.ts';
 export * from './merge.ts';
 export * from './events.ts';
+export * from './sms-verification.ts';

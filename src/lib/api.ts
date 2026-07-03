@@ -22,6 +22,10 @@ import type {
   GetMyPhoneResponse,
   SaveMyPhoneRequest,
   SaveMyPhoneResponse,
+  SendPhoneCodeRequest,
+  SendPhoneCodeResponse,
+  VerifyPhoneCodeRequest,
+  VerifyPhoneCodeResponse,
   GetMyTripsRequest,
   GetMyTripsResponse,
   CreateRatingRequest,
@@ -211,6 +215,29 @@ export async function getMyPhone(): Promise<GetMyPhoneResponse> {
 export async function saveMyPhone(params: SaveMyPhoneRequest): Promise<SaveMyPhoneResponse> {
   return apiFetch<SaveMyPhoneResponse>('/me/phone', {
     method: 'PUT',
+    body: JSON.stringify(params),
+  });
+}
+
+/**
+ * POST /api/me/phone/send-code — сохранить номер и выслать код подтверждения
+ * (issue #328). Доступно только когда GetMyPhoneResponse.verificationEnabled === true.
+ */
+export async function sendPhoneVerificationCode(
+  params: SendPhoneCodeRequest,
+): Promise<SendPhoneCodeResponse> {
+  return apiFetch<SendPhoneCodeResponse>('/me/phone/send-code', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+/** POST /api/me/phone/verify-code — подтвердить номер введённым кодом (issue #328). */
+export async function verifyPhoneCode(
+  params: VerifyPhoneCodeRequest,
+): Promise<VerifyPhoneCodeResponse> {
+  return apiFetch<VerifyPhoneCodeResponse>('/me/phone/verify-code', {
+    method: 'POST',
     body: JSON.stringify(params),
   });
 }

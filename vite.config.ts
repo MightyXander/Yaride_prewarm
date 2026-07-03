@@ -128,6 +128,11 @@ function mockApiPlugin() {
       // переживают между запросами в dev/QA без backend. Нормализация повторяет
       // серверную: 8/+7/7 + 10 цифр (оператор «9») → +7XXXXXXXXXX, иначе null.
       let mockPhone: string | null = null;
+      // SMS-подтверждение номера (#328): в dev-моке модуль ВСЕГДА "сконфигурирован"
+      // (verificationEnabled=true), код подтверждения всегда '1234' — без реального
+      // SMSC.ru. verified сбрасывается при смене номера, как на реальном бэке.
+      let mockPhoneVerified = false;
+      const MOCK_VERIFICATION_CODE = '1234';
       // In-memory статус входа по email текущего (TG) пользователя (#273).
       // Имитирует users-строку с tg_user_id и без пароля: username — снимок TG-ника.
       const mockCredentials: { hasPassword: boolean; email: string | null; username: string | null } = {
@@ -555,13 +560,14 @@ function mockApiPlugin() {
           return;
         }
 
-        // GET /api/me/phone — телефон для префилла (#267)
+        // GET /api/me/phone — телефон для префилла (#267) + статус SMS-подтверждения (#328)
         if (method === 'GET' && pathname === '/me/phone') {
-          sendJson({ phone: mockPhone });
+          sendJson({ phone: mockPhone, verified: mockPhoneVerified, verificationEnabled: true });
           return;
         }
 
-        // PUT /api/me/phone — сохранить телефон (#267)
+        // PUT /api/me/phone — сохранить телефон (#267); смена номера сбрасывает
+        // verified (#328), как в реальном updateUserPhone.
         if (method === 'PUT' && pathname === '/me/phone') {
           let body = '';
           req.on('data', (chunk) => { body += chunk; });
@@ -572,8 +578,50 @@ function mockApiPlugin() {
               sendJson({ error: 'Введите корректный российский номер телефона', field: 'phone' }, 400);
               return;
             }
+            if (phone !== mockPhone) {
+              mockPhoneVerified = false;
+            }
             mockPhone = phone;
             sendJson({ phone });
+          });
+          return;
+        }
+
+        // POST /api/me/phone/send-code — сохранить номер + "выслать" код (#328).
+        // В dev-моке код всегда '1234', реальный SMSC.ru не вызывается.
+        if (method === 'POST' && pathname === '/me/phone/send-code') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            const p = JSON.parse(body || '{}');
+            const phone = normalizeRuPhoneMock(p.phone ?? '');
+            if (phone === null) {
+              sendJson({ error: 'Введите корректный российский номер телефона', field: 'phone' }, 400);
+              return;
+            }
+            if (phone !== mockPhone) {
+              mockPhoneVerified = false;
+            }
+            mockPhone = phone;
+            sendJson({ sent: true });
+          });
+          return;
+        }
+
+        // POST /api/me/phone/verify-code — подтвердить код (#328). В dev-моке
+        // единственный валидный код — '1234'.
+        if (method === 'POST' && pathname === '/me/phone/verify-code') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            const p = JSON.parse(body || '{}');
+            const code = String(p.code ?? '').trim();
+            if (code !== MOCK_VERIFICATION_CODE) {
+              sendJson({ error: 'Неверный код подтверждения', attemptsLeft: 4 }, 400);
+              return;
+            }
+            mockPhoneVerified = true;
+            sendJson({ verified: true });
           });
           return;
         }

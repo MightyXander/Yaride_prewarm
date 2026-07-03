@@ -34,6 +34,8 @@ try {
     setMyConsent: mod.handleSetMyConsent,
     getMyPhone: mod.handleGetMyPhone,
     saveMyPhone: mod.handleSaveMyPhone,
+    sendPhoneVerificationCode: mod.handleSendPhoneVerificationCode,
+    verifyPhoneCode: mod.handleVerifyPhoneCode,
     getMyCredentials: mod.handleGetMyCredentials,
     addMyCredentials: mod.handleAddMyCredentials,
     linkMyAccount: mod.handleLinkMyAccount,
@@ -264,6 +266,9 @@ app.post('/api/me/consent', wrap(api?.setMyConsent));
 // Issue #267: сбор телефона «по требованию» (чтение для префилла + сохранение).
 app.get('/api/me/phone', wrap(api?.getMyPhone));
 app.put('/api/me/phone', wrap(api?.saveMyPhone));
+// Issue #328: SMS-подтверждение номера (креды SMSC_LOGIN/SMSC_PASSWORD в env).
+app.post('/api/me/phone/send-code', wrap(api?.sendPhoneVerificationCode));
+app.post('/api/me/phone/verify-code', wrap(api?.verifyPhoneCode));
 app.get('/api/me/credentials', wrap(api?.getMyCredentials));
 app.post('/api/me/credentials', wrap(api?.addMyCredentials));
 app.post('/api/me/link-account', wrap(api?.linkMyAccount));

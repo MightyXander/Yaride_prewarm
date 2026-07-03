@@ -197,8 +197,13 @@ export interface SetMyConsentResponse {
 }
 
 // GET /api/me/phone — телефон текущего пользователя (null, если ещё не задан).
+// verified/verificationEnabled — issue #328 (SMS-подтверждение номера).
+// verificationEnabled=false, пока на бэке не заданы креды SMSC_LOGIN/SMSC_PASSWORD —
+// в этом случае UI подтверждения скрыт полностью (см. PhoneField.tsx).
 export interface GetMyPhoneResponse {
   phone: string | null;
+  verified: boolean;
+  verificationEnabled: boolean;
 }
 
 // PUT /api/me/phone — сохранить телефон (сбор «по требованию», issue #267).
@@ -209,6 +214,24 @@ export interface SaveMyPhoneRequest {
 export interface SaveMyPhoneResponse {
   /** Нормализованный сервером номер в форме +7XXXXXXXXXX. */
   phone: string;
+}
+
+// POST /api/me/phone/send-code — выслать код подтверждения номера (issue #328).
+export interface SendPhoneCodeRequest {
+  phone: string;
+}
+
+export interface SendPhoneCodeResponse {
+  sent: true;
+}
+
+// POST /api/me/phone/verify-code — подтвердить номер кодом (issue #328).
+export interface VerifyPhoneCodeRequest {
+  code: string;
+}
+
+export interface VerifyPhoneCodeResponse {
+  verified: true;
 }
 
 // GET /api/me/trips

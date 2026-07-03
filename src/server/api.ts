@@ -24,6 +24,9 @@
  *   POST /api/ratings         { tripId, rateeId, stars, tags?, comment?, initData }
  *   GET  /api/trips/:id/bookings
  *   PATCH /api/bookings/:id   { action: 'cancel_by_driver', initData }
+ *   GET  /api/me/phone               { phone, verified, verificationEnabled } (issue #328)
+ *   POST /api/me/phone/send-code     { phone } — сохранить номер + выслать код (issue #328)
+ *   POST /api/me/phone/verify-code   { code } — подтвердить код (issue #328)
  *
  * Валидация входа — ручная (zod в deps нет). Telegram initData проверяется через
  * verifyInitData (HMAC по BOT_TOKEN; без токена — dev-bypass с пометкой).
@@ -51,6 +54,11 @@ import {
   listUserReviews,
   getUserPhoneById,
   updateUserPhone,
+  getUserPhoneVerified,
+  getLatestPhoneVerificationCode,
+  createPhoneVerificationCode,
+  incrementPhoneVerificationAttempts,
+  markPhoneVerified,
   upsertPushToken,
   getUserProfileById,
   getUserTripsById,
@@ -95,6 +103,8 @@ import {
   notifyPassengerAboutBookingDecision,
   notifyPassengersAboutTripCancellation,
 } from './notify.ts';
+import { isSmsConfigured, sendVerificationCode } from './sms.ts';
+import { randomInt, createHash, timingSafeEqual } from 'node:crypto';
 
 export interface ApiRequest {
   query: Record<string, string | undefined>;
@@ -770,6 +780,11 @@ export async function handleGetMyProfile(req: ApiRequest): Promise<ApiResponse> 
 /**
  * GET /api/me/phone — телефон текущего пользователя для префилла (issue #267).
  * Работает и для браузерных, и для Telegram-аккаунтов (см. resolveCurrentUserId).
+ *
+ * Расширено полями verified/verificationEnabled (issue #328): verificationEnabled
+ * отражает, сконфигурирован ли модуль SMS (креды SMSC_LOGIN/SMSC_PASSWORD в env) —
+ * фронт показывает блок подтверждения ТОЛЬКО когда он true («скинул креды —
+ * заработало», без деплоя кода).
  */
 export async function handleGetMyPhone(req: ApiRequest): Promise<ApiResponse> {
   const userId = await resolveCurrentUserId(req);
@@ -778,7 +793,11 @@ export async function handleGetMyPhone(req: ApiRequest): Promise<ApiResponse> {
   }
 
   const phone = await getUserPhoneById(userId);
-  return { status: 200, body: { phone } };
+  const verified = await getUserPhoneVerified(userId);
+  return {
+    status: 200,
+    body: { phone, verified, verificationEnabled: isSmsConfigured() },
+  };
 }
 
 /**
@@ -806,6 +825,116 @@ export async function handleSaveMyPhone(req: ApiRequest): Promise<ApiResponse> {
   }
 
   return { status: 200, body: { phone } };
+}
+
+// ============================================================================
+// SMS-подтверждение номера (issue #328). Включается ТОЛЬКО кредами
+// SMSC_LOGIN/SMSC_PASSWORD в env (см. sms.ts isSmsConfigured/no-op паттерн).
+// Код — 4 цифры, TTL 5 минут, максимум 5 попыток ввода, повторная отправка не
+// чаще раза в 60 сек. В БД хранится sha256-хэш кода, не сам код.
+// ============================================================================
+
+const PHONE_CODE_TTL_MS = 5 * 60 * 1000;
+const PHONE_CODE_MAX_ATTEMPTS = 5;
+const PHONE_CODE_RESEND_COOLDOWN_MS = 60 * 1000;
+
+function hashPhoneCode(code: string): string {
+  return createHash('sha256').update(code).digest('hex');
+}
+
+/**
+ * POST /api/me/phone/send-code — выслать код подтверждения номера (issue #328).
+ * Body: { phone }. Нормализует и сохраняет номер (как PUT /me/phone — сброс
+ * verified при смене номера уже делает updateUserPhone), генерирует 4-значный
+ * код, сохраняет sha256-хэш с TTL 5 мин и отправляет через SMSC.ru (flash-call
+ * или SMS, см. SMS_CHANNEL). Без кредов SMSC_LOGIN/SMSC_PASSWORD — 400.
+ * Повторная отправка не чаще раза в 60 сек — 429.
+ */
+export async function handleSendPhoneVerificationCode(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  if (!isSmsConfigured()) {
+    return err(400, 'Подтверждение номера временно недоступно');
+  }
+
+  const body = asRecord(req.body);
+  const rawPhone = typeof body.phone === 'string' ? body.phone : '';
+  const phone = normalizeRuPhone(rawPhone);
+  if (phone === null) {
+    return err(400, 'Введите корректный российский номер телефона', { field: 'phone' });
+  }
+
+  const ok = await updateUserPhone(userId, phone);
+  if (!ok) {
+    return err(404, 'Профиль не найден');
+  }
+
+  const last = await getLatestPhoneVerificationCode(userId);
+  if (last !== null) {
+    const elapsedMs = Date.now() - last.created_at.getTime();
+    if (elapsedMs < PHONE_CODE_RESEND_COOLDOWN_MS) {
+      const retryAfter = Math.ceil((PHONE_CODE_RESEND_COOLDOWN_MS - elapsedMs) / 1000);
+      return err(429, 'Повторная отправка возможна не чаще раза в минуту', { retryAfter });
+    }
+  }
+
+  const code = String(randomInt(1000, 10000));
+  const codeHash = hashPhoneCode(code);
+  const expiresAt = new Date(Date.now() + PHONE_CODE_TTL_MS);
+  await createPhoneVerificationCode(userId, phone, codeHash, expiresAt);
+
+  const sent = await sendVerificationCode(phone, code);
+  if (!sent) {
+    return err(400, 'Не удалось отправить код. Попробуйте ещё раз позже.');
+  }
+
+  return { status: 200, body: { sent: true } };
+}
+
+/**
+ * POST /api/me/phone/verify-code — подтвердить номер введённым кодом (issue #328).
+ * Body: { code }. Сверяет sha256-хэш с последним выпущенным кодом пользователя,
+ * проверяет TTL (5 мин) и лимит попыток (5). При успехе users.phone_verified = true.
+ */
+export async function handleVerifyPhoneCode(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const body = asRecord(req.body);
+  const code = typeof body.code === 'string' ? body.code.trim() : '';
+  if (code === '') {
+    return err(400, 'Введите код подтверждения');
+  }
+
+  const record = await getLatestPhoneVerificationCode(userId);
+  if (record === null) {
+    return err(400, 'Код не запрашивался или уже использован — запросите новый');
+  }
+  if (record.expires_at.getTime() < Date.now()) {
+    return err(400, 'Код истёк — запросите новый');
+  }
+  if (record.attempts >= PHONE_CODE_MAX_ATTEMPTS) {
+    return err(400, 'Превышено число попыток — запросите новый код');
+  }
+
+  const providedHash = Buffer.from(hashPhoneCode(code), 'hex');
+  const expectedHash = Buffer.from(record.code_hash, 'hex');
+  const valid =
+    providedHash.length === expectedHash.length && timingSafeEqual(providedHash, expectedHash);
+
+  if (!valid) {
+    const attempts = await incrementPhoneVerificationAttempts(record.id);
+    const attemptsLeft = Math.max(0, PHONE_CODE_MAX_ATTEMPTS - attempts);
+    return err(400, 'Неверный код подтверждения', { attemptsLeft });
+  }
+
+  await markPhoneVerified(userId, record.id);
+  return { status: 200, body: { verified: true } };
 }
 
 /**
