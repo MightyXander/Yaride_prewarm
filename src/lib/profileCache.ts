@@ -70,6 +70,7 @@ export function readTelegramProfile(): Partial<UserProfile> | null {
     // Возвращаем частичный профиль (без рейтинга/поездок)
     return {
       name: name.trim(),
+      username: user.username ?? null,
       age: null,
       rating_avg: 0,
       rating_count: 0,

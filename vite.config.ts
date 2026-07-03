@@ -539,6 +539,7 @@ function mockApiPlugin() {
         if (method === 'GET' && pathname === '/me/profile') {
           const profile = {
             name: 'Тестовый Пользователь',
+            username: 'mightyxander',
             age: 30,
             rating_avg: 4.9,
             rating_count: 25,

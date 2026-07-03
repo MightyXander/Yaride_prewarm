@@ -168,6 +168,8 @@ export interface PublishTripResponse {
 export interface UserProfile {
   id: number;
   name: string;
+  /** Ник пользователя на площадке (@username). null — не задан (TG без ника, конфликт ника). */
+  username?: string | null;
   age: number | null;
   rating_avg: number;
   rating_count: number;

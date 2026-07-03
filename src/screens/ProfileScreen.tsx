@@ -152,6 +152,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
   const age = profile?.age ?? null;
   const rating = profile?.rating_avg ?? 0;
   const tripCount = (profile?.trips_driver_count ?? 0) + (profile?.trips_passenger_count ?? 0);
+  const username = profile?.username ?? null;
   const licenseStatus = profile?.license_status;
   const licenseVerified = licenseStatus === 'verified';
   const userId = profile?.id;
@@ -246,6 +247,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: '18px', fontWeight: 700 }}>
               {name}
+              {username && (
+                <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '15px' }}> @{username}</span>
+              )}
               {age && (
                 <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '15px' }}> · {age}&nbsp;лет</span>
               )}

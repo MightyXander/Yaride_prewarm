@@ -784,6 +784,7 @@ export async function handleGetMyProfile(req: ApiRequest): Promise<ApiResponse> 
       profile: {
         id: profile.id,
         name: profile.name,
+        username: profile.username ?? null,
         age: profile.age,
         rating_avg: profile.rating_avg,
         rating_count: profile.rating_count,
