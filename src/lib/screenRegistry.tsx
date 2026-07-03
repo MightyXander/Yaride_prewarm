@@ -234,8 +234,12 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
   'passenger-request': (ctx) => (
     <PassengerRequestScreen direction={ctx.requestDirection} onPublish={() => ctx.navigate('request-published')} />
   ),
+  // onCancel НЕ использует ctx.goBack: PARENT_SCREEN['request-published'] ведёт на
+  // служебное значение 'empty-state', у которого нет записи в реестре — это давало
+  // белый экран после отмены заявки (issue #317). 'main' — реальный домашний экран,
+  // который сам показывает актуальный empty-state «Оставить заявку» по данным из API.
   'request-published': (ctx) => (
-    <RequestPublishedScreen onEdit={() => ctx.navigate('passenger-request')} onCancel={ctx.goBack} />
+    <RequestPublishedScreen onEdit={() => ctx.navigate('passenger-request')} onCancel={() => ctx.navigate('main')} />
   ),
   'my-trips': (ctx) => (
     <MyTripsScreen
