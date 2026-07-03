@@ -14,6 +14,7 @@
  *   POST /api/bookings        { tripId, seats?, initData }
  *   POST /api/alerts          { fromPointId, toPointId, date, time?, initData }
  *   DELETE /api/alerts/:id    отмена заявки-алерта, только автор (issue #319)
+ *   GET  /api/me/alerts       активные заявки текущего юзера (issue #321)
  *   POST /api/trips           { templateId, date, departureTime, initData }
  *   GET  /api/me/profile      (initData в заголовке X-Telegram-Init-Data)
  *   GET  /api/me/trips?status=upcoming|past
@@ -29,6 +30,7 @@
 import {
   createRouteAlertById,
   cancelRouteAlertById,
+  listActiveAlertsByPassengerId,
   AlertNotFoundError,
   AlertNotOwnerError,
   ensureUser,
@@ -510,6 +512,24 @@ export async function handleCancelAlert(req: ApiRequest): Promise<ApiResponse> {
     const message = e instanceof Error ? e.message : 'Не удалось отменить заявку';
     return err(400, message);
   }
+}
+
+/**
+ * GET /api/me/alerts — активные заявки текущего юзера (issue #321).
+ *
+ * Единственный способ вернуться к своей заявке после сессии создания
+ * (id раньше жил только в состоянии навигации). Отдаёт только активные
+ * заявки (не отменённые и не просроченные по дате) — см.
+ * listActiveAlertsByPassengerId.
+ */
+export async function handleGetMyAlerts(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const alerts = await listActiveAlertsByPassengerId(userId);
+  return { status: 200, body: { alerts } };
 }
 
 /** POST /api/trips — публикация поездки из шаблона водителя (опционально). */

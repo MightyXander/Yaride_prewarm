@@ -41,6 +41,27 @@ function mockApiPlugin() {
         { id: 1, model: 'Hyundai Solaris', color: 'белый', plate: 'Е456КХ' },
       ];
 
+      // In-memory заявки-алерты (issue #321): переживают между запросами, чтобы
+      // POST /api/alerts → GET /api/me/alerts → DELETE /api/alerts/:id вели себя
+      // как реальный backend (route_alerts). Точки маршрута — те же id, что
+      // GET /api/route-points ниже (1 — Брагино, 2 — Центр).
+      const mockAlertPoints: Record<number, string> = {
+        1: 'Брагино, ул. Урицкого, 12',
+        2: 'Центр, пл. Волкова',
+      };
+      const mockAlertTomorrow = (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().slice(0, 10);
+      })();
+      const mockAlerts: {
+        id: number; fromPointId: number; toPointId: number;
+        desiredDate: string; desiredTime: string | null; status: string; createdAt: string;
+      }[] = [
+        { id: 1, fromPointId: 1, toPointId: 2, desiredDate: mockAlertTomorrow, desiredTime: '08:00', status: 'active', createdAt: new Date().toISOString() },
+      ];
+      let mockAlertSeq = mockAlerts.reduce((max, a) => Math.max(max, a.id), 0) + 1;
+
       // In-memory лента уведомлений (read-флаг переживает POST /notifications/read).
       // created_at вычисляется на лету из minutesAgo, чтобы относительное время не «протухало».
       const mockNotifications: {
@@ -409,8 +430,18 @@ function mockApiPlugin() {
           req.on('data', chunk => { body += chunk; });
           req.on('end', () => {
             const params = JSON.parse(body);
+            const alertId = mockAlertSeq++;
+            mockAlerts.push({
+              id: alertId,
+              fromPointId: params.fromPointId,
+              toPointId: params.toPointId,
+              desiredDate: params.date,
+              desiredTime: params.time || null,
+              status: 'active',
+              createdAt: new Date().toISOString(),
+            });
             const alert = {
-              alertId: Math.floor(Math.random() * 1000),
+              alertId,
               passengerId: 999,
               fromPointId: params.fromPointId,
               toPointId: params.toPointId,
@@ -622,6 +653,30 @@ function mockApiPlugin() {
           return;
         }
 
+        // GET /api/me/alerts — активные заявки текущего юзера (issue #321;
+        // mock_empty=true → пустой список, тот же контур, что /me/cars/trips)
+        if (method === 'GET' && pathname === '/me/alerts') {
+          const today = new Date().toISOString().slice(0, 10);
+          const alerts = forceEmpty
+            ? []
+            : mockAlerts
+                .filter((a) => a.status === 'active' && a.desiredDate >= today)
+                .sort((a, b) => (a.desiredDate + (a.desiredTime ?? '')).localeCompare(b.desiredDate + (b.desiredTime ?? '')))
+                .map((a) => ({
+                  id: a.id,
+                  fromPointId: a.fromPointId,
+                  toPointId: a.toPointId,
+                  fromTitle: mockAlertPoints[a.fromPointId] ?? 'Точка маршрута',
+                  toTitle: mockAlertPoints[a.toPointId] ?? 'Точка маршрута',
+                  desiredDate: a.desiredDate,
+                  desiredTime: a.desiredTime,
+                  status: a.status,
+                  createdAt: a.createdAt,
+                }));
+          sendJson({ alerts });
+          return;
+        }
+
         // GET /api/me/cars — машины водителя (mock_empty=true → пустой список)
         if (method === 'GET' && pathname === '/me/cars') {
           sendJson({ cars: forceEmpty ? [] : mockCars });
@@ -775,10 +830,13 @@ function mockApiPlugin() {
           return;
         }
 
-        // DELETE /api/alerts/:id (issue #319)
+        // DELETE /api/alerts/:id (issue #319) — снимаем из mockAlerts, чтобы
+        // GET /api/me/alerts (issue #321) сразу переставал её показывать.
         if (method === 'DELETE' && pathname.match(/^\/alerts\/\d+$/)) {
           const alertIdMatch = pathname.match(/^\/alerts\/(\d+)$/);
           const alertId = alertIdMatch ? parseInt(alertIdMatch[1]) : 0;
+          const found = mockAlerts.find((a) => a.id === alertId);
+          if (found) found.status = 'cancelled';
           const alert = {
             alertId,
             status: 'cancelled',

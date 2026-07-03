@@ -116,6 +116,23 @@ export interface CancelAlertResponse {
   alert: CancelAlertResult;
 }
 
+// GET /api/me/alerts (issue #321)
+export interface MyAlertItem {
+  id: number;
+  fromPointId: number;
+  toPointId: number;
+  fromTitle: string;
+  toTitle: string;
+  desiredDate: string;
+  desiredTime: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface GetMyAlertsResponse {
+  alerts: MyAlertItem[];
+}
+
 // POST /api/trips
 export interface PublishTripRequest {
   templateId: number;
