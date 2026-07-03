@@ -10,7 +10,7 @@
 
 import { ensureReady, getPool, withTransaction } from '../db.ts';
 import { getInternalUserId } from './_shared.ts';
-import { todayISO } from '../seed.ts';
+import { todayMskISO } from '../time.ts';
 
 export interface RouteAlertParams {
   tgPassengerId: number;
@@ -199,14 +199,14 @@ export interface MyAlertItem {
  * фонового job'а, который переводит просроченные заявки в отдельный статус
  * (route_alerts.status — только active/notified/cancelled), поэтому просрочку
  * считаем на чтении по дате — тот же приём, что getUserTripsById использует
- * для upcoming/past (сравнение с todayISO() в SQL, не в JS).
+ * для upcoming/past (сравнение с todayMskISO() в SQL, не в JS).
  */
 export async function listActiveAlertsByPassengerId(
   passengerId: number,
 ): Promise<MyAlertItem[]> {
   await ensureReady();
   const pool = getPool();
-  const today = todayISO();
+  const today = todayMskISO();
 
   const res = await pool.query<{
     id: number;

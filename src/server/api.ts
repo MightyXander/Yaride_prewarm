@@ -104,6 +104,7 @@ import {
   notifyPassengersAboutTripCancellation,
 } from './notify.ts';
 import { isSmsConfigured, sendVerificationCode } from './sms.ts';
+import { MSK_OFFSET_MS } from './time.ts';
 import { randomInt, createHash, timingSafeEqual } from 'node:crypto';
 
 export interface ApiRequest {
@@ -175,9 +176,6 @@ const TIME_RE = /^\d{2}:\d{2}$/;
 /** Минимальный запас времени (в минутах) между «сейчас» и моментом выезда (issue #330). */
 const MIN_LEAD_MINUTES = 10;
 
-/** Фиксированный сдвиг Europe/Moscow (UTC+3, без перехода на летнее время). */
-const MSK_OFFSET_MS = 3 * 60 * 60 * 1000;
-
 /** Тексты ошибок — единые с клиентом, см. src/lib/dateLocal.ts:DEPARTURE_ERROR_MESSAGES. */
 const DEPARTURE_ERROR_MESSAGES: Record<'past' | 'too_soon', string> = {
   past: 'Это время уже прошло — выберите другое',
@@ -188,7 +186,8 @@ const DEPARTURE_ERROR_MESSAGES: Record<'past' | 'too_soon', string> = {
  * Проверяет момент выезда (dateStr YYYY-MM-DD + timeStr HH:MM) на сервере:
  * нельзя публиковать в прошлом или менее чем за MIN_LEAD_MINUTES минут до
  * старта. «Сейчас» считаем в фиксированном МСК (UTC+3) — TZ хоста сервера
- * не гарантирована, вся аудитория в Ярославле (issue #330).
+ * не гарантирована, вся аудитория в Ярославле (issue #330). Смещение MSK_OFFSET_MS
+ * переиспользуем из единого модуля времени src/server/time.ts (issue #332).
  *
  * Логика — зеркало src/lib/dateLocal.ts:validateDeparture. Модуль не шарится
  * между client/server сборками: tsconfig.server.json задаёт rootDir

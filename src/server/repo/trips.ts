@@ -5,7 +5,7 @@
  */
 
 import { ensureReady, getPool } from '../db.ts';
-import { todayISO, nowHHMM } from '../seed.ts';
+import { todayMskISO, nowMskHHMM } from '../time.ts';
 import { internalUserIdByTg } from './_shared.ts';
 
 export type TimeSlot = 'morning' | 'evening';
@@ -122,7 +122,7 @@ export async function findOpenTrips(
   params: FindTripsParams = {},
 ): Promise<TripListItem[]> {
   await ensureReady();
-  const tripDate = params.tripDate ?? todayISO();
+  const tripDate = params.tripDate ?? todayMskISO();
   const limit = params.limit ?? 25;
 
   const selectPart = buildTripListSelect(params.currentUserId);
@@ -135,12 +135,12 @@ export async function findOpenTrips(
   // Не показываем в коридоре поездки, чьё время выезда уже прошло: для поездок
   // сегодняшней даты требуем departure_time >= текущего времени. departure_time —
   // TEXT 'HH:MM' с ведущими нулями → лексикографическое сравнение совпадает с
-  // хронологическим. Проверку «сегодня» делаем в JS (todayISO), чтобы не сравнивать
+  // хронологическим. Проверку «сегодня» делаем в JS (todayMskISO), чтобы не сравнивать
   // TEXT-колонку trip_date с date: в Postgres нет оператора text <> date, и такой
-  // предикат ронял /api/trips в 500 (regression PR #288). И todayISO(), и nowHHMM()
-  // берут одну серверную локальную зону — сдвиг согласован.
-  if (tripDate === todayISO()) {
-    args.push(nowHHMM());
+  // предикат ронял /api/trips в 500 (regression PR #288). И todayMskISO(), и nowMskHHMM()
+  // берут единую фиксированную МСК-зону (issue #332) — сдвиг согласован.
+  if (tripDate === todayMskISO()) {
+    args.push(nowMskHHMM());
     query += ` AND t.departure_time >= $${args.length}`;
   }
 
@@ -320,7 +320,7 @@ export async function getUserTripsById(
 ): Promise<UserTripItem[]> {
   await ensureReady();
 
-  const today = todayISO();
+  const today = todayMskISO();
 
   // Поездки где пользователь — водитель
   const driverQuery =
