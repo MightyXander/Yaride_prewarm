@@ -28,7 +28,9 @@ const sectionLabelStyle: React.CSSProperties = {
 
 interface PassengerRequestScreenProps {
   direction?: 'morning' | 'evening';
-  onPublish?: () => void;
+  // alertId созданной заявки — прокидывается в навигацию на request-published,
+  // чтобы кнопка «Отменить» там знала, какую заявку отменять (issue #319).
+  onPublish?: (alertId: number) => void;
 }
 
 const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
@@ -155,7 +157,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
       const dateStr = today.toISOString().split('T')[0];
 
       // Создание заявки через API (форматирование времени в HH:MM)
-      await createAlert({
+      const response = await createAlert({
         fromPointId: Number(fromPointId),
         toPointId: Number(toPointId),
         date: dateStr,
@@ -163,7 +165,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
       });
 
       hapticNotify('success');
-      onPublish?.();
+      onPublish?.(response.alert.alertId);
     } catch (err) {
       console.error('Ошибка публикации заявки:', err);
       let errorMessage = 'Не удалось опубликовать заявку';

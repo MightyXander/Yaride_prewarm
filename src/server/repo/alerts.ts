@@ -130,3 +130,51 @@ export async function updateAlertStatus(
     };
   });
 }
+
+/** Различимые причины отказа отмены — для точного статус-маппинга в api.ts (issue #319). */
+export class AlertNotFoundError extends Error {}
+export class AlertNotOwnerError extends Error {}
+
+/**
+ * Отменить заявку-алерт по внутреннему users.id автора (мост сессии, issue #258,
+ * тот же режим, что и createRouteAlertById; HTTP-аналог updateAlertStatus,
+ * который работает по tgPassengerId для Telegram callback-кнопки).
+ *
+ * Доступ — только автор заявки: AlertNotFoundError, если заявки нет,
+ * AlertNotOwnerError, если это чужая заявка (issue #319).
+ */
+export async function cancelRouteAlertById(
+  alertId: number,
+  passengerId: number,
+): Promise<UpdateAlertStatusResult> {
+  await ensureReady();
+
+  return withTransaction(async (client) => {
+    const alertRes = await client.query<{
+      id: number;
+      passenger_id: number;
+      status: string;
+    }>(
+      'SELECT id, passenger_id, status FROM route_alerts WHERE id = $1',
+      [alertId],
+    );
+    const alert = alertRes.rows[0];
+
+    if (!alert) {
+      throw new AlertNotFoundError('Заявка не найдена.');
+    }
+    if (alert.passenger_id !== passengerId) {
+      throw new AlertNotOwnerError('Вы не владелец этой заявки.');
+    }
+
+    const upd = await client.query<{ id: number; status: string }>(
+      "UPDATE route_alerts SET status = 'cancelled' WHERE id = $1 RETURNING id, status",
+      [alertId],
+    );
+
+    return {
+      alertId: upd.rows[0].id,
+      status: upd.rows[0].status,
+    };
+  });
+}

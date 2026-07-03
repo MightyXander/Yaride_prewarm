@@ -51,6 +51,7 @@ export {
   handleGetTrip,
   handleCreateBooking,
   handleCreateAlert,
+  handleCancelAlert,
   handlePublishTrip,
   handleGetMyProfile,
   handleGetMyPhone,

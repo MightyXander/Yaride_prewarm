@@ -17,6 +17,7 @@ import { useAuthHandlers } from './hooks/useAuthHandlers';
 import { useRoleHandlers } from './hooks/useRoleHandlers';
 import { usePublishHandlers } from './hooks/usePublishHandlers';
 import { useTripHandlers } from './hooks/useTripHandlers';
+import { useAlertHandlers } from './hooks/useAlertHandlers';
 import { useUserProfileNav } from './hooks/useUserProfileNav';
 import { loadRole, type UserRole } from './lib/role';
 import { shouldGateBrowserAuth } from './lib/auth';
@@ -113,6 +114,8 @@ function App() {
     navigateToRateTrip,
   });
 
+  const { handleCancelAlert } = useAlertHandlers({ alertId: publishedTripId, navigate });
+
   const showBackButton = !NO_BACK_BUTTON_SCREENS.includes(currentScreen);
   const navVisible = NAV_VISIBLE_SCREENS.includes(currentScreen);
 
@@ -154,6 +157,7 @@ function App() {
     profileStack,
     handleOpenTripById,
     handleCancelOwnTrip,
+    handleCancelAlert,
     handleNotificationNavigate,
   };
 

@@ -106,6 +106,16 @@ export interface CreateAlertResponse {
   alert: RouteAlertResult;
 }
 
+// DELETE /api/alerts/:id (issue #319)
+export interface CancelAlertResult {
+  alertId: number;
+  status: string;
+}
+
+export interface CancelAlertResponse {
+  alert: CancelAlertResult;
+}
+
 // POST /api/trips
 export interface PublishTripRequest {
   templateId: number;
