@@ -260,6 +260,60 @@ export async function ensureUser(params: EnsureUserParams): Promise<UserRecord> 
   }
 }
 
+// ============================================================================
+// Согласие 152-ФЗ / Оферта для Telegram-юзеров (issue #234).
+//
+// ensureUser() выше — JIT-создание профиля БЕЗ записи согласия (Telegram сразу
+// пускал пользователя в Сервис, минуя фиксацию согласия на обработку ПДн — это
+// и есть блокер, который закрывают функции ниже). Согласие пишется отдельным
+// шагом в Telegram-онбординге (см. IntroScreen/ConsentGate + POST /api/me/consent),
+// ensureUser сознательно не трогаем — версии профиля/JIT и согласия развязаны.
+// ============================================================================
+
+export interface ConsentStatus {
+  pdnConsentVersion: string | null;
+  offerConsentVersion: string | null;
+}
+
+/** Текущий статус согласий (Политика ПДн + Оферта) пользователя по внутреннему id. */
+export async function getUserConsent(userId: number): Promise<ConsentStatus | null> {
+  await ensureReady();
+  const res = await getPool().query<{
+    pdn_consent_version: string | null;
+    offer_consent_version: string | null;
+  }>(
+    'SELECT pdn_consent_version, offer_consent_version FROM users WHERE id = $1',
+    [userId],
+  );
+  const row = res.rows[0];
+  if (!row) {
+    return null;
+  }
+  return { pdnConsentVersion: row.pdn_consent_version, offerConsentVersion: row.offer_consent_version };
+}
+
+/**
+ * Зафиксировать согласие пользователя с Политикой ПДн и Офертой (issue #234).
+ * Пишет обе версии и CURRENT_TIMESTAMP атомарно одним UPDATE; идемпотентно —
+ * повторный вызов (например, принятие новой редакции документа) просто
+ * перезаписывает дату/версию. Возвращает false, если пользователь не найден.
+ */
+export async function recordUserConsent(
+  userId: number,
+  pdnConsentVersion: string,
+  offerConsentVersion: string,
+): Promise<boolean> {
+  await ensureReady();
+  const res = await getPool().query(
+    `UPDATE users
+        SET pdn_consent_at = CURRENT_TIMESTAMP, pdn_consent_version = $2,
+            offer_consent_at = CURRENT_TIMESTAMP, offer_consent_version = $3
+      WHERE id = $1`,
+    [userId, pdnConsentVersion, offerConsentVersion],
+  );
+  return (res.rowCount ?? 0) > 0;
+}
+
 export interface UserProfile {
   id: number;
   tg_user_id: number;

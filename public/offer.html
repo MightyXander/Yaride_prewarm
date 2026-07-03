@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffdd2d" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f0f12" media="(prefers-color-scheme: dark)" />
+    <meta name="robots" content="index, follow" />
+    <meta
+      name="description"
+      content="Публичная оферта / Пользовательское соглашение сервиса «поехали вместе» (yaride.ru)."
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/brand/icon-180.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <title>Публичная оферта — поехали вместе</title>
+
+    <!--
+      ┌───────────────────────────────────────────────────────────────────┐
+      │  ВЕРСИЯ ОФЕРТЫ — ЕДИНСТВЕННОЕ МЕСТО ИЗМЕНЕНИЯ.                       │
+      │  Эти же значения согласие в Telegram-онбординге записывает как      │
+      │  offer_consent_version у субъекта.                                  │
+      │  Меняйте только две константы в <script id="offer-meta"> ниже.      │
+      └───────────────────────────────────────────────────────────────────┘
+    -->
+    <script id="offer-meta">
+      // ▼▼▼ МЕНЯТЬ ВЕРСИЮ ОФЕРТЫ ТОЛЬКО ЗДЕСЬ ▼▼▼
+      // ВАЖНО: версия должна совпадать с OFFER_VERSION в src/lib/policy.ts —
+      // именно её согласие в Telegram-онбординге и регистрация шлют в
+      // offer_consent_version (единый источник на фронте).
+      window.OFFER_VERSION = 'v1';
+      window.OFFER_EFFECTIVE_DATE = '2026-07-03';
+      // ▲▲▲ значения должны совпадать с тем, что пишется в согласие
+    </script>
+
+    <style>
+      :root {
+        --brand: #ffdd2d;
+        --brand-on: #18170f;
+        --brand-gradient: linear-gradient(135deg, #ffe14a, #ffd000);
+
+        --bg: #f6f5f1;
+        --card: #fffefa;
+        --text: #0f0f10;
+        --muted: #5c5c61;
+        --border: rgba(15, 15, 16, 0.09);
+        --shadow: 0 1px 2px rgba(15, 15, 16, 0.04), 0 12px 32px rgba(15, 15, 16, 0.06);
+        --shadow-sticky: 0 1px 0 rgba(15, 15, 16, 0.06);
+
+        --radius-lg: 28px;
+        --radius-md: 20px;
+        --radius-sm: 14px;
+
+        --maxw: 720px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f0f12;
+          --card: #1c1c21;
+          --text: #f5f5f7;
+          --muted: #a1a1aa;
+          --border: rgba(245, 245, 247, 0.1);
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 40px rgba(0, 0, 0, 0.45);
+          --shadow-sticky: 0 1px 0 rgba(0, 0, 0, 0.5);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        * {
+          transition: none !important;
+        }
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        font-size: 16px;
+        line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      /* ── Sticky header ───────────────────────────────────────────── */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: color-mix(in srgb, var(--bg) 88%, transparent);
+        backdrop-filter: saturate(140%) blur(12px);
+        -webkit-backdrop-filter: saturate(140%) blur(12px);
+        box-shadow: var(--shadow-sticky);
+      }
+
+      .topbar__inner {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        max-width: var(--maxw);
+        margin: 0 auto;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .brand__logo {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        object-fit: cover;
+        flex: none;
+        background: var(--brand);
+      }
+
+      .brand__name {
+        font-weight: 800;
+        font-size: 16px;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .back {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 44px;
+        padding: 0 16px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--card);
+        color: var(--text);
+        font: inherit;
+        font-weight: 600;
+        font-size: 15px;
+        cursor: pointer;
+        transition: transform 0.12s ease, background 0.12s ease;
+      }
+
+      .back:hover {
+        background: color-mix(in srgb, var(--card) 80%, var(--brand) 20%);
+      }
+
+      .back:active {
+        transform: scale(0.97);
+      }
+
+      .back:focus-visible {
+        outline: 3px solid var(--brand);
+        outline-offset: 2px;
+      }
+
+      .back svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      /* ── Layout ──────────────────────────────────────────────────── */
+      .wrap {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 20px 16px 72px;
+      }
+
+      /* ── Hero / route-ticket signature ───────────────────────────── */
+      .hero {
+        position: relative;
+        border-radius: var(--radius-lg);
+        background: var(--brand-gradient);
+        color: var(--brand-on);
+        padding: 24px 22px 26px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .hero::after {
+        /* перфорация-«отрыв» билета — отсылка к карпулингу */
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 56px;
+        height: 1px;
+        background-image: radial-gradient(circle, var(--brand-on) 0 1.4px, transparent 1.6px);
+        background-size: 12px 2px;
+        background-repeat: repeat-x;
+        opacity: 0.35;
+      }
+
+      .hero__eyebrow {
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.72;
+        margin: 0 0 8px;
+      }
+
+      .hero__title {
+        margin: 0;
+        font-size: clamp(26px, 7vw, 36px);
+        line-height: 1.12;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 72px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        padding: 7px 13px;
+        border-radius: 999px;
+        background: rgba(24, 23, 15, 0.1);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .pill b {
+        font-weight: 800;
+      }
+
+      /* ── Notice ──────────────────────────────────────────────────── */
+      .draft {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        margin: 16px 0 0;
+        padding: 14px 16px;
+        border-radius: var(--radius-md);
+        background: var(--card);
+        border: 1px dashed color-mix(in srgb, var(--brand) 55%, var(--border));
+        box-shadow: var(--shadow);
+      }
+
+      .draft svg {
+        width: 22px;
+        height: 22px;
+        flex: none;
+        margin-top: 1px;
+        color: #b58a00;
+      }
+
+      .draft p {
+        margin: 0;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .draft b {
+        color: var(--text);
+      }
+
+      /* ── Operator card ───────────────────────────────────────────── */
+      .card {
+        margin-top: 16px;
+        padding: 18px 18px 6px;
+        border-radius: var(--radius-md);
+        background: var(--card);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+      }
+
+      /* ── Table of contents ───────────────────────────────────────── */
+      .toc {
+        margin-top: 16px;
+        padding: 18px;
+        border-radius: var(--radius-md);
+        background: var(--card);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+      }
+
+      .toc h2 {
+        margin: 0 0 12px;
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+      }
+
+      .toc ol {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: toc;
+      }
+
+      .toc li {
+        counter-increment: toc;
+      }
+
+      .toc a {
+        display: flex;
+        gap: 12px;
+        align-items: baseline;
+        padding: 9px 8px;
+        border-radius: 12px;
+        color: var(--text);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 15px;
+        min-height: 44px;
+        transition: background 0.12s ease;
+      }
+
+      .toc a::before {
+        content: counter(toc, decimal-leading-zero);
+        flex: none;
+        font-variant-numeric: tabular-nums;
+        font-weight: 800;
+        color: #9a7400;
+        font-size: 13px;
+        min-width: 22px;
+      }
+
+      .toc a:hover {
+        background: color-mix(in srgb, var(--card) 78%, var(--brand) 22%);
+      }
+
+      .toc a:focus-visible {
+        outline: 3px solid var(--brand);
+        outline-offset: 1px;
+      }
+
+      /* ── Sections ────────────────────────────────────────────────── */
+      section.doc {
+        scroll-margin-top: 76px;
+        margin-top: 30px;
+      }
+
+      section.doc h2 {
+        display: flex;
+        gap: 12px;
+        align-items: baseline;
+        margin: 0 0 10px;
+        font-size: 21px;
+        line-height: 1.25;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      section.doc h2 .num {
+        flex: none;
+        font-variant-numeric: tabular-nums;
+        font-size: 14px;
+        font-weight: 800;
+        color: var(--brand-on);
+        background: var(--brand);
+        border-radius: 8px;
+        padding: 2px 8px;
+        align-self: center;
+      }
+
+      section.doc h3 {
+        margin: 18px 0 6px;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      section.doc p,
+      section.doc li {
+        color: var(--text);
+      }
+
+      section.doc p {
+        margin: 0 0 12px;
+      }
+
+      section.doc ul {
+        margin: 0 0 12px;
+        padding-left: 22px;
+      }
+
+      section.doc li {
+        margin: 0 0 6px;
+      }
+
+      .ph {
+        /* плейсхолдер юр-реквизита */
+        background: color-mix(in srgb, var(--brand) 30%, transparent);
+        border-radius: 5px;
+        padding: 0 5px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      a.inline {
+        color: inherit;
+        text-decoration-color: var(--brand);
+        text-underline-offset: 3px;
+      }
+
+      hr.rule {
+        border: 0;
+        border-top: 1px solid var(--border);
+        margin: 28px 0 0;
+      }
+
+      footer.foot {
+        margin-top: 24px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      footer.foot a {
+        color: var(--muted);
+      }
+
+      .totop {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        margin-top: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--muted);
+        text-decoration: none;
+      }
+
+      .totop:hover {
+        color: var(--text);
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="topbar">
+      <div class="topbar__inner">
+        <span class="brand">
+          <img class="brand__logo" src="/brand/logo.png" alt="" />
+          <span class="brand__name">поехали вместе</span>
+        </span>
+        <button type="button" class="back" id="back-btn" aria-label="Вернуться назад">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M15 18l-6-6 6-6"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          Назад
+        </button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <!-- Hero -->
+      <div class="hero">
+        <p class="hero__eyebrow">yaride.ru · карпулинг в Ярославле</p>
+        <h1 class="hero__title">Публичная оферта / Пользовательское соглашение</h1>
+        <div class="meta">
+          <span class="pill">Версия:&nbsp;<b id="meta-version">v1</b></span>
+          <span class="pill">Дата вступления:&nbsp;<b id="meta-date">2026-07-03</b></span>
+        </div>
+      </div>
+
+      <!-- Пояснение статуса документа -->
+      <div class="draft" role="note">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 9v4m0 4h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.42 0Z"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <p>
+          <b>Актуальная редакция.</b> Настоящая Оферта — публичное предложение
+          заключить соглашение об использовании Сервиса на изложенных ниже условиях
+          (ст. 437 ГК РФ). Реквизиты юридической регистрации Оператора (наименование,
+          ИНН/ОГРН, почтовый адрес) оформляются отдельно и до их внесения помечены
+          явными полями <span class="ph">[ЗАПОЛНИТЬ: ...]</span> — контакт по вопросам
+          Оферты уже действует и указан в разделе 11.
+        </p>
+      </div>
+
+      <!-- Ключевой блок: статус Сервиса -->
+      <div class="card">
+        <p>
+          Настоящее Пользовательское соглашение (далее — Оферта) регулирует условия
+          использования сервиса поиска попутчиков «поехали вместе», доступного на сайте
+          <a class="inline" href="https://yaride.ru">yaride.ru</a> и в Telegram Mini App
+          (далее — Сервис), физическими лицами (далее — Пользователь).
+        </p>
+        <p>
+          <b>Yaride — информационный посредник, а не перевозчик.</b> Сервис только
+          помогает пользователям найти друг друга по совпадающему маршруту и времени.
+          Сервис НЕ оказывает услуги перевозки, НЕ является стороной договора перевозки
+          между водителем и пассажиром, НЕ назначает и не согласовывает цену поездки и
+          НЕ принимает, не переводит и не хранит денежные средства за поездку. Любые
+          договорённости о совместной поездке, включая возможные расчёты между
+          водителем и пассажиром, — частное дело самих пользователей и заключаются вне
+          Сервиса, напрямую между ними.
+        </p>
+      </div>
+
+      <!-- Оглавление -->
+      <nav class="toc" aria-label="Содержание">
+        <h2>Содержание</h2>
+        <ol>
+          <li><a href="#s1">Термины и предмет Оферты</a></li>
+          <li><a href="#s2">Статус Сервиса и его роль</a></li>
+          <li><a href="#s3">Порядок акцепта</a></li>
+          <li><a href="#s4">Регистрация и учётная запись</a></li>
+          <li><a href="#s5">Организация поездок</a></li>
+          <li><a href="#s6">Требования к водителю и автомобилю</a></li>
+          <li><a href="#s7">Правила поведения</a></li>
+          <li><a href="#s8">Ответственность сторон</a></li>
+          <li><a href="#s9">Персональные данные</a></li>
+          <li><a href="#s10">Разрешение споров</a></li>
+          <li><a href="#s11">Реквизиты и контакты Оператора</a></li>
+          <li><a href="#s12">Изменение условий Оферты</a></li>
+        </ol>
+      </nav>
+
+      <!-- 1 -->
+      <section class="doc" id="s1">
+        <h2><span class="num">01</span> Термины и предмет Оферты</h2>
+        <p>
+          <b>Сервис</b> — программно-аппаратный комплекс «поехали вместе» (сайт
+          yaride.ru и Telegram Mini App), позволяющий Пользователям публиковать и
+          находить совместные поездки по совпадающим маршрутам.
+          <b>Оператор</b> — лицо, предоставляющее Сервис (реквизиты — раздел 11).
+          <b>Пользователь</b> — физическое лицо, использующее Сервис в роли водителя
+          и/или пассажира. <b>Поездка</b> — совместная поездка, организованная
+          Пользователями через Сервис.
+        </p>
+        <p>
+          Предметом Оферты является предоставление Пользователю доступа к
+          функциональности Сервиса (поиск и публикация поездок, бронирование мест,
+          рейтинги и отзывы, уведомления) на условиях, изложенных ниже. Акцепт Оферты
+          не создаёт между Оператором и Пользователем отношений перевозки, комиссии,
+          агентирования или иного посредничества в денежных расчётах.
+        </p>
+        <a class="totop" href="#top">↑ Наверх</a>
+      </section>
+
+      <!-- 2 -->
+      <section class="doc" id="s2">
+        <h2><span class="num">02</span> Статус Сервиса и его роль</h2>
+        <p>Оператор прямо оговаривает и Пользователь, акцептуя Оферту, соглашается, что:</p>
+        <ul>
+          <li>Оператор не является перевозчиком и не оказывает услуги перевозки пассажиров и багажа;</li>
+          <li>Оператор не является стороной договора перевозки, который считается заключённым непосредственно между водителем и пассажиром как частными лицами;</li>
+          <li>Оператор не устанавливает, не согласовывает и не гарантирует цену поездки — любые суммы, отображаемые в Сервисе, носят справочный (ориентировочный) характер компенсации расходов водителя, а не тариф на перевозку;</li>
+          <li>Оператор не принимает, не переводит, не хранит и не распределяет денежные средства между Пользователями — все расчёты (если они происходят) осуществляются Пользователями самостоятельно и напрямую;</li>
+          <li>Оператор не проверяет и не гарантирует фактическое исполнение Поездки, манеру вождения, техническое состояние автомобиля или поведение участников Поездки.</li>
+        </ul>
+        <a class="totop" href="#top">↑ Наверх</a>
+      </section>
+
+      <!-- 3 -->
+      <section class="doc" id="s3">
+        <h2><span class="num">03</span> Порядок акцепта</h2>
+        <p>
+          Акцептом Оферты (полным и безоговорочным согласием с её условиями) является
+          одно из следующих действий Пользователя: регистрация в Сервисе по
+          email/паролю с отметкой согласия либо подтверждение согласия в
+          Telegram-онбординге Сервиса. С момента акцепта Оферта считается заключённым
+          между Оператором и Пользователем договором.
+        </p>
+        <a class="totop" href="#top">↑ Наверх</a>
+      </section>
+
+      <!-- 4 -->
+      <section class="doc" id="s4">
+        <h2><span class="num">04</span> Регистрация и учётная запись</h2>
+        <p>
+          Доступ к Сервису предоставляется через учётную запись, создаваемую при входе
+          через Telegram (автоматически, по данным Telegram-профиля) либо через
+          регистрацию по email и паролю. Пользователь обязуется предоставлять
+          достоверные данные о себе и своевременно их обновлять. Пользователь несёт
+          ответственность за сохранность доступа к своей учётной записи (в том числе к
+          своему аккаунту Telegram или паролю).
+        </p>
+        <a class="totop" href="#top">↑ Наверх</a>
+      </section>
+
+      <!-- 5 -->
+      <section class="doc" id="s5">
+        <h2><span class="num">05</span> Организация поездок</h2>
+        <p>
+          Водитель самостоятельно публикует в Сервисе маршрут, время и количество
+          свободных мест. Пассажир самостоятельно выбирает подходящую Поездку и
+          бронирует место. Подтверждение брони и последующая коммуникация о деталях
+          Поездки (точное место встречи, изменение времени, отмена) — зона
+          ответственности самих Пользователей.
+        </p>
+        <p>
+          Пользователи вправе самостоятельно и по взаимному согласию определять любые
+          условия совместной Поездки, включая добровольную компенсацию расходов
+          водителя на топливо и амортизацию. Оператор не участвует в определении,
+          согласовании или получении такой компенсации и не несёт ответственности за
+          споры, связанные с ней.
+        </p>
+        <a class="totop" href="#top">↑ Наверх</a>
+      </section>
+
+      <!-- 6 -->
+      <section class="doc" id="s6">
+        <h2><span class="num">06</span> Требования к водителю и автомобилю</h2>
+        <p>
+          Пользователь, публикующий Поездки в роли водителя, подтверждает, что имеет
+          действующее водительское удостоверение соответствующей категории, законное
+          право управления указанным в Сервисе автомобилем и соблюдает требования
+          законодательства Российской Федерации о безопасности дорожного движения.
+          Сведения о водительском удостоверении, предоставляемые для модерации
+          статуса водителя, должны быть достоверными.
+        </p>
+        <p>
+          Оператор вправе (но не обязан) проверять предоставленные сведения о
+          водительском удостоверении и приостанавливать или отзывать статус водителя
+          при наличии оснований полагать, что сведения недостоверны либо
+          Пользователь нарушает правила поведения (раздел 7).
+        </p>
+        <a class="totop" href="#top">↑ Наверх</a>
+      </section>
+
+      <!-- 7 -->
+      <section class="doc" id="s7">
+        <h2><span class="num">07</span> Правила поведения</h2>
+        <p>При использовании Сервиса Пользователь обязуется:</p>
+        <ul>
+          <li>предоставлять достоверную информацию о себе, автомобиле и Поездках;</li>
+          <li>не использовать Сервис для перевозки и деятельности, не совместимой со статусом информационного посредника, включая систематическую коммерческую перевозку пассажиров под видом карпулинга;</li>
+          <li>соблюдать вежливость и уважение к другим Пользователям, не допускать оскорблений, дискриминации, угроз;</li>
+          <li>не использовать Сервис для мошеннических действий, спама или иных незаконных целей;</li>
+          <li>своевременно уведомлять другую сторону Поездки об изменении или отмене планов.</li>
+        </ul>
+        <p>
+          Оператор вправе ограничить или прекратить доступ Пользователя к Сервису при
+          нарушении настоящих правил либо законодательства Российской Федерации.
+        </p>
+        <a class="totop" href="#top">↑ Наверх</a>
+      </section>
+
+      <!-- 8 -->
+      <section class="doc" id="s8">
+        <h2><span class="num">08</span> Ответственность сторон</h2>
+        <p>
+          Оператор предоставляет доступ к Сервису «как есть» и прилагает разумные
+          усилия для его бесперебойной работы, но не гарантирует отсутствие сбоев,
+          ошибок или временной недоступности Сервиса.
+        </p>
+        <p>
+          Поскольку Оператор не является перевозчиком и не является стороной
+          Поездки, Оператор не несёт ответственности за: действия и бездействие
+          Пользователей во время Поездки; вред жизни, здоровью или имуществу,
+          причинённый в ходе Поездки; качество, безопасность или своевременность
+          Поездки; любые денежные расчёты между Пользователями; ущерб, возникший
+          вследствие недостоверности сведений, предоставленных Пользователем.
+          Ответственность за вред, причинённый в ходе Поездки, несут непосредственно
+          её участники в соответствии с законодательством Российской Федерации.
+        </p>
+        <p>
+          Пользователь использует Сервис на свой риск и самостоятельно оценивает
+          целесообразность участия в конкретной Поездке и выбора попутчика.
+        </p>
+        <a class="totop" href="#top">↑ Наверх</a>
+      </section>
+
+      <!-- 9 -->
+      <section class="doc" id="s9">
+        <h2><span class="num">09</span> Персональные данные</h2>
+        <p>
+          Обработка персональных данных Пользователя при использовании Сервиса
+          осуществляется в соответствии с
+          <a class="inline" href="/privacy">Политикой обработки персональных данных</a>,
+          являющейся неотъемлемой частью настоящей Оферты.
+        </p>
+        <a class="totop" href="#top">↑ Наверх</a>
+      </section>
+
+      <!-- 10 -->
+      <section class="doc" id="s10">
+        <h2><span class="num">10</span> Разрешение споров</h2>
+        <p>
+          Споры между Оператором и Пользователем, связанные с использованием Сервиса,
+          разрешаются путём переговоров с направлением письменного обращения по
+          контактам, указанным в разделе 11. При недостижении согласия спор подлежит
+          разрешению в порядке, установленном законодательством Российской Федерации.
+        </p>
+        <p>
+          Споры между Пользователями, возникшие в связи с Поездкой (включая денежные
+          расчёты, вред имуществу или здоровью), Оператором не рассматриваются и
+          разрешаются сторонами Поездки самостоятельно, при необходимости — в
+          установленном законом порядке.
+        </p>
+        <a class="totop" href="#top">↑ Наверх</a>
+      </section>
+
+      <!-- 11 -->
+      <section class="doc" id="s11">
+        <h2><span class="num">11</span> Реквизиты и контакты Оператора</h2>
+        <ul>
+          <li>Наименование: <span class="ph">[ЗАПОЛНИТЬ: наименование оператора]</span></li>
+          <li>Реквизиты: <span class="ph">[ЗАПОЛНИТЬ: ИНН / ОГРН]</span></li>
+          <li>Адрес: <span class="ph">[ЗАПОЛНИТЬ: юридический / почтовый адрес]</span></li>
+          <li>
+            Электронная почта для обращений по Оферте:
+            <a class="inline" href="mailto:nya.37rus@gmail.com">nya.37rus@gmail.com</a>
+          </li>
+        </ul>
+        <a class="totop" href="#top">↑ Наверх</a>
+      </section>
+
+      <!-- 12 -->
+      <section class="doc" id="s12">
+        <h2><span class="num">12</span> Изменение условий Оферты</h2>
+        <p>
+          Оператор вправе вносить изменения в настоящую Оферту. Актуальная редакция
+          всегда доступна по адресу
+          <a class="inline" href="https://yaride.ru/offer">yaride.ru/offer</a>. При
+          существенных изменениях Оператор уведомляет Пользователей доступными
+          способами. Каждой редакции присваивается номер версии и дата вступления в
+          силу (см. начало документа). Продолжение использования Сервиса после
+          вступления изменений в силу означает согласие Пользователя с новой
+          редакцией.
+        </p>
+        <hr class="rule" />
+        <footer class="foot">
+          <p>
+            © <span id="foot-year">2026</span> «поехали вместе» · yaride.ru<br />
+            Редакция: <span id="foot-version">v1</span> от <span id="foot-date">2026-07-03</span>.
+            Актуальная редакция.
+          </p>
+        </footer>
+      </section>
+    </main>
+
+    <span id="top" style="position: absolute; top: 0"></span>
+
+    <noscript>
+      <!-- Если JS отключён, значения версии/даты остаются захардкоженными выше (v1 / 2026-07-03). -->
+    </noscript>
+
+    <script>
+      (function () {
+        var version = window.OFFER_VERSION || 'v1';
+        var date = window.OFFER_EFFECTIVE_DATE || '2026-07-03';
+
+        function set(id, value) {
+          var el = document.getElementById(id);
+          if (el) el.textContent = value;
+        }
+        set('meta-version', version);
+        set('meta-date', date);
+        set('foot-version', version);
+        set('foot-date', date);
+        set('foot-year', String(new Date().getFullYear()));
+
+        // Кнопка «Назад»: история браузера, с безопасным фолбэком на главную.
+        var back = document.getElementById('back-btn');
+        if (back) {
+          back.addEventListener('click', function () {
+            if (window.history.length > 1) {
+              window.history.back();
+            } else {
+              window.location.href = '/';
+            }
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

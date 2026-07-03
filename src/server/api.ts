@@ -17,6 +17,8 @@
  *   GET  /api/me/alerts       активные заявки текущего юзера (issue #321)
  *   POST /api/trips           { templateId, date, departureTime, initData }
  *   GET  /api/me/profile      (initData в заголовке X-Telegram-Init-Data)
+ *   GET  /api/me/consent      статус согласия с Политикой ПДн/Офертой (issue #234)
+ *   POST /api/me/consent      { pdnConsentVersion, offerConsentVersion } — зафиксировать согласие
  *   GET  /api/me/trips?status=upcoming|past
  *   GET  /api/me/template     (initData в заголовке X-Telegram-Init-Data)
  *   POST /api/ratings         { tripId, rateeId, stars, tags?, comment?, initData }
@@ -34,6 +36,8 @@ import {
   AlertNotFoundError,
   AlertNotOwnerError,
   ensureUser,
+  getUserConsent,
+  recordUserConsent,
   findOpenTrips,
   getTripCard,
   getLatestLicenseRequest,
@@ -717,6 +721,67 @@ export async function handleSaveMyPhone(req: ApiRequest): Promise<ApiResponse> {
   }
 
   return { status: 200, body: { phone } };
+}
+
+/**
+ * GET /api/me/consent — статус согласия текущего пользователя с Политикой ПДн
+ * и Офертой (issue #234). Работает и для Telegram (JIT-резолв по initData,
+ * см. resolveCurrentUserId), и для браузерных аккаунтов (cookie-сессия).
+ * null-версии означают «согласие ещё не зафиксировано» — фронт сравнивает
+ * их с POLICY_VERSION/OFFER_VERSION (src/lib/policy.ts) и решает, показывать
+ * ли шаг согласия перед тем, как пустить пользователя в Сервис.
+ */
+export async function handleGetMyConsent(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const consent = await getUserConsent(userId);
+  if (consent === null) {
+    return err(404, 'Профиль не найден');
+  }
+
+  return {
+    status: 200,
+    body: {
+      pdnConsentVersion: consent.pdnConsentVersion,
+      offerConsentVersion: consent.offerConsentVersion,
+    },
+  };
+}
+
+/**
+ * POST /api/me/consent — зафиксировать согласие текущего пользователя с
+ * Политикой ПДн и Офертой (issue #234 — главный фикс блокера 152-ФЗ:
+ * до этого Telegram-юзер создавался через ensureUser() JIT БЕЗ записи
+ * согласия). Body: { pdnConsentVersion, offerConsentVersion } — версии
+ * шлёт фронт из единого источника src/lib/policy.ts (тот же паттерн, что
+ * и POST /api/auth/register для браузерной регистрации).
+ */
+export async function handleSetMyConsent(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const body = asRecord(req.body);
+  const pdnConsentVersion = typeof body.pdnConsentVersion === 'string' ? body.pdnConsentVersion.trim() : '';
+  const offerConsentVersion = typeof body.offerConsentVersion === 'string' ? body.offerConsentVersion.trim() : '';
+
+  if (pdnConsentVersion === '') {
+    return err(400, 'Не указана версия политики обработки ПДн', { field: 'pdnConsentVersion' });
+  }
+  if (offerConsentVersion === '') {
+    return err(400, 'Не указана версия Оферты', { field: 'offerConsentVersion' });
+  }
+
+  const ok = await recordUserConsent(userId, pdnConsentVersion, offerConsentVersion);
+  if (!ok) {
+    return err(404, 'Профиль не найден');
+  }
+
+  return { status: 200, body: { pdnConsentVersion, offerConsentVersion } };
 }
 
 /**

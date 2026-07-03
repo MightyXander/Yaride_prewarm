@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 11;
+export const CURRENT_SCHEMA_VERSION = 12;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -40,6 +40,11 @@ const BOOTSTRAP_SQL = `
     pdn_consent_version TEXT,
     marketing_consent_at TIMESTAMPTZ,
     marketing_consent_version TEXT,
+    -- Согласие с Публичной офертой (issue #234): отдельная версия/дата от pdn_consent_*,
+    -- фиксируется вместе с ним при регистрации/онбординге, но может версионироваться
+    -- независимо (Оферта и Политика ПДн — разные документы, см. src/lib/policy.ts).
+    offer_consent_at TIMESTAMPTZ,
+    offer_consent_version TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     -- Инвариант «хотя бы один способ входа»: либо Telegram, либо email+пароль.
     CONSTRAINT users_login_method_check
@@ -408,6 +413,15 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
 
       CREATE UNIQUE INDEX IF NOT EXISTS uq_sessions_token_hash ON sessions(token_hash);
       CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+    `);
+    return;
+  }
+  if (fromV === 11 && toV === 12) {
+    // Согласие с Публичной офертой (issue #234, закрытие блокера 152-ФЗ для
+    // Telegram-юзеров): колонки аддитивны/идемпотентны, как pdn_consent_* в v8→v9.
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS offer_consent_at TIMESTAMPTZ;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS offer_consent_version TEXT;
     `);
     return;
   }

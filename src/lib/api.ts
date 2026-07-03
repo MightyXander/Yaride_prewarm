@@ -16,6 +16,9 @@ import type {
   PublishTripRequest,
   PublishTripResponse,
   GetMyProfileResponse,
+  GetMyConsentResponse,
+  SetMyConsentRequest,
+  SetMyConsentResponse,
   GetMyPhoneResponse,
   SaveMyPhoneRequest,
   SaveMyPhoneResponse,
@@ -180,6 +183,23 @@ export async function cancelTrip(tripId: number): Promise<CancelTripResponse> {
 /** GET /api/me/profile */
 export async function getMyProfile(): Promise<GetMyProfileResponse> {
   return apiFetch<GetMyProfileResponse>('/me/profile');
+}
+
+/**
+ * GET /api/me/consent — статус согласия текущего пользователя с Политикой ПДн
+ * и Офертой (issue #234). Используется ConsentGate в IntroScreen, чтобы решить,
+ * показывать ли шаг согласия перед тем, как пустить Telegram-юзера в Сервис.
+ */
+export async function getMyConsent(): Promise<GetMyConsentResponse> {
+  return apiFetch<GetMyConsentResponse>('/me/consent');
+}
+
+/** POST /api/me/consent — зафиксировать согласие с Политикой ПДн и Офертой (issue #234). */
+export async function setMyConsent(params: SetMyConsentRequest): Promise<SetMyConsentResponse> {
+  return apiFetch<SetMyConsentResponse>('/me/consent', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
 }
 
 /** GET /api/me/phone — телефон текущего пользователя (для префилла). */

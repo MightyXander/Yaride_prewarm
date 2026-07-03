@@ -55,6 +55,8 @@ export {
   handleGetMyAlerts,
   handlePublishTrip,
   handleGetMyProfile,
+  handleGetMyConsent,
+  handleSetMyConsent,
   handleGetMyPhone,
   handleSaveMyPhone,
   handleGetMyCredentials,

@@ -30,6 +30,8 @@ try {
     getMyAlerts: mod.handleGetMyAlerts,
     publishTrip: mod.handlePublishTrip,
     getMyProfile: mod.handleGetMyProfile,
+    getMyConsent: mod.handleGetMyConsent,
+    setMyConsent: mod.handleSetMyConsent,
     getMyPhone: mod.handleGetMyPhone,
     saveMyPhone: mod.handleSaveMyPhone,
     getMyCredentials: mod.handleGetMyCredentials,
@@ -255,6 +257,10 @@ app.delete('/api/alerts/:id', wrap(api?.cancelAlert));
 
 // Issue #42: новые эндпоинты для профиля, поездок пользователя, рейтингов, броней водителя.
 app.get('/api/me/profile', wrap(api?.getMyProfile));
+// Issue #234: согласие с Политикой ПДн/Офертой для Telegram-юзеров (закрытие
+// блокера 152-ФЗ — раньше ensureUser() JIT-создавал профиль без записи согласия).
+app.get('/api/me/consent', wrap(api?.getMyConsent));
+app.post('/api/me/consent', wrap(api?.setMyConsent));
 // Issue #267: сбор телефона «по требованию» (чтение для префилла + сохранение).
 app.get('/api/me/phone', wrap(api?.getMyPhone));
 app.put('/api/me/phone', wrap(api?.saveMyPhone));
@@ -331,6 +337,12 @@ app.post('/webhook/telegram', async (req, res) => {
 // поэтому добавляем явный «красивый» URL /privacy (на него ссылается чекбокс согласия).
 app.get('/privacy', (req, res) => {
   res.sendFile('privacy.html', { root: path.join(__dirname, 'dist') });
+});
+
+// Публичная страница «Публичная оферта / Пользовательское соглашение» — тот же
+// приём «красивого» URL, что и /privacy (issue #234).
+app.get('/offer', (req, res) => {
+  res.sendFile('offer.html', { root: path.join(__dirname, 'dist') });
 });
 
 app.use(express.static(path.join(__dirname, 'dist')));

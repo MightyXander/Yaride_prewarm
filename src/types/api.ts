@@ -177,6 +177,25 @@ export interface GetMyProfileResponse {
   profile: UserProfile;
 }
 
+// GET /api/me/consent — статус согласия с Политикой ПДн/Офертой (issue #234).
+// null-версия означает «согласие ещё не зафиксировано» — фронт сравнивает
+// с POLICY_VERSION/OFFER_VERSION (src/lib/policy.ts).
+export interface GetMyConsentResponse {
+  pdnConsentVersion: string | null;
+  offerConsentVersion: string | null;
+}
+
+// POST /api/me/consent — зафиксировать согласие текущего пользователя.
+export interface SetMyConsentRequest {
+  pdnConsentVersion: string;
+  offerConsentVersion: string;
+}
+
+export interface SetMyConsentResponse {
+  pdnConsentVersion: string;
+  offerConsentVersion: string;
+}
+
 // GET /api/me/phone — телефон текущего пользователя (null, если ещё не задан).
 export interface GetMyPhoneResponse {
   phone: string | null;
