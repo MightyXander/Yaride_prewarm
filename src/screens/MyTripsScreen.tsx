@@ -9,6 +9,7 @@ import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
 import { hapticSelection, hapticImpact } from '../lib/haptics';
 import { useRefetchOnFocus } from '../hooks/useRefetchOnFocus';
+import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { getMyTrips, ApiException } from '../lib/api';
 import type { UserTripItem } from '../types/api';
 import { Appear, AppearList } from '../components/Appear';
@@ -205,7 +206,7 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip,
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: '6px 16px 16px',
+        padding: `6px 16px ${FLOATING_NAV_SCROLL_CLEARANCE}`,
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',

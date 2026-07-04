@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Screen, Trip, ConfirmKind, NavigationState, RatingContext } from '../types/navigation';
 
-// Куда возвращает BackButton с каждого экрана
+// Фолбэк для goBack, когда стек истории пуст (напр. вход по deep-link — предыдущего экрана нет).
 const PARENT_SCREEN: Record<Screen, Screen> = {
   'auth-gate': 'auth-gate',
   login: 'auth-gate',
@@ -37,6 +37,9 @@ const PARENT_SCREEN: Record<Screen, Screen> = {
   'my-alerts': 'profile',
 };
 
+// Максимальная глубина стека истории «назад».
+const HISTORY_STACK_CAP = 20;
+
 export const useNavigation = (initialScreen: Screen = 'intro') => {
   // Направление последнего перехода: 1 — вперёд (navigate), -1 — назад (goBack).
   // Используется для направленных анимаций смены экрана.
@@ -47,7 +50,6 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     confirmKind: 'booking',
     ratingContext: null,
     publishedTripId: null,
-    backOverrides: {},
     scrollPositions: {
       'auth-gate': 0,
       login: 0,
@@ -82,6 +84,20 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     },
   });
 
+  // Настоящий стек истории переходов. В useRef, а не в state — сам по себе не
+  // требует ре-рендера; читается/пишется синхронно внутри navigate/goBack.
+  const historyStack = useRef<Screen[]>([]);
+
+  // Положить экран на вершину стека, не дублируя подряд идущую запись.
+  const pushHistory = (screen: Screen) => {
+    const top = historyStack.current[historyStack.current.length - 1];
+    if (screen === top) return;
+    historyStack.current.push(screen);
+    if (historyStack.current.length > HISTORY_STACK_CAP) {
+      historyStack.current.shift();
+    }
+  };
+
   // Save scroll position before navigating away
   const saveScrollPosition = useCallback((screen: Screen, position: number) => {
     setNavState((prev) => ({
@@ -101,6 +117,10 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       saveScrollPosition(navState.currentScreen, currentPosition);
       setDirection(1);
 
+      // В стек попадает то, куда должен вернуть «назад»: явный backTo, иначе
+      // текущий экран (стандартный push истории).
+      pushHistory(backTo ?? navState.currentScreen);
+
       setNavState((prev) => ({
         ...prev,
         currentScreen: screen,
@@ -108,11 +128,29 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
         selectedTrip: trip !== null ? trip : prev.selectedTrip,
         confirmKind: confirmKind ?? prev.confirmKind,
         publishedTripId: publishedTripId !== undefined ? publishedTripId : prev.publishedTripId,
-        // Запоминаем явный «назад»-таргет для этого экрана, если передан
-        backOverrides: backTo ? { ...prev.backOverrides, [screen]: backTo } : prev.backOverrides,
       }));
 
       // Scroll to top for new screen
+      window.scrollTo(0, 0);
+    },
+    [navState.currentScreen, saveScrollPosition]
+  );
+
+  // Переход «на корень» по клику на таб навбара: стек истории очищается —
+  // таб в нативных приложениях сбрасывает накопленную глубину, а не пушит на неё.
+  const resetTo = useCallback(
+    (screen: Screen) => {
+      const currentPosition = window.scrollY;
+      saveScrollPosition(navState.currentScreen, currentPosition);
+      setDirection(1);
+
+      historyStack.current = [];
+
+      setNavState((prev) => ({
+        ...prev,
+        currentScreen: screen,
+      }));
+
       window.scrollTo(0, 0);
     },
     [navState.currentScreen, saveScrollPosition]
@@ -124,6 +162,8 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       const currentPosition = window.scrollY;
       saveScrollPosition(navState.currentScreen, currentPosition);
       setDirection(1);
+
+      pushHistory(navState.currentScreen);
 
       setNavState((prev) => ({
         ...prev,
@@ -138,8 +178,10 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
 
   // Go back to previous screen
   const goBack = useCallback(() => {
-    const { currentScreen, scrollPositions, backOverrides } = navState;
-    const previousScreen: Screen = backOverrides[currentScreen] ?? PARENT_SCREEN[currentScreen] ?? 'main';
+    const { currentScreen, scrollPositions } = navState;
+    const poppedScreen = historyStack.current.pop();
+    // Пустой стек (вход по deep-link) — фолбэк на статичную родительскую мапу.
+    const previousScreen: Screen = poppedScreen ?? PARENT_SCREEN[currentScreen] ?? 'main';
     setDirection(-1);
 
     setNavState((prev) => ({
@@ -174,5 +216,6 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     navigate,
     navigateToRateTrip,
     goBack,
+    resetTo,
   };
 };

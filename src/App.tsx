@@ -63,7 +63,7 @@ function App() {
   // иначе роль выбрана — main, нет — intro.
   const initialScreen: Screen = needsAuthGate ? 'auth-gate' : userRole ? 'main' : 'intro';
 
-  const { currentScreen, selectedTrip, confirmKind, ratingContext, publishedTripId, direction, navigate, navigateToRateTrip, goBack } =
+  const { currentScreen, selectedTrip, confirmKind, ratingContext, publishedTripId, direction, navigate, navigateToRateTrip, goBack, resetTo } =
     useNavigation(initialScreen);
   const prefersReducedMotion = useReducedMotion();
   const isDesktop = useMediaQuery('(min-width: 430px)');
@@ -231,7 +231,7 @@ function App() {
         </div>
         <FloatingNav
           currentScreen={currentScreen}
-          onNavigate={(root) => navigate(root === 'profile' ? 'profile' : 'main')}
+          onNavigate={(root) => resetTo(root === 'profile' ? 'profile' : 'main')}
           onNotificationsClick={() => navigate('notifications')}
         />
       </div>

@@ -101,6 +101,4 @@ export interface NavigationState {
   scrollPositions: Record<Screen, number>;
   ratingContext: RatingContext | null;
   publishedTripId: number | null;
-  /** Явный «назад»-таргет для экранов с несколькими источниками входа (напр. trip-details из main/my-trips/notifications). */
-  backOverrides: Partial<Record<Screen, Screen>>;
 }
