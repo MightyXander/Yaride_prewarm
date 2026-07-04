@@ -427,9 +427,11 @@ export async function handleGetTrip(req: ApiRequest): Promise<ApiResponse> {
     return err(400, 'Некорректный id поездки');
   }
 
-  // Опциональная аутентификация для определения is_own
-  const authResult = authenticate(req, req.headers['x-telegram-init-data']);
+  // Опциональная аутентификация для определения is_own/already_booked (issue #335):
+  // initData → cookie-сессия → undefined. Публичный эндпоинт — в отличие от
+  // resolveCurrentUserId здесь НЕТ 401, если не сработал ни один из способов.
   let currentUserId: number | undefined;
+  const authResult = authenticate(req, req.headers['x-telegram-init-data']);
   if ('user' in authResult) {
     const userProfile = await ensureUser({
       tgUserId: authResult.user.id,
@@ -437,6 +439,11 @@ export async function handleGetTrip(req: ApiRequest): Promise<ApiResponse> {
       username: authResult.user.username ?? null,
     });
     currentUserId = userProfile.id;
+  } else {
+    const webUser = await getSessionUserFromRequest(req);
+    if (webUser !== null) {
+      currentUserId = webUser.id;
+    }
   }
 
   const card = await getTripCard(id, currentUserId);
@@ -1302,11 +1309,10 @@ export async function handleGetTripParticipants(req: ApiRequest): Promise<ApiRes
 export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
 
-  const auth = authenticate(req, body.initData);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const bookingId = toPositiveInt(req.params.id);
   if (bookingId === undefined) {
@@ -1319,7 +1325,7 @@ export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse>
   }
 
   try {
-    const r = await cancelBookingByDriver(bookingId, user.id);
+    const r = await cancelBookingByDriver(bookingId, userId);
 
     // Fire-and-forget: уведомить пассажира об отмене его брони (in-app лента + Telegram)
     void notifyPassengerAboutBookingDecision({
@@ -1353,13 +1359,10 @@ export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse>
  * Отменяет поездку и все активные брони, уведомляет пассажиров (in-app + Telegram).
  */
 export async function handleCancelTrip(req: ApiRequest): Promise<ApiResponse> {
-  const body = asRecord(req.body);
-
-  const auth = authenticate(req, body.initData ?? req.headers['x-telegram-init-data']);
-  if ('status' in auth) {
-    return auth;
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
   }
-  const { user } = auth;
 
   const tripId = toPositiveInt(req.params.id);
   if (tripId === undefined) {
@@ -1367,7 +1370,7 @@ export async function handleCancelTrip(req: ApiRequest): Promise<ApiResponse> {
   }
 
   try {
-    const r = await cancelTripByDriver(tripId, user.id);
+    const r = await cancelTripByDriver(tripId, userId);
 
     // Fire-and-forget: уведомить всех пассажиров об отмене поездки
     void notifyPassengersAboutTripCancellation({
