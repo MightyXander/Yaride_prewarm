@@ -173,6 +173,7 @@ export async function notifyPassengersAboutNewTrip(params: {
  * @param tripId ID поездки
  * @param bookingId ID брони
  * @param driverTgUserId Telegram ID водителя
+ * @param passengerId ID пассажира, создавшего бронь (для refUserId уведомления — BookingSpotlight, issue #343)
  * @param passengerName Имя пассажира (для сообщения)
  * @param startTitle Название начальной точки
  * @param endTitle Название конечной точки
@@ -185,6 +186,7 @@ export async function notifyDriverAboutNewBooking(params: {
   bookingId: number;
   driverId: number;
   driverTgUserId: number;
+  passengerId: number;
   passengerName: string;
   startTitle: string;
   endTitle: string;
@@ -204,6 +206,7 @@ export async function notifyDriverAboutNewBooking(params: {
       title: 'Новая бронь',
       body: text,
       refTripId: params.tripId,
+      refUserId: params.passengerId,
     });
 
     // FCM-пуш водителю (нативное приложение)

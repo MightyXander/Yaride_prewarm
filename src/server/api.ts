@@ -509,6 +509,7 @@ export async function handleCreateBooking(req: ApiRequest): Promise<ApiResponse>
             bookingId: result.bookingId,
             driverId: tripCard.driver_id,
             driverTgUserId: tripCard.driver_tg_user_id,
+            passengerId: userId,
             passengerName,
             startTitle: tripCard.start_title,
             endTitle: tripCard.end_title,
