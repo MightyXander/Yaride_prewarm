@@ -5,7 +5,7 @@
  */
 
 import { ensureReady, getPool, withTransaction } from '../db.ts';
-import { getInternalUserId, internalUserIdByTg, recomputeUserTripCounters } from './_shared.ts';
+import { internalUserIdByTg, recomputeUserTripCounters } from './_shared.ts';
 
 export interface BookingResult {
   bookingId: number;
@@ -297,15 +297,13 @@ export interface CancelTripResult {
  */
 export async function cancelBookingByDriver(
   bookingId: number,
-  tgDriverId: number,
+  driverId: number,
 ): Promise<CancelBookingActionResult> {
   await ensureReady();
 
   return withTransaction(async (client): Promise<CancelBookingActionResult> => {
-    const driverId = await getInternalUserId(client, tgDriverId);
-    if (driverId === null) {
-      throw new Error('Профиль водителя не найден.');
-    }
+    // driverId — уже внутренний users.id: резолвится вызывающим (resolveCurrentUserId
+    // в api.ts, internalUserIdByTg в telegram.ts). Владение проверяется ниже по driver_id.
 
     const bookingRes = await client.query<{
       id: number;
@@ -392,15 +390,13 @@ export async function cancelBookingByDriver(
  */
 export async function cancelTripByDriver(
   tripId: number,
-  tgDriverId: number,
+  driverId: number,
 ): Promise<CancelTripResult> {
   await ensureReady();
 
   return withTransaction(async (client): Promise<CancelTripResult> => {
-    const driverId = await getInternalUserId(client, tgDriverId);
-    if (driverId === null) {
-      throw new Error('Профиль водителя не найден.');
-    }
+    // driverId — уже внутренний users.id: резолвится вызывающим (resolveCurrentUserId
+    // в api.ts, internalUserIdByTg в telegram.ts). Владение проверяется ниже по driver_id.
 
     const tripRes = await client.query<{
       id: number;
@@ -489,15 +485,13 @@ export async function cancelTripByDriver(
  */
 export async function confirmBookingByDriver(
   bookingId: number,
-  tgDriverId: number,
+  driverId: number,
 ): Promise<BookingActionResult> {
   await ensureReady();
 
   return withTransaction(async (client) => {
-    const driverId = await getInternalUserId(client, tgDriverId);
-    if (driverId === null) {
-      throw new Error('Профиль водителя не найден.');
-    }
+    // driverId — уже внутренний users.id: резолвится вызывающим (resolveCurrentUserId
+    // в api.ts, internalUserIdByTg в telegram.ts). Владение проверяется ниже по driver_id.
 
     const bookingRes = await client.query<{
       id: number;

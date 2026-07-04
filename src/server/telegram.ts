@@ -611,8 +611,14 @@ async function handleCallbackQuery(
       // Брони: проверка что from.id — водитель поездки
       if (action === 'cfm') {
         // Подтвердить бронь
-        const { confirmBookingByDriver } = await import('./repo.ts');
-        const result = await confirmBookingByDriver(id, from.id);
+        const { confirmBookingByDriver, internalUserIdByTg } = await import('./repo.ts');
+        // Repo-функции ждут внутренний users.id; from.id — Telegram-id, резолвим.
+        const driverId = await internalUserIdByTg(from.id);
+        if (driverId === null) {
+          await answerCallbackQuery(callbackQuery.id, 'Профиль не найден', false, botToken);
+          return true;
+        }
+        const result = await confirmBookingByDriver(id, driverId);
 
         // Уведомить пассажира о подтверждении (in-app лента + Telegram), fire-and-forget
         const { notifyPassengerAboutBookingDecision: notifyConfirm } = await import('./notify.ts');
@@ -647,8 +653,14 @@ async function handleCallbackQuery(
         return true;
       } else if (action === 'dec') {
         // Отклонить бронь
-        const { cancelBookingByDriver } = await import('./repo.ts');
-        const result = await cancelBookingByDriver(id, from.id);
+        const { cancelBookingByDriver, internalUserIdByTg } = await import('./repo.ts');
+        // Repo-функции ждут внутренний users.id; from.id — Telegram-id, резолвим.
+        const driverId = await internalUserIdByTg(from.id);
+        if (driverId === null) {
+          await answerCallbackQuery(callbackQuery.id, 'Профиль не найден', false, botToken);
+          return true;
+        }
+        const result = await cancelBookingByDriver(id, driverId);
 
         // Уведомить пассажира об отклонении (in-app лента + Telegram), fire-and-forget
         const { notifyPassengerAboutBookingDecision: notifyDecline } = await import('./notify.ts');
