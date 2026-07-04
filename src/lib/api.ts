@@ -42,6 +42,8 @@ import type {
   GetUserReviewsResponse,
   GetNotificationsResponse,
   MarkNotificationReadResponse,
+  DeleteNotificationResponse,
+  ClearNotificationsResponse,
   GetMyCarsResponse,
   AddCarRequest,
   AddCarResponse,
@@ -331,6 +333,21 @@ export async function markNotificationRead(notificationId: number): Promise<Mark
   return apiFetch<MarkNotificationReadResponse>('/notifications/read', {
     method: 'POST',
     body: JSON.stringify({ notificationId }),
+  });
+}
+
+/** DELETE /api/notifications/:id — свайп-удаление одного уведомления (issue #337). */
+export async function deleteNotification(notificationId: number): Promise<DeleteNotificationResponse> {
+  return apiFetch<DeleteNotificationResponse>(`/notifications/${notificationId}`, {
+    method: 'DELETE',
+  });
+}
+
+/** POST /api/notifications/clear — удалить все уведомления (кнопка «Очистить», issue #337). */
+export async function clearNotifications(): Promise<ClearNotificationsResponse> {
+  return apiFetch<ClearNotificationsResponse>('/notifications/clear', {
+    method: 'POST',
+    body: JSON.stringify({}),
   });
 }
 

@@ -1,6 +1,7 @@
 /**
  * Уведомления пользователя: создание, лента, отметка прочитанным, ленивая
- * генерация напоминаний «оставьте отзыв» по завершённым поездкам.
+ * генерация напоминаний «оставьте отзыв» по завершённым поездкам, удаление
+ * (свайп/«Очистить») и ленивый авто-архив прочитанных через 2 дня (issue #337).
  * Вынесено из монолитного repo.ts (issue #289).
  *
  * ВНИМАНИЕ: listNotifications и ensureRateReminders (tgUserId-обёртки) удалены
@@ -84,7 +85,7 @@ export async function listNotificationsById(userId: number, limit = 50): Promise
   const res = await getPool().query<NotificationItem>(
     `SELECT n.id, n.type, n.title, n.body, n.read, n.ref_trip_id, n.ref_user_id, n.created_at
      FROM notifications n
-     WHERE n.user_id = $1
+     WHERE n.user_id = $1 AND NOT n.archived
      ORDER BY n.created_at DESC
      LIMIT $2`,
     [userId, limit],
@@ -95,10 +96,50 @@ export async function listNotificationsById(userId: number, limit = 50): Promise
 export async function markNotificationReadById(notificationId: number, userId: number): Promise<boolean> {
   await ensureReady();
   const res = await getPool().query(
-    'UPDATE notifications SET read = TRUE WHERE id = $1 AND user_id = $2',
+    `UPDATE notifications SET read = TRUE, read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
+     WHERE id = $1 AND user_id = $2`,
     [notificationId, userId],
   );
   return res.rowCount !== null && res.rowCount > 0;
+}
+
+/**
+ * Удалить одно уведомление (свайп-удаление, issue #337). Жёсткое DELETE —
+ * принадлежность проверяется по user_id, чужое удалить нельзя.
+ */
+export async function deleteNotificationById(notificationId: number, userId: number): Promise<boolean> {
+  await ensureReady();
+  const res = await getPool().query(
+    'DELETE FROM notifications WHERE id = $1 AND user_id = $2',
+    [notificationId, userId],
+  );
+  return res.rowCount !== null && res.rowCount > 0;
+}
+
+/**
+ * Удалить ВСЕ уведомления пользователя (кнопка «Очистить», issue #337).
+ * Возвращает число удалённых строк.
+ */
+export async function clearNotificationsByUserId(userId: number): Promise<number> {
+  await ensureReady();
+  const res = await getPool().query('DELETE FROM notifications WHERE user_id = $1', [userId]);
+  return res.rowCount ?? 0;
+}
+
+/**
+ * Ленивый авто-архив (issue #337, крона нет): прочитанные уведомления, у которых
+ * read_at «отлежал» 2+ дня, помечаются archived и перестают попадать в ленту
+ * (см. фильтр NOT archived в listNotificationsById). Вызывается перед выборкой
+ * в handleGetNotifications, best-effort — как ensureRateRemindersById.
+ */
+export async function archiveOldReadNotificationsById(userId: number): Promise<void> {
+  await ensureReady();
+  await getPool().query(
+    `UPDATE notifications
+     SET archived = TRUE
+     WHERE user_id = $1 AND read AND read_at < now() - interval '2 days' AND NOT archived`,
+    [userId],
+  );
 }
 
 export async function ensureRateRemindersById(userId: number, today: string): Promise<void> {

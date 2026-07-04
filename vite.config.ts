@@ -88,16 +88,21 @@ function mockApiPlugin() {
 
       // In-memory лента уведомлений (read-флаг переживает POST /notifications/read).
       // created_at вычисляется на лету из minutesAgo, чтобы относительное время не «протухало».
+      // readAt/archived (issue #337) зеркалят read_at/archived реальной схемы: у изначально
+      // прочитанных строк readAt проставлен «в момент создания» (как бэкфилл read_at=created_at
+      // в миграции v15→v16); лениво архивируются в GET, если read_at «отлежал» 2+ дня.
+      const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
       const mockNotifications: {
         id: number; type: 'booking' | 'booking_confirmed' | 'cancel' | 'rate_reminder' | 'trip_new';
         title: string; body: string; read: boolean;
         ref_trip_id: number | null; ref_user_id: number | null; minutesAgo: number;
+        readAt: number | null; archived: boolean;
       }[] = [
-        { id: 1, type: 'booking_confirmed', title: 'Бронь подтверждена', body: 'Андрей К. подтвердил вашу бронь на 07:40, Брагино → Центр.', read: false, ref_trip_id: 1, ref_user_id: 101, minutesAgo: 8 },
-        { id: 2, type: 'booking', title: 'Новая бронь', body: 'Анна С. забронировала место в вашей поездке 07:40.', read: false, ref_trip_id: 1, ref_user_id: 500, minutesAgo: 95 },
-        { id: 3, type: 'rate_reminder', title: 'Оцените поездку', body: 'Как прошла поездка с Мариной С.? Оставьте оценку.', read: true, ref_trip_id: 6, ref_user_id: 102, minutesAgo: 1500 },
-        { id: 4, type: 'cancel', title: 'Поездка отменена', body: 'Олег В. отменил поездку на 18:05. Бронь снята.', read: true, ref_trip_id: 4, ref_user_id: 103, minutesAgo: 4400 },
-        { id: 5, type: 'trip_new', title: 'Поездка по вашему маршруту', body: 'По вашему маршруту Брагино → Центр появилась поездка на завтра в 08:10.', read: false, ref_trip_id: 2, ref_user_id: 102, minutesAgo: 20 },
+        { id: 1, type: 'booking_confirmed', title: 'Бронь подтверждена', body: 'Андрей К. подтвердил вашу бронь на 07:40, Брагино → Центр.', read: false, ref_trip_id: 1, ref_user_id: 101, minutesAgo: 8, readAt: null, archived: false },
+        { id: 2, type: 'booking', title: 'Новая бронь', body: 'Анна С. забронировала место в вашей поездке 07:40.', read: false, ref_trip_id: 1, ref_user_id: 500, minutesAgo: 95, readAt: null, archived: false },
+        { id: 3, type: 'rate_reminder', title: 'Оцените поездку', body: 'Как прошла поездка с Мариной С.? Оставьте оценку.', read: true, ref_trip_id: 6, ref_user_id: 102, minutesAgo: 1500, readAt: Date.now() - 1500 * 60000, archived: false },
+        { id: 4, type: 'cancel', title: 'Поездка отменена', body: 'Олег В. отменил поездку на 18:05. Бронь снята.', read: true, ref_trip_id: 4, ref_user_id: 103, minutesAgo: 4400, readAt: Date.now() - 4400 * 60000, archived: false },
+        { id: 5, type: 'trip_new', title: 'Поездка по вашему маршруту', body: 'По вашему маршруту Брагино → Центр появилась поездка на завтра в 08:10.', read: false, ref_trip_id: 2, ref_user_id: 102, minutesAgo: 20, readAt: null, archived: false },
       ];
 
       // Публичные профили известных водителей (id из мок-поездок) + fallback в хендлере.
@@ -827,18 +832,27 @@ function mockApiPlugin() {
 
         // GET /api/notifications — лента уведомлений (mock_empty=true → пусто)
         if (method === 'GET' && pathname === '/notifications') {
+          // Ленивый авто-архив (issue #337): прочитанные 2+ дня назад (по readAt) —
+          // как UPDATE ... SET archived=TRUE в handleGetNotifications на реальном бэке.
+          for (const n of mockNotifications) {
+            if (n.read && n.readAt !== null && !n.archived && Date.now() - n.readAt > TWO_DAYS_MS) {
+              n.archived = true;
+            }
+          }
           const items = forceEmpty
             ? []
-            : mockNotifications.map((n) => ({
-                id: n.id,
-                type: n.type,
-                title: n.title,
-                body: n.body,
-                read: n.read,
-                ref_trip_id: n.ref_trip_id,
-                ref_user_id: n.ref_user_id,
-                created_at: new Date(Date.now() - n.minutesAgo * 60000).toISOString(),
-              }));
+            : mockNotifications
+                .filter((n) => !n.archived)
+                .map((n) => ({
+                  id: n.id,
+                  type: n.type,
+                  title: n.title,
+                  body: n.body,
+                  read: n.read,
+                  ref_trip_id: n.ref_trip_id,
+                  ref_user_id: n.ref_user_id,
+                  created_at: new Date(Date.now() - n.minutesAgo * 60000).toISOString(),
+                }));
           sendJson({ notifications: items });
           return;
         }
@@ -850,9 +864,30 @@ function mockApiPlugin() {
           req.on('end', () => {
             const params = JSON.parse(body);
             const item = mockNotifications.find((n) => n.id === params.notificationId);
-            if (item) item.read = true;
+            if (item) {
+              item.read = true;
+              if (item.readAt === null) item.readAt = Date.now();
+            }
             sendJson({ success: true });
           });
+          return;
+        }
+
+        // DELETE /api/notifications/:id — свайп-удаление (issue #337)
+        if (method === 'DELETE' && pathname.match(/^\/notifications\/\d+$/)) {
+          const idMatch = pathname.match(/^\/notifications\/(\d+)$/);
+          const id = idMatch ? parseInt(idMatch[1]) : 0;
+          const idx = mockNotifications.findIndex((n) => n.id === id);
+          if (idx >= 0) mockNotifications.splice(idx, 1);
+          sendJson({ success: true });
+          return;
+        }
+
+        // POST /api/notifications/clear — очистить всю ленту (issue #337)
+        if (method === 'POST' && pathname === '/notifications/clear') {
+          const deletedCount = mockNotifications.length;
+          mockNotifications.length = 0;
+          sendJson({ success: true, deletedCount });
           return;
         }
 

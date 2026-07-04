@@ -1606,6 +1606,15 @@ export async function handleGetNotifications(req: ApiRequest): Promise<ApiRespon
     console.error('[handleGetNotifications] ensureRateReminders:', e);
   }
 
+  // Лениво заархивировать прочитанные 2+ дня назад (issue #337, крона нет).
+  // Best-effort: ошибка не должна ломать выдачу ленты.
+  try {
+    const { archiveOldReadNotificationsById } = await import('./repo.ts');
+    await archiveOldReadNotificationsById(userId);
+  } catch (e) {
+    console.error('[handleGetNotifications] archiveOldReadNotifications:', e);
+  }
+
   const { listNotificationsById } = await import('./repo.ts');
   const notifications = await listNotificationsById(userId);
   return { status: 200, body: { notifications } };
@@ -1634,4 +1643,45 @@ export async function handleMarkNotificationRead(req: ApiRequest): Promise<ApiRe
   }
 
   return { status: 200, body: { success: true } };
+}
+
+/**
+ * DELETE /api/notifications/:id — свайп-удаление одного уведомления (issue #337).
+ * Принадлежность проверяется по user_id (как остальные *ById-эндпоинты) — чужое
+ * уведомление удалить нельзя, 404 если не найдено/не принадлежит.
+ */
+export async function handleDeleteNotification(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const notificationId = toPositiveInt(req.params.id);
+  if (notificationId === undefined) {
+    return err(400, 'Некорректный id уведомления');
+  }
+
+  const { deleteNotificationById } = await import('./repo.ts');
+  const success = await deleteNotificationById(notificationId, userId);
+  if (!success) {
+    return err(404, 'Уведомление не найдено или не принадлежит пользователю');
+  }
+
+  return { status: 200, body: { success: true } };
+}
+
+/**
+ * POST /api/notifications/clear — удалить ВСЕ уведомления текущего пользователя
+ * (кнопка «Очистить», issue #337).
+ */
+export async function handleClearNotifications(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const { clearNotificationsByUserId } = await import('./repo.ts');
+  const deletedCount = await clearNotificationsByUserId(userId);
+
+  return { status: 200, body: { success: true, deletedCount } };
 }

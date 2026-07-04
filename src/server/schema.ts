@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 15;
+export const CURRENT_SCHEMA_VERSION = 16;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -232,6 +232,13 @@ const BOOTSTRAP_SQL = `
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     read BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Момент простановки read=TRUE (issue #337) — точка отсчёта для ленивого
+    -- авто-архива через 2 дня. NULL пока не прочитано.
+    read_at TIMESTAMPTZ,
+    -- Прочитанное уведомление, «отлежавшее» read_at 2+ дня, помечается архивным
+    -- (issue #337) и перестаёт попадать в ленту (listNotificationsById фильтрует
+    -- NOT archived). Крона нет — простановка ленивая, на запросе GET /api/notifications.
+    archived BOOLEAN NOT NULL DEFAULT FALSE,
     ref_trip_id INTEGER REFERENCES trips(id),
     ref_user_id INTEGER REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -301,6 +308,10 @@ const BOOTSTRAP_SQL = `
  *        UPDATE по точному natural-key анкеров + INSERT ... ON CONFLICT DO NOTHING
  *        по uq_route_point. Существующие trips/route_alerts НЕ мигрируются —
  *        их ссылки на анкеры остаются валидными (группа анкера = сам анкер).
+ * v15→v16: авто-архив уведомлений (issue #337) — notifications.read_at TIMESTAMPTZ
+ *        (момент простановки read=TRUE) + notifications.archived BOOLEAN DEFAULT
+ *        FALSE; бэкфилл read_at = created_at для уже прочитанных строк (иначе
+ *        старые прочитанные никогда бы не заархивировались лениво). Аддитивно.
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -608,6 +619,19 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
       SELECT 'Ярославль', 'Кировский район', '', 'Ярославль-Главный', 57.611, 39.835, 'stop',
              (SELECT id FROM route_points WHERE locality = 'Ярославль' AND district = 'Кировский район' AND admin_area = '' AND title = 'Центр')
       ON CONFLICT (locality, district, admin_area, title) DO NOTHING;
+    `);
+    return;
+  }
+  if (fromV === 15 && toV === 16) {
+    // Авто-архив уведомлений (issue #337). Аддитивно: новые колонки с дефолтами
+    // не трогают существующее поведение. Бэкфилл read_at — иначе уведомления,
+    // прочитанные ДО этой миграции, никогда не получили бы read_at и не
+    // заархивировались бы ленивым UPDATE в handleGetNotifications.
+    await pool.query(`
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;
+
+      UPDATE notifications SET read_at = created_at WHERE read = TRUE AND read_at IS NULL;
     `);
     return;
   }

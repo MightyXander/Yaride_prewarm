@@ -53,6 +53,8 @@ try {
     getUserReviews: mod.handleGetUserReviews,
     getNotifications: mod.handleGetNotifications,
     markNotificationRead: mod.handleMarkNotificationRead,
+    deleteNotification: mod.handleDeleteNotification,
+    clearNotifications: mod.handleClearNotifications,
     listMyCars: mod.handleListMyCars,
     addCar: mod.handleAddCar,
     cancelTrip: mod.handleCancelTrip,
@@ -304,6 +306,9 @@ app.get('/api/users/:id/reviews', wrap(api?.getUserReviews));
 // Issue #204: уведомления (NotificationsScreen).
 app.get('/api/notifications', wrap(api?.getNotifications));
 app.post('/api/notifications/read', wrap(api?.markNotificationRead));
+// Issue #337: свайп-удаление одного уведомления + очистка всей ленты.
+app.delete('/api/notifications/:id', wrap(api?.deleteNotification));
+app.post('/api/notifications/clear', wrap(api?.clearNotifications));
 
 // Issue #85: Telegram webhook endpoint.
 app.post('/webhook/telegram', async (req, res) => {

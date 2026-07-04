@@ -456,6 +456,17 @@ export interface MarkNotificationReadResponse {
   success: boolean;
 }
 
+// DELETE /api/notifications/:id (issue #337)
+export interface DeleteNotificationResponse {
+  success: boolean;
+}
+
+// POST /api/notifications/clear (issue #337)
+export interface ClearNotificationsResponse {
+  success: boolean;
+  deletedCount?: number;
+}
+
 // GET /api/me/cars
 export interface Car {
   id: number;

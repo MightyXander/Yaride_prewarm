@@ -78,6 +78,8 @@ export {
   handleGetUserReviews,
   handleGetNotifications,
   handleMarkNotificationRead,
+  handleDeleteNotification,
+  handleClearNotifications,
   handleListMyCars,
   handleAddCar,
   handleCancelTrip,
