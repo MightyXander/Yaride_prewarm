@@ -592,7 +592,7 @@ function mockApiPlugin() {
 
         // GET /api/me/phone — телефон для префилла (#267) + статус SMS-подтверждения (#328)
         if (method === 'GET' && pathname === '/me/phone') {
-          sendJson({ phone: mockPhone, verified: mockPhoneVerified, verificationEnabled: true });
+          sendJson({ phone: mockPhone, verified: mockPhoneVerified, verificationEnabled: true, channel: 'flash_call' });
           return;
         }
 

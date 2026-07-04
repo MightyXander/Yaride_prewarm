@@ -106,6 +106,9 @@ const PhoneField: React.FC<PhoneFieldProps> = ({
   // SMS-подтверждение номера (issue #328).
   const [verified, setVerified] = useState(false);
   const [verificationEnabled, setVerificationEnabled] = useState(false);
+  // Канал доставки кода (issue #328): определяет формулировку подсказки —
+  // flash_call (звонок робота, код = последние 4 цифры) или sms (код в сообщении).
+  const [channel, setChannel] = useState<'flash_call' | 'sms'>('flash_call');
   const [codeStep, setCodeStep] = useState<CodeStep>('idle');
   const [codeValue, setCodeValue] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -130,6 +133,7 @@ const PhoneField: React.FC<PhoneFieldProps> = ({
         const res = await getMyPhone();
         if (cancelled) return;
         setVerificationEnabled(res.verificationEnabled);
+        setChannel(res.channel);
         setVerified(res.verified);
         if (res.phone) {
           setSaved(res.phone);
@@ -321,7 +325,9 @@ const PhoneField: React.FC<PhoneFieldProps> = ({
                     marginBottom: '8px',
                   }}
                 >
-                  Вам позвонит робот — введите последние 4 цифры звонящего номера.
+                  {channel === 'sms'
+                    ? 'Мы отправили код в SMS — введите его ниже.'
+                    : 'Вам позвонит робот — введите последние 4 цифры звонящего номера.'}
                 </div>
                 <input
                   id={codeInputId}

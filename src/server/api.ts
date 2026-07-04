@@ -104,7 +104,7 @@ import {
   notifyPassengerAboutBookingDecision,
   notifyPassengersAboutTripCancellation,
 } from './notify.ts';
-import { isSmsConfigured, sendVerificationCode } from './sms.ts';
+import { getChannel, isSmsConfigured, sendVerificationCode } from './sms.ts';
 import { MSK_OFFSET_MS } from './time.ts';
 import { randomInt, createHash, timingSafeEqual } from 'node:crypto';
 
@@ -832,7 +832,7 @@ export async function handleGetMyPhone(req: ApiRequest): Promise<ApiResponse> {
   const verified = await getUserPhoneVerified(userId);
   return {
     status: 200,
-    body: { phone, verified, verificationEnabled: isSmsConfigured() },
+    body: { phone, verified, verificationEnabled: isSmsConfigured(), channel: getChannel() },
   };
 }
 

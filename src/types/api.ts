@@ -213,6 +213,10 @@ export interface GetMyPhoneResponse {
   phone: string | null;
   verified: boolean;
   verificationEnabled: boolean;
+  // Канал доставки кода (issue #328): 'flash_call' — код = последние 4 цифры
+  // звонящего робота, 'sms' — код в тексте сообщения. Определяет формулировку
+  // подсказки в PhoneField (иначе текст про «звонок» вводит в заблуждение при SMS).
+  channel: 'flash_call' | 'sms';
 }
 
 // PUT /api/me/phone — сохранить телефон (сбор «по требованию», issue #267).

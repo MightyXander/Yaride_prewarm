@@ -24,7 +24,7 @@ let configured = false;
 
 export type SmsChannel = 'flash_call' | 'sms';
 
-function getChannel(): SmsChannel {
+export function getChannel(): SmsChannel {
   const raw = (process.env.SMS_CHANNEL ?? '').trim().toLowerCase();
   return raw === 'sms' ? 'sms' : 'flash_call';
 }
