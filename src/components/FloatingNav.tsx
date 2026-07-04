@@ -213,19 +213,45 @@ function FloatingNavBar({
               fontFamily: 'var(--font-sans)',
             }}
           >
-            <Icon
-              id="i-bell"
-              style={{
-                width: '19px',
-                height: '19px',
-                flexShrink: 0,
-                strokeWidth: 2,
-                color: bellActive
-                  ? 'var(--brand-foreground)'
-                  : 'color-mix(in srgb, var(--foreground) 76%, transparent)',
-                transition: 'color 200ms ease',
-              }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon
+                id="i-bell"
+                style={{
+                  position: 'relative',
+                  zIndex: 10,
+                  width: '19px',
+                  height: '19px',
+                  flexShrink: 0,
+                  strokeWidth: 2,
+                  color: bellActive
+                    ? 'var(--brand-foreground)'
+                    : 'color-mix(in srgb, var(--foreground) 76%, transparent)',
+                  transition: 'color 200ms ease',
+                }}
+              />
+              <AnimatePresence initial={false} mode="wait">
+                {bellActive ? (
+                  <motion.span
+                    key="label"
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -6 }}
+                    transition={prefersReduced ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 32 }}
+                    style={{
+                      display: 'inline-block',
+                      marginLeft: 6,
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      lineHeight: 1,
+                      color: 'var(--brand-foreground)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Пуши
+                  </motion.span>
+                ) : null}
+              </AnimatePresence>
+            </div>
           </button>
           {/* Два таба навигации: Поездки, Профиль */}
           {ITEMS.map(({ root, label, icon }, index) => {
