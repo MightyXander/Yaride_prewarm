@@ -268,7 +268,7 @@ const Calendar: React.FC<CalendarProps> = ({ value, onChange, minDate }) => {
                 display: 'grid',
                 placeItems: 'center',
                 fontFamily: 'var(--font-sans)',
-                transition: 'all 0.15s ease',
+                transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease',
               }}
               onPointerDown={(e) => {
                 if (!disabled) {

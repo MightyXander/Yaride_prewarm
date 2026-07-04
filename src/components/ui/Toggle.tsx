@@ -63,14 +63,15 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, disabled = false, ..
         style={{
           position: 'absolute',
           top: '50%',
-          left: checked ? '24px' : '4px',
+          left: '4px',
           width: '22px',
           height: '22px',
           marginTop: '-11px',
           borderRadius: '999px',
           background: '#fff',
           boxShadow: '0 2px 6px rgba(0, 0, 0, .25)',
-          transition: 'left 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+          transform: checked ? 'translateX(20px)' : 'translateX(0)',
+          transition: 'transform 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       />
     </button>
