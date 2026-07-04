@@ -46,6 +46,7 @@ export function mapTripListItemToTrip(item: TripListItem): Trip {
     tripDate: item.trip_date,
     status: item.status,
     seats: item.seats_available,
+    seatsTotal: item.seats_total,
     route: {
       from: item.start_title,
       to: item.end_title,

@@ -252,6 +252,13 @@ function mockApiPlugin() {
               // tel-чип. На бэке раскрывается только пассажиру с активной бронью.
               driver_phone: '+79991234567',
               driver_phone_locked: false,
+              // Поездка id=1 в dev-моке — «своя» (issue #339): даёт возможность
+              // проверить единый экран водителя (секция «Брони») и блюр-сценку
+              // BookingSpotlight из уведомления о новой брони (ref_trip_id: 1
+              // в mockNotifications совпадает с ref_user_id: 500 из GET
+              // /trips/1/bookings ниже).
+              is_own: tripId === 1,
+              already_booked: false,
             };
             sendJson({ trip: tripCard });
             return;
@@ -724,6 +731,26 @@ function mockApiPlugin() {
           const status = url.searchParams.get('status');
 
           const upcomingTrips = [
+            // «Моя поездка» (issue #339): та же поездка id=1, что и в GET /trips/:id
+            // (is_own) и в уведомлении «Новая бронь» (mockNotifications) — открывает
+            // единый экран с секцией «Брони» из GET /trips/1/bookings.
+            {
+              trip_id: 1,
+              role: 'driver',
+              trip_date: '2026-06-26',
+              departure_time: '07:40:00',
+              time_slot: 'morning',
+              start_title: 'Брагино, ул. Урицкого, 12',
+              end_title: 'Центр, пл. Волкова',
+              price_rub: 80,
+              seats_total: 3,
+              seats_booked: 1,
+              trip_status: 'open',
+              booking_id: null,
+              booking_status: null,
+              passenger_seats: null,
+              driver_id: null,
+            },
             {
               trip_id: 5,
               role: 'passenger',
@@ -971,13 +998,19 @@ function mockApiPlugin() {
           return;
         }
 
-        // PATCH /api/bookings/:id
+        // PATCH /api/bookings/:id — cancel_by_driver | confirm_by_driver (issue #339)
         if (method === 'PATCH' && pathname.match(/^\/bookings\/\d+$/)) {
           let body = '';
           req.on('data', chunk => { body += chunk; });
           req.on('end', () => {
             const bookingIdMatch = pathname.match(/^\/bookings\/(\d+)$/);
             const bookingId = bookingIdMatch ? parseInt(bookingIdMatch[1]) : 0;
+            const params = body ? JSON.parse(body) : {};
+            if (params.action === 'confirm_by_driver') {
+              const result = { bookingId, tripId: 1 };
+              sendJson({ result });
+              return;
+            }
             const result = {
               bookingId,
               tripId: 1,

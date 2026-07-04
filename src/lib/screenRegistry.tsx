@@ -9,7 +9,6 @@ const BookingProfileScreen = lazy(() => import('../screens/BookingProfileScreen'
 const DriverPublishScreen = lazy(() => import('../screens/DriverPublishScreen'));
 const BookingConfirmedScreen = lazy(() => import('../screens/BookingConfirmedScreen'));
 const ProfileScreen = lazy(() => import('../screens/ProfileScreen'));
-const DriverBookingsScreen = lazy(() => import('../screens/DriverBookingsScreen'));
 const BecomeDriverScreen = lazy(() => import('../screens/BecomeDriverScreen'));
 const LicenseReviewScreen = lazy(() => import('../screens/LicenseReviewScreen'));
 const InTripScreen = lazy(() => import('../screens/InTripScreen'));
@@ -102,6 +101,14 @@ export interface ScreenCtx {
     refTripId?: number | null,
     refUserId?: number | null
   ) => void;
+
+  /**
+   * Пассажир, чью бронь нужно подсветить блюр-сценкой (BookingSpotlight) при
+   * заходе в TripDetailsScreen из уведомления о новой брони (issue #339).
+   * null — сценка не играется. Сбрасывается самим экраном по завершении/тапу.
+   */
+  bookingFocusUserId: number | null;
+  setBookingFocusUserId: (userId: number | null) => void;
 }
 
 type ScreenRenderer = (ctx: ScreenCtx) => ReactNode;
@@ -189,6 +196,8 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
         onBook={() => ctx.navigate('booking-profile')}
         onOpenProfile={ctx.handleOpenUserProfile}
         onCancelTrip={ctx.handleCancelOwnTrip}
+        bookingFocusUserId={ctx.bookingFocusUserId}
+        onClearBookingFocus={() => ctx.setBookingFocusUserId(null)}
       />
     ) : null,
   'booking-profile': (ctx) =>
@@ -206,7 +215,12 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       publishedTripId={ctx.confirmKind === 'publish' ? (ctx.publishedTripId ?? undefined) : undefined}
       publishedTrip={ctx.confirmKind === 'publish' ? ctx.publishedTrip : null}
       onDone={() => ctx.navigate('main')}
-      onViewBookings={() => ctx.navigate('driver-bookings')}
+      // «Брони на рейс» ведёт в единый экран поездки (issue #339, driver-bookings
+      // удалён): дозагружаем полную карточку опубликованной поездки и открываем
+      // её же trip-details, где для isOwn показана секция «Брони».
+      onViewBookings={
+        ctx.publishedTripId ? () => void ctx.handleOpenTripById(ctx.publishedTripId!, 'main') : undefined
+      }
       onStartTrip={() => ctx.navigate('in-trip')}
     />
   ),
@@ -225,9 +239,6 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       onLogout={ctx.gateContext ? ctx.handleLogout : undefined}
     />
   ),
-  'driver-bookings': (ctx) => (
-    <DriverBookingsScreen tripId={ctx.publishedTripId ?? undefined} onDone={() => ctx.navigate('main')} />
-  ),
   'become-driver': (ctx) => <BecomeDriverScreen onSubmit={() => ctx.navigate('license-review')} />,
   'license-review': (ctx) => (
     <LicenseReviewScreen onFindRide={() => ctx.navigate('main')} onRetry={() => ctx.navigate('become-driver')} />
@@ -238,8 +249,8 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
     <PassengerRequestScreen
       direction={ctx.requestDirection}
       // alertId из ответа POST /api/alerts прокидываем в общий слот publishedTripId
-      // навигации (issue #319) — тот же механизм, что уже используют
-      // BookingConfirmedScreen/DriverBookings для «последнего опубликованного id».
+      // навигации (issue #319) — тот же механизм, что уже использует
+      // BookingConfirmedScreen для «последнего опубликованного id».
       onPublish={(alertId) => ctx.navigate('request-published', null, undefined, alertId)}
     />
   ),

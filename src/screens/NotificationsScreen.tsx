@@ -246,8 +246,9 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ notif, index, reduc
  * Типы: booking (бронь твоей поездки), booking_confirmed (твою бронь подтвердили),
  * cancel (отмена водителем/пассажиром), rate_reminder (напоминание оценить).
  *
- * Маршрутизация тапа: booking → DriverBookings/«Мои поездки»; booking_confirmed → TripDetails;
- * cancel → TripDetails; rate_reminder → RateTrip.
+ * Маршрутизация тапа: booking → TripDetails (секция «Брони» + блюр-сценка на новом
+ * пассажире, issue #339); booking_confirmed → TripDetails; cancel → TripDetails;
+ * rate_reminder → RateTrip.
  *
  * Загрузка — скелетоны. Пусто — «Пока нет уведомлений».
  *

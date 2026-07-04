@@ -11,8 +11,8 @@ interface UseAlertHandlersArgs {
  *
  * alertId приходит из общего слота навигации publishedTripId: PassengerRequestScreen
  * прокидывает id созданной заявки (ответ POST /api/alerts) через navigate() при
- * переходе на 'request-published' — тот же механизм, что уже используют
- * BookingConfirmedScreen/DriverBookings для «последнего опубликованного id».
+ * переходе на 'request-published' — тот же механизм, что уже использует
+ * BookingConfirmedScreen для «последнего опубликованного id».
  *
  * Ошибку API намеренно НЕ глотаем: RequestPublishedScreen.handleCancel (issue #317)
  * сам оборачивает вызов в try/catch и показывает cancelError при отказе. При успехе

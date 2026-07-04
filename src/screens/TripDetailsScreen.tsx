@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
@@ -8,8 +9,16 @@ import { Icon } from '../components/Icons';
 import PhoneLink from '../components/PhoneLink';
 import { showToast } from '../lib/toast';
 import { Appear } from '../components/Appear';
-import { getTripParticipants } from '../lib/api';
-import type { TripParticipant } from '../types/api';
+import BookingCard from '../components/BookingCard';
+import BookingSpotlight from '../components/BookingSpotlight';
+import {
+  getTripParticipants,
+  getTripBookings,
+  cancelBookingByDriver,
+  confirmBookingByDriver,
+  ApiException,
+} from '../lib/api';
+import type { TripParticipant, BookingDetail } from '../types/api';
 import type { Trip } from '../types/navigation';
 
 interface TripDetailsScreenProps {
@@ -18,6 +27,10 @@ interface TripDetailsScreenProps {
   onOpenProfile?: (userId: number) => void;
   /** Отменить всю поездку (доступно водителю своей поездки). */
   onCancelTrip?: () => void;
+  /** Пассажир, чью бронь подсветить блюр-сценкой при заходе из уведомления (issue #339). */
+  bookingFocusUserId?: number | null;
+  /** Сбросить фокус после того, как сценка сыграна/пропущена/снята тапом. */
+  onClearBookingFocus?: () => void;
 }
 
 // Бэйдж госномера — общий контейнер для реального номера и цензуры.
@@ -60,15 +73,24 @@ const CensoredPlate: React.FC = () => {
   );
 };
 
-const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onOpenProfile, onCancelTrip }) => {
+const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
+  trip,
+  onBook,
+  onOpenProfile,
+  onCancelTrip,
+  bookingFocusUserId,
+  onClearBookingFocus,
+}) => {
   const age = trip.driver.age || 34;
   const verified = trip.driver.verified !== false;
   const memberSince = trip.driver.memberSince || 'мая 2026';
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  // Участники поездки видны только тем, кто в ней (водитель своей поездки или забронировавший пассажир).
-  const canSeeParticipants = trip.isOwn || trip.booked === true;
+  // Участники поездки («Кто едет») — для пассажира с активной бронью на чужую
+  // поездку. Для своей поездки (isOwn) этот раздел заменяет секция «Брони»
+  // (issue #339): там нужно управление (подтвердить/отклонить), а не просто список.
+  const canSeeParticipants = !trip.isOwn && trip.booked === true;
   const [participants, setParticipants] = useState<TripParticipant[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
 
@@ -100,6 +122,133 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
     window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
     onOpenProfile(userId);
   };
+
+  // Брони своей поездки (issue #339): водитель управляет ими прямо здесь —
+  // подтвердить/отклонить. Переносит функциональность удалённого DriverBookingsScreen.
+  const [bookings, setBookings] = useState<BookingDetail[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
+  // Локальный (не персистится на бэке — см. BookingCard) признак подтверждённых
+  // в этой сессии броней: прячет кнопку «Подтвердить», оставляя «Отклонить».
+  const [confirmedIds, setConfirmedIds] = useState<Set<number>>(new Set());
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const [decliningId, setDecliningId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const tripId = Number(trip.id);
+    if (!trip.isOwn || !Number.isFinite(tripId)) {
+      setBookings([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingBookings(true);
+    getTripBookings(tripId)
+      .then((res) => {
+        if (!cancelled) setBookings(res.bookings);
+      })
+      .catch((err) => {
+        console.error('Ошибка загрузки броней поездки:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingBookings(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [trip.id, trip.isOwn]);
+
+  const handleConfirmBooking = async (bookingId: number) => {
+    setConfirmingId(bookingId);
+    setConfirmedIds((prev) => new Set(prev).add(bookingId));
+    try {
+      await confirmBookingByDriver(bookingId);
+      showToast('Бронь подтверждена');
+    } catch (err) {
+      setConfirmedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(bookingId);
+        return next;
+      });
+      showToast(err instanceof ApiException ? err.message : 'Не удалось подтвердить бронь');
+    } finally {
+      setConfirmingId(null);
+    }
+  };
+
+  const handleDeclineBooking = async (bookingId: number) => {
+    setDecliningId(bookingId);
+    try {
+      await cancelBookingByDriver(bookingId);
+      setBookings((prev) =>
+        prev.map((b) => (b.booking_id === bookingId ? { ...b, status: 'cancelled_by_driver' } : b)),
+      );
+      showToast('Бронь отклонена');
+    } catch (err) {
+      showToast(err instanceof ApiException ? err.message : 'Ошибка отклонения брони');
+    } finally {
+      setDecliningId(null);
+    }
+  };
+
+  const activeBookings = bookings.filter((b) => b.status === 'active');
+  const takenSeats = activeBookings.reduce((sum, b) => sum + b.seats, 0);
+  // Реальные места поездки (issue #339) — не FALLBACK, как было в удалённом DriverBookingsScreen.
+  const totalSeats = trip.seatsTotal ?? trip.seats;
+  const seatsLeft = Math.max(0, totalSeats - takenSeats);
+
+  // Блюр-сценка BookingSpotlight: фокус на новейшей активной брони bookingFocusUserId
+  // (issue #339), проигрывается один раз за фокус, пропускается при reduced-motion,
+  // отсутствии брони или превышении 3с ожидания загрузки списка.
+  const prefersReducedMotion = useReducedMotion();
+  const [spotlightBooking, setSpotlightBooking] = useState<BookingDetail | null>(null);
+  const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null);
+  const spotlightPlayedRef = useRef(false);
+
+  useEffect(() => {
+    spotlightPlayedRef.current = false;
+  }, [bookingFocusUserId]);
+
+  useEffect(() => {
+    if (!bookingFocusUserId || !trip.isOwn || spotlightPlayedRef.current) return;
+
+    if (prefersReducedMotion) {
+      onClearBookingFocus?.();
+      return;
+    }
+
+    if (loadingBookings) {
+      const t = window.setTimeout(() => {
+        if (!spotlightPlayedRef.current) onClearBookingFocus?.();
+      }, 3000);
+      return () => window.clearTimeout(t);
+    }
+
+    const candidates = bookings.filter((b) => b.passenger_id === bookingFocusUserId && b.status === 'active');
+    const target = candidates.reduce<BookingDetail | null>((latest, b) => {
+      if (!latest) return b;
+      return new Date(b.created_at) > new Date(latest.created_at) ? b : latest;
+    }, null);
+
+    if (!target) {
+      onClearBookingFocus?.();
+      return;
+    }
+
+    const el = document.querySelector<HTMLElement>(`[data-booking-id="${target.booking_id}"]`);
+    if (!el) {
+      onClearBookingFocus?.();
+      return;
+    }
+
+    spotlightPlayedRef.current = true;
+    setSpotlightRect(el.getBoundingClientRect());
+    setSpotlightBooking(target);
+  }, [bookingFocusUserId, trip.isOwn, loadingBookings, bookings, prefersReducedMotion, onClearBookingFocus]);
+
+  const handleSpotlightDone = useCallback(() => {
+    setSpotlightBooking(null);
+    setSpotlightRect(null);
+    onClearBookingFocus?.();
+  }, [onClearBookingFocus]);
 
   // Дата+время выезда (для дня недели и определения прошедшей поездки).
   const departedAt = trip.tripDate ? new Date(`${trip.tripDate}T${trip.time}:00`) : null;
@@ -419,6 +568,63 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
             )}
           </Card>
         </Appear>
+      )}
+
+      {trip.isOwn && (
+        <Appear delay={130}>
+          <Card>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                gap: '8px',
+                marginBottom: '10px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '12px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'var(--muted-foreground)',
+                  fontWeight: 700,
+                }}
+              >
+                Брони
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontWeight: 600 }}>
+                {takenSeats} из {totalSeats} занято
+                {seatsLeft === 0 && bookings.length > 0 ? ' · все места заняты' : ''}
+              </div>
+            </div>
+            {loadingBookings && bookings.length === 0 ? (
+              <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Загрузка…</div>
+            ) : bookings.length === 0 ? (
+              <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', padding: '12px 0' }}>
+                Пока нет броней
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {bookings.map((b) => (
+                  <BookingCard
+                    key={b.booking_id}
+                    booking={b}
+                    confirmed={confirmedIds.has(b.booking_id)}
+                    confirming={confirmingId === b.booking_id}
+                    declining={decliningId === b.booking_id}
+                    onConfirm={handleConfirmBooking}
+                    onDecline={handleDeclineBooking}
+                  />
+                ))}
+              </div>
+            )}
+          </Card>
+        </Appear>
+      )}
+
+      {spotlightBooking && spotlightRect && (
+        <BookingSpotlight booking={spotlightBooking} rect={spotlightRect} onDone={handleSpotlightDone} />
       )}
 
       <Appear delay={150}>

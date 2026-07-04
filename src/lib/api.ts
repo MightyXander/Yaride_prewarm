@@ -34,6 +34,8 @@ import type {
   GetTripParticipantsResponse,
   CancelBookingRequest,
   CancelBookingResponse,
+  ConfirmBookingRequest,
+  ConfirmBookingResponse,
   GetRoutePointsResponse,
   GetMyTemplateResponse,
   SubmitLicenseRequest,
@@ -277,6 +279,15 @@ export async function getTripParticipants(tripId: number): Promise<GetTripPartic
 export async function cancelBookingByDriver(bookingId: number): Promise<CancelBookingResponse> {
   const params: CancelBookingRequest = { action: 'cancel_by_driver' };
   return apiFetch<CancelBookingResponse>(`/bookings/${bookingId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(params),
+  });
+}
+
+/** PATCH /api/bookings/:id — подтвердить бронь водителем (issue #339). */
+export async function confirmBookingByDriver(bookingId: number): Promise<ConfirmBookingResponse> {
+  const params: ConfirmBookingRequest = { action: 'confirm_by_driver' };
+  return apiFetch<ConfirmBookingResponse>(`/bookings/${bookingId}`, {
     method: 'PATCH',
     body: JSON.stringify(params),
   });

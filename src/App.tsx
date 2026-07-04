@@ -72,6 +72,9 @@ function App() {
   const [mainDirection, setMainDirection] = useState<'morning' | 'evening'>('morning');
   // Направление для заявки пассажира (передаётся при открытии формы)
   const [requestDirection, setRequestDirection] = useState<'morning' | 'evening'>('morning');
+  // Пассажир, чью бронь подсветить блюр-сценкой в TripDetailsScreen при заходе
+  // из уведомления о новой брони (issue #339). null — сценка не играется.
+  const [bookingFocusUserId, setBookingFocusUserId] = useState<number | null>(null);
 
   const { handleRoleSelect, handleBecomeDriver } = useRoleHandlers({ setUserRole, navigate });
 
@@ -112,6 +115,7 @@ function App() {
     selectedTrip,
     navigate,
     navigateToRateTrip,
+    setBookingFocusUserId,
   });
 
   const { handleCancelAlert } = useAlertHandlers({ alertId: publishedTripId, navigate });
@@ -159,6 +163,8 @@ function App() {
     handleCancelOwnTrip,
     handleCancelAlert,
     handleNotificationNavigate,
+    bookingFocusUserId,
+    setBookingFocusUserId,
   };
 
   return (

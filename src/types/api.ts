@@ -339,6 +339,20 @@ export interface CancelBookingResponse {
   result: CancelBookingResult;
 }
 
+// PATCH /api/bookings/:id { action: 'confirm_by_driver' } (issue #339)
+export interface ConfirmBookingRequest {
+  action: 'confirm_by_driver';
+}
+
+export interface ConfirmBookingResult {
+  bookingId: number;
+  tripId: number;
+}
+
+export interface ConfirmBookingResponse {
+  result: ConfirmBookingResult;
+}
+
 // GET /api/route-points
 export interface RoutePoint {
   id: number;

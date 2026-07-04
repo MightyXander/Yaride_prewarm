@@ -23,7 +23,7 @@
  *   GET  /api/me/template     (initData в заголовке X-Telegram-Init-Data)
  *   POST /api/ratings         { tripId, rateeId, stars, tags?, comment?, initData }
  *   GET  /api/trips/:id/bookings
- *   PATCH /api/bookings/:id   { action: 'cancel_by_driver', initData }
+ *   PATCH /api/bookings/:id   { action: 'cancel_by_driver' | 'confirm_by_driver', initData } (issue #339)
  *   GET  /api/me/phone               { phone, verified, verificationEnabled } (issue #328)
  *   POST /api/me/phone/send-code     { phone } — сохранить номер + выслать код (issue #328)
  *   POST /api/me/phone/verify-code   { code } — подтвердить код (issue #328)
@@ -48,6 +48,7 @@ import {
   getTripBookings,
   getTripParticipants,
   cancelBookingByDriver,
+  confirmBookingByDriver,
   cancelTripByDriver,
   listRoutePoints,
   getPublicUserProfile,
@@ -1312,7 +1313,11 @@ export async function handleGetTripParticipants(req: ApiRequest): Promise<ApiRes
   return { status: 200, body: { participants: result.participants } };
 }
 
-/** PATCH /api/bookings/:id — отменить бронь водителем. */
+/**
+ * PATCH /api/bookings/:id — водитель управляет бронью своей поездки: отменить
+ * (cancel_by_driver) или подтвердить (confirm_by_driver, issue #339). Оба действия
+ * доступны только водителю поездки (проверяется внутри repo-функций по driver_id).
+ */
 export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse> {
   const body = asRecord(req.body);
 
@@ -1327,8 +1332,33 @@ export async function handleCancelBooking(req: ApiRequest): Promise<ApiResponse>
   }
 
   const action = body.action;
-  if (action !== 'cancel_by_driver') {
-    return err(400, 'action должен быть "cancel_by_driver"');
+  if (action !== 'cancel_by_driver' && action !== 'confirm_by_driver') {
+    return err(400, 'action должен быть "cancel_by_driver" или "confirm_by_driver"');
+  }
+
+  if (action === 'confirm_by_driver') {
+    try {
+      const r = await confirmBookingByDriver(bookingId, userId);
+
+      // Fire-and-forget: уведомить пассажира о подтверждении его брони (in-app лента + Telegram)
+      void notifyPassengerAboutBookingDecision({
+        passengerId: r.passengerId,
+        passengerTgUserId: r.passengerTgUserId,
+        tripId: r.tripId,
+        startTitle: r.startTitle,
+        endTitle: r.endTitle,
+        tripDate: r.tripDate,
+        departureTime: r.departureTime,
+        confirmed: true,
+      });
+
+      const result = { bookingId: r.bookingId, tripId: r.tripId };
+      return { status: 200, body: { result } };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Не удалось подтвердить бронь';
+      const status = message.includes('не найден') ? 404 : 400;
+      return err(status, message);
+    }
   }
 
   try {

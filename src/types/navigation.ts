@@ -12,7 +12,6 @@ export type Screen =
   | 'driver-publish'
   | 'booking-confirmed'
   | 'profile'
-  | 'driver-bookings'
   | 'become-driver'
   | 'license-review'
   | 'in-trip'
@@ -56,6 +55,8 @@ export interface Trip {
   /** Статус поездки: open | cancelled | completed. */
   status?: string;
   seats: number;
+  /** Общее число мест в поездке (issue #339: секция «Брони» водителя — не seats_available). */
+  seatsTotal: number;
   route?: {
     from: string;
     to: string;

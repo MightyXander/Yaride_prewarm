@@ -9,6 +9,8 @@ interface UseTripHandlersArgs {
   selectedTrip: Trip | null;
   navigate: NavigateFn;
   navigateToRateTrip: NavigateToRateTripFn;
+  /** Выставить фокус блюр-сценки (BookingSpotlight) на брони конкретного пассажира (issue #339). */
+  setBookingFocusUserId: (userId: number | null) => void;
 }
 
 /**
@@ -16,7 +18,7 @@ interface UseTripHandlersArgs {
  * (деталей поездки/deep-link/уведомления), отмена своей поездки, маршрутизация
  * из уведомлений по типу. Вынесено из App.tsx (#290).
  */
-export function useTripHandlers({ selectedTrip, navigate, navigateToRateTrip }: UseTripHandlersArgs) {
+export function useTripHandlers({ selectedTrip, navigate, navigateToRateTrip, setBookingFocusUserId }: UseTripHandlersArgs) {
   // Открыть детали поездки по ID (из «Моих поездок»): дозагрузка карточки + переход.
   // Тот же путь, что у deep-link trip-<id>: getTrip → mapTripCardToTrip → trip-details.
   const handleOpenTripById = async (tripId: number, backTo: Screen = 'my-trips') => {
@@ -50,11 +52,13 @@ export function useTripHandlers({ selectedTrip, navigate, navigateToRateTrip }: 
   ) => {
     switch (type) {
       case 'booking':
-        // бронь твоей поездки → DriverBookings («Мои поездки» по этой поездке).
-        // refTripId прокидываем в слот publishedTripId — DriverBookings читает tripId оттуда;
-        // без него экран показал бы «ID поездки не передан».
+        // бронь твоей поездки → единый экран поездки (issue #339): открываем
+        // trip-details (дозагрузка карточки, как и у trip_new) и выставляем фокус
+        // блюр-сценки на брони пассажира из ref_user_id — TripDetailsScreen сам
+        // найдёт его новейшую бронь в секции «Брони» и сыграет BookingSpotlight.
         if (refTripId) {
-          navigate('driver-bookings', null, undefined, refTripId);
+          setBookingFocusUserId(refUserId ?? null);
+          void handleOpenTripById(refTripId, 'notifications');
         } else {
           navigate('my-trips');
         }
