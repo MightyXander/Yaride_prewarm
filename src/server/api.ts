@@ -355,7 +355,9 @@ function normalizeRuPhone(raw: string): string | null {
 export async function handleListTrips(req: ApiRequest): Promise<ApiResponse> {
   const params: FindTripsParams = {};
 
-  // Опциональная аутентификация для определения is_own
+  // Опциональная аутентификация для определения is_own (issue #335):
+  // initData → cookie-сессия → undefined. Публичный эндпоинт — без 401,
+  // если не сработал ни один из способов.
   const authResult = authenticate(req, req.headers['x-telegram-init-data']);
   if ('user' in authResult) {
     // JIT-профиль при аутентифицированном запросе
@@ -365,6 +367,11 @@ export async function handleListTrips(req: ApiRequest): Promise<ApiResponse> {
       username: authResult.user.username ?? null,
     });
     params.currentUserId = userProfile.id;
+  } else {
+    const webUser = await getSessionUserFromRequest(req);
+    if (webUser !== null) {
+      params.currentUserId = webUser.id;
+    }
   }
 
   // corridor: "startPointId-endPointId" (необязательно). Любой край опционален.
