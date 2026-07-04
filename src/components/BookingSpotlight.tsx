@@ -22,25 +22,68 @@ const PHASE_MS = 2000;
 const MAX_BLUR_PX = 14;
 const DISMISS_MS = 200;
 
-type Phase = 'in' | 'hold' | 'out' | 'dismissing';
+type Phase = 'pre' | 'in' | 'hold' | 'out' | 'dismissing';
 
 const BookingSpotlight: React.FC<BookingSpotlightProps> = ({ booking, rect, onDone }) => {
-  const [phase, setPhase] = useState<Phase>('in');
+  // Монтируемся в 'pre' (blur 0, без transition) — иначе браузер не успевает
+  // закоммитить начальный кадр до старта CSS-transition, и «наведение блюра»
+  // проигрывается мгновенно вместо плавных 2с (issue #339).
+  const [phase, setPhase] = useState<Phase>('pre');
   // onDone в ref — таймеры не должны пере-регистрироваться при смене колбэка родителя.
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
 
+  const dismissedRef = useRef(false);
+  const rafIdsRef = useRef<number[]>([]);
+  const timerIdsRef = useRef<number[]>([]);
+
+  const clearScheduled = () => {
+    rafIdsRef.current.forEach((id) => window.cancelAnimationFrame(id));
+    rafIdsRef.current = [];
+    timerIdsRef.current.forEach((id) => window.clearTimeout(id));
+    timerIdsRef.current = [];
+  };
+
   useEffect(() => {
-    const timers = [
-      window.setTimeout(() => setPhase('hold'), PHASE_MS),
-      window.setTimeout(() => setPhase('out'), PHASE_MS * 2),
-      window.setTimeout(() => onDoneRef.current(), PHASE_MS * 3),
-    ];
-    return () => timers.forEach((t) => window.clearTimeout(t));
+    const debugStart = performance.now();
+    const logPhase = (label: Phase) => {
+      if (import.meta.env.DEV) {
+        console.debug(`[BookingSpotlight] phase=${label} t=${Math.round(performance.now() - debugStart)}ms`);
+      }
+    };
+
+    // Двойной rAF: первый кадр коммитит 'pre' (blur 0), на втором переключаемся
+    // в 'in' — CSS-transition стартует от реального начального значения, и весь
+    // таймлайн 2+2+2 отсчитывается от ЭТОГО момента (старт анимации), а не от
+    // монтирования компонента.
+    const raf1 = window.requestAnimationFrame(() => {
+      const raf2 = window.requestAnimationFrame(() => {
+        if (dismissedRef.current) return;
+        setPhase('in');
+        logPhase('in');
+        timerIdsRef.current.push(
+          window.setTimeout(() => {
+            setPhase('hold');
+            logPhase('hold');
+          }, PHASE_MS),
+          window.setTimeout(() => {
+            setPhase('out');
+            logPhase('out');
+          }, PHASE_MS * 2),
+          window.setTimeout(() => onDoneRef.current(), PHASE_MS * 3),
+        );
+      });
+      rafIdsRef.current.push(raf2);
+    });
+    rafIdsRef.current.push(raf1);
+
+    return clearScheduled;
   }, []);
 
   const dismiss = () => {
-    if (phase === 'dismissing') return;
+    if (dismissedRef.current) return;
+    dismissedRef.current = true;
+    clearScheduled();
     setPhase('dismissing');
     window.setTimeout(() => onDoneRef.current(), DISMISS_MS);
   };
@@ -57,7 +100,9 @@ const BookingSpotlight: React.FC<BookingSpotlightProps> = ({ booking, rect, onDo
   if (typeof document === 'undefined') return null;
 
   const blurred = phase === 'in' || phase === 'hold';
-  const transitionMs = phase === 'dismissing' ? DISMISS_MS : PHASE_MS;
+  // В 'pre' transition не нужен — blur уже 0, а сам transition должен появиться
+  // не раньше, чем начнётся первый реальный переход (в 'in').
+  const transitionMs = phase === 'pre' ? 0 : phase === 'dismissing' ? DISMISS_MS : PHASE_MS;
   const blurValue = `blur(${blurred ? MAX_BLUR_PX : 0}px)`;
 
   return createPortal(
