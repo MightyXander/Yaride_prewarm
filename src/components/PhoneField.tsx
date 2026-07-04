@@ -81,14 +81,15 @@ const sectionLabelStyle: React.CSSProperties = {
 
 const fieldStyle: React.CSSProperties = {
   minHeight: '48px',
-  padding: '0 14px',
-  borderRadius: '15px',
-  background: 'var(--secondary)',
-  border: '1px solid var(--border)',
+  padding: '0 16px',
+  borderRadius: '18px',
+  background: 'var(--field)',
+  border: '1px solid var(--field-border)',
+  boxShadow: 'var(--field-shadow)',
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  fontSize: '14px',
+  fontSize: '15px',
   fontWeight: 600,
   color: 'var(--foreground)',
 };

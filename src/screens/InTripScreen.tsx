@@ -226,7 +226,7 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip, onOpenProfile }) => {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '2px',
-                fontSize: '12px',
+                fontSize: '14px',
                 fontWeight: 700,
               }}
             >
@@ -234,7 +234,7 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip, onOpenProfile }) => {
               {driverRating}
             </span>
           </div>
-            <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '2px' }}>
+            <div style={{ fontSize: '14px', color: 'var(--muted-foreground)', marginTop: '2px' }}>
               {car}, белая ·{' '}
               <span style={{ color: 'var(--success)', fontWeight: 700 }}>в пути</span>
             </div>
@@ -369,7 +369,7 @@ const InTripScreen: React.FC<InTripScreenProps> = ({ trip, onOpenProfile }) => {
         >
           <Icon id="i-pin" style={{ width: '18px', height: '18px' }} />
         </div>
-        <div style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--foreground)' }}>
+        <div style={{ fontSize: '14px', lineHeight: 1.5, color: 'var(--foreground)' }}>
           Поездкой можно поделиться — близкий видит маршрут и машину в реальном времени.
         </div>
       </Card>

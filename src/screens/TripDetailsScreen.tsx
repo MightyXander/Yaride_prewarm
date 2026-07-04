@@ -252,7 +252,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
         <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
         <div
           style={{
-            fontSize: '12px',
+            fontSize: '14px',
             color: 'var(--muted-foreground)',
             marginTop: '9px',
             lineHeight: 1.5,
@@ -274,7 +274,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
               ) : (
                 <>
                   <CensoredPlate />
-                  <span style={{ color: 'var(--muted-foreground)', fontSize: '11px' }}>
+                  <span style={{ color: 'var(--muted-foreground)', fontSize: '12px' }}>
                     &nbsp;&nbsp;откроется после бронирования
                   </span>
                 </>
@@ -288,7 +288,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
               {trip.driverPhone ? (
                 <PhoneLink phone={trip.driverPhone} name={trip.driver.name} />
               ) : (
-                <span style={{ color: 'var(--muted-foreground)', fontSize: '11px' }}>
+                <span style={{ color: 'var(--muted-foreground)', fontSize: '12px' }}>
                   станет виден после подтверждения брони
                 </span>
               )}
@@ -325,7 +325,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({ trip, onBook, onO
         >
           <Icon id="i-shield" style={{ width: '18px', height: '18px', strokeWidth: 2 }} />
         </div>
-        <div style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--foreground)' }}>
+        <div style={{ fontSize: '14px', lineHeight: 1.5, color: 'var(--foreground)' }}>
           Бензин ≈{trip.price} ₽ пополам — как подсказка для расчётов. Это информационный сервис, без платежей в
           приложении.
         </div>
