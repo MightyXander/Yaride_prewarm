@@ -30,15 +30,11 @@ const HIDDEN_ON: Screen[] = [
   'become-driver',
   'license-review',
   'in-trip',
-  'safety',
-  'passenger-request',
   'request-published',
   'alert-push',
   'rate-trip',
   'evening-publish',
-  'my-cars',
   'add-car',
-  'my-alerts',
 ];
 
 // Маппинг экрана → корневой таб. Поток поездок → Поездки; профиль → Профиль.
@@ -69,7 +65,7 @@ const SCREEN_TO_TAB: Record<Screen, NavTabRoot | 'notifications' | null> = {
   'evening-main': 'main',
   'evening-publish': 'main',
   'habit-home': 'main',
-  'user-profile': null,
+  'user-profile': 'main',
   notifications: 'notifications',
   'add-car': 'profile',
   'my-alerts': 'profile',

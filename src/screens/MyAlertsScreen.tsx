@@ -6,6 +6,7 @@ import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
+import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { hapticImpact, hapticNotify } from '../lib/haptics';
 import { useRefetchOnFocus } from '../hooks/useRefetchOnFocus';
 import { getMyAlerts, cancelAlert, ApiException } from '../lib/api';
@@ -119,7 +120,7 @@ const MyAlertsScreen: React.FC<MyAlertsScreenProps> = ({ onCreateAlert }) => {
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: '6px 16px 16px',
+        padding: `6px 16px ${FLOATING_NAV_SCROLL_CLEARANCE}`,
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
