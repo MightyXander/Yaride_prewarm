@@ -6,6 +6,7 @@ import { RouteDot, RouteMidConnector } from '../components/ui/RouteConnector';
 import { LoadErrorState } from '../components/ui/StateView';
 import type { SelectOption } from '../components/ui/Select';
 import { Skeleton } from '../components/ui/Skeleton';
+import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
 import { createAlert, getRoutePoints } from '../lib/api';
 import { ApiException } from '../lib/api';
@@ -201,7 +202,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: '6px 16px 16px',
+        padding: `6px 16px ${FLOATING_NAV_SCROLL_CLEARANCE}`,
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',

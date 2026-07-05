@@ -6,6 +6,7 @@ import { Icon } from '../components/Icons';
 import Chip from '../components/ui/Chip';
 import { Skeleton } from '../components/ui/Skeleton';
 import { LoadErrorState, EmptyState } from '../components/ui/StateView';
+import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { getUserProfile, getUserReviews } from '../lib/api';
 import type { PublicUserProfile, UserReview } from '../types/api';
 
@@ -142,7 +143,7 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: '6px 16px 16px',
+        padding: `6px 16px ${FLOATING_NAV_SCROLL_CLEARANCE}`,
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',

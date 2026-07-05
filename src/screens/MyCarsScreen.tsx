@@ -6,6 +6,7 @@ import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
+import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { hapticImpact } from '../lib/haptics';
 import { getMyCars, ApiException } from '../lib/api';
 import type { Car } from '../types/api';
@@ -53,7 +54,7 @@ const MyCarsScreen: React.FC<MyCarsScreenProps> = ({ onAddCar }) => {
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: '6px 16px 16px',
+        padding: `6px 16px ${FLOATING_NAV_SCROLL_CLEARANCE}`,
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
