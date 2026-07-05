@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 16;
+export const CURRENT_SCHEMA_VERSION = 17;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -277,6 +277,20 @@ const BOOTSTRAP_SQL = `
   );
 
   CREATE INDEX IF NOT EXISTS idx_phone_verification_codes_user ON phone_verification_codes(user_id);
+
+  -- Настройки безопасности + доверенный контакт (issue #344, срез 1 из #323).
+  -- Одна строка на пользователя (SafetyScreen: три тумблера + инлайн-форма
+  -- контакта). trusted_name/trusted_phone NULLABLE — оба NULL, если контакт не
+  -- задан; PUT с trustedContact:null удаляет контакт (пишет NULL/NULL).
+  CREATE TABLE IF NOT EXISTS safety_settings (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+    sos_enabled BOOLEAN NOT NULL DEFAULT true,
+    auto_share BOOLEAN NOT NULL DEFAULT false,
+    women_only BOOLEAN NOT NULL DEFAULT true,
+    trusted_name TEXT,
+    trusted_phone TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
 `;
 
 /**
@@ -312,6 +326,9 @@ const BOOTSTRAP_SQL = `
  *        (момент простановки read=TRUE) + notifications.archived BOOLEAN DEFAULT
  *        FALSE; бэкфилл read_at = created_at для уже прочитанных строк (иначе
  *        старые прочитанные никогда бы не заархивировались лениво). Аддитивно.
+ * v16→v17: настройки безопасности + доверенный контакт (issue #344, срез 1 из
+ *        #323) — новая таблица safety_settings (одна строка на пользователя,
+ *        UPSERT по user_id). Аддитивно, никаких существующих таблиц не трогает.
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -632,6 +649,22 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;
 
       UPDATE notifications SET read_at = created_at WHERE read = TRUE AND read_at IS NULL;
+    `);
+    return;
+  }
+  if (fromV === 16 && toV === 17) {
+    // Настройки безопасности + доверенный контакт (issue #344, срез 1 из #323).
+    // Аддитивно — новая таблица, ничего существующего не трогает.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS safety_settings (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id),
+        sos_enabled BOOLEAN NOT NULL DEFAULT true,
+        auto_share BOOLEAN NOT NULL DEFAULT false,
+        women_only BOOLEAN NOT NULL DEFAULT true,
+        trusted_name TEXT,
+        trusted_phone TEXT,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     return;
   }

@@ -36,6 +36,8 @@ try {
     saveMyPhone: mod.handleSaveMyPhone,
     sendPhoneVerificationCode: mod.handleSendPhoneVerificationCode,
     verifyPhoneCode: mod.handleVerifyPhoneCode,
+    getMySafety: mod.handleGetMySafety,
+    saveMySafety: mod.handleSaveMySafety,
     getMyCredentials: mod.handleGetMyCredentials,
     addMyCredentials: mod.handleAddMyCredentials,
     linkMyAccount: mod.handleLinkMyAccount,
@@ -271,6 +273,9 @@ app.put('/api/me/phone', wrap(api?.saveMyPhone));
 // Issue #328: SMS-подтверждение номера (креды SMSC_LOGIN/SMSC_PASSWORD в env).
 app.post('/api/me/phone/send-code', wrap(api?.sendPhoneVerificationCode));
 app.post('/api/me/phone/verify-code', wrap(api?.verifyPhoneCode));
+// Issue #344: настройки безопасности + доверенный контакт (срез 1 из #323).
+app.get('/api/me/safety', wrap(api?.getMySafety));
+app.put('/api/me/safety', wrap(api?.saveMySafety));
 app.get('/api/me/credentials', wrap(api?.getMyCredentials));
 app.post('/api/me/credentials', wrap(api?.addMyCredentials));
 app.post('/api/me/link-account', wrap(api?.linkMyAccount));

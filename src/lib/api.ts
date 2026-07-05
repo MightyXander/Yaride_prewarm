@@ -22,6 +22,9 @@ import type {
   GetMyPhoneResponse,
   SaveMyPhoneRequest,
   SaveMyPhoneResponse,
+  GetMySafetyResponse,
+  SaveMySafetyRequest,
+  SaveMySafetyResponse,
   SendPhoneCodeRequest,
   SendPhoneCodeResponse,
   VerifyPhoneCodeRequest,
@@ -218,6 +221,19 @@ export async function getMyPhone(): Promise<GetMyPhoneResponse> {
 /** PUT /api/me/phone — сохранить телефон текущего пользователя (issue #267). */
 export async function saveMyPhone(params: SaveMyPhoneRequest): Promise<SaveMyPhoneResponse> {
   return apiFetch<SaveMyPhoneResponse>('/me/phone', {
+    method: 'PUT',
+    body: JSON.stringify(params),
+  });
+}
+
+/** GET /api/me/safety — настройки безопасности + доверенный контакт (issue #344). */
+export async function getMySafety(): Promise<GetMySafetyResponse> {
+  return apiFetch<GetMySafetyResponse>('/me/safety');
+}
+
+/** PUT /api/me/safety — сохранить настройки безопасности целиком (issue #344). */
+export async function saveMySafety(params: SaveMySafetyRequest): Promise<SaveMySafetyResponse> {
+  return apiFetch<SaveMySafetyResponse>('/me/safety', {
     method: 'PUT',
     body: JSON.stringify(params),
   });
