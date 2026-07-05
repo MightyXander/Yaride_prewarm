@@ -1,4 +1,3 @@
-import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -8,7 +7,8 @@ import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { hapticImpact } from '../lib/haptics';
-import { getMyCars, ApiException } from '../lib/api';
+import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
+import { fetchMyCars } from '../lib/screenFetchers';
 import type { Car } from '../types/api';
 import { Appear, AppearList } from '../components/Appear';
 
@@ -17,37 +17,9 @@ interface MyCarsScreenProps {
   onAddCar?: () => void;
 }
 
-// Демо-данные для браузера без Telegram (graceful fallback при 401).
-const DEMO_CARS: Car[] = [
-  { id: 1, model: 'Лада Веста', color: 'чёрный', plate: 'А567РУ' },
-];
-
 const MyCarsScreen: React.FC<MyCarsScreenProps> = ({ onAddCar }) => {
-  const [cars, setCars] = useState<Car[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  const loadCars = useCallback(async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const res = await getMyCars();
-      setCars(res.cars);
-    } catch (err) {
-      // 401 (браузер без Telegram) — graceful демо-фолбэк; иначе — состояние ошибки.
-      if (err instanceof ApiException && err.status === 401) {
-        setCars(DEMO_CARS);
-      } else {
-        setError(true);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadCars();
-  }, [loadCars]);
+  const { data: cars = [], loading, error, refetch } = useScreenData<Car[]>('my-cars', fetchMyCars);
+  const showSkeleton = useDelayedFlag(loading, 180);
 
   return (
     <div
@@ -64,19 +36,21 @@ const MyCarsScreen: React.FC<MyCarsScreenProps> = ({ onAddCar }) => {
 
       <AnimatePresence mode="wait">
         {loading ? (
-          <Appear key="loading-skeleton" instant>
-            <>
-              {[1, 2].map((i) => (
-                <Card key={i} style={{ display: 'flex', flexDirection: 'column', gap: '10px', minHeight: '64px', marginBottom: '12px' }}>
-                  <Skeleton h={18} w="55%" r={9} />
-                  <Skeleton h={14} w="40%" r={7} />
-                </Card>
-              ))}
-            </>
-          </Appear>
+          showSkeleton ? (
+            <Appear key="loading-skeleton" instant>
+              <>
+                {[1, 2].map((i) => (
+                  <Card key={i} style={{ display: 'flex', flexDirection: 'column', gap: '10px', minHeight: '64px', marginBottom: '12px' }}>
+                    <Skeleton h={18} w="55%" r={9} />
+                    <Skeleton h={14} w="40%" r={7} />
+                  </Card>
+                ))}
+              </>
+            </Appear>
+          ) : null
         ) : error ? (
           <Appear key="error" animateKey="error">
-            <LoadErrorState onRetry={() => { void loadCars(); }} />
+            <LoadErrorState onRetry={() => { void refetch(); }} />
           </Appear>
         ) : cars.length === 0 ? (
           <Appear key="empty" animateKey="empty">

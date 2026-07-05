@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Header from '../components/Header';
@@ -8,6 +8,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { getUserProfile, getUserReviews } from '../lib/api';
+import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
 import type { PublicUserProfile, UserReview } from '../types/api';
 
 interface UserProfileScreenProps {
@@ -33,38 +34,37 @@ interface UserProfileScreenProps {
  * на уровне 2 авторы отзывов уже НЕ кликабельны. «Назад» снимает верхний профиль; на уровне 1 — выход на исходный экран.
  */
 const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, onOpenProfile }) => {
-  const [profile, setProfile] = useState<PublicUserProfile | null>(null);
-  const [reviews, setReviews] = useState<UserReview[]>([]);
-  const [loadingProfile, setLoadingProfile] = useState(true);
-  const [loadingReviews, setLoadingReviews] = useState(true);
-  const [profileError, setProfileError] = useState(false);
-
-  const loadData = useCallback(async () => {
-    setProfileError(false);
-    setLoadingProfile(true);
-    setLoadingReviews(true);
-
-    const pProfile = getUserProfile(userId)
-      .then((res) => setProfile(res.profile))
-      .catch((err) => {
-        console.error('Ошибка загрузки профиля:', err);
-        setProfileError(true);
-      })
-      .finally(() => setLoadingProfile(false));
-
-    const pReviews = getUserReviews(userId)
-      .then((res) => setReviews(res.reviews))
-      .catch((err) => {
-        console.error('Ошибка загрузки отзывов:', err);
-      })
-      .finally(() => setLoadingReviews(false));
-
-    await Promise.all([pProfile, pReviews]);
+  // Чужой профиль не префетчим (userId заранее неизвестен, issue #352) — но на
+  // повторный заход по тому же userId кэш всё равно даёт мгновенный контент.
+  const fetchProfile = useCallback(async () => {
+    const res = await getUserProfile(userId);
+    return res.profile;
+  }, [userId]);
+  const fetchReviews = useCallback(async () => {
+    const res = await getUserReviews(userId);
+    return res.reviews;
   }, [userId]);
 
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  const {
+    data: profile,
+    loading: loadingProfile,
+    error: profileError,
+    refetch: refetchProfile,
+  } = useScreenData<PublicUserProfile>(`user-profile:${userId}`, fetchProfile);
+  const {
+    data: reviews = [],
+    loading: loadingReviews,
+    refetch: refetchReviews,
+  } = useScreenData<UserReview[]>(`user-reviews:${userId}`, fetchReviews);
+
+  const showProfileSkeleton = useDelayedFlag(loadingProfile, 180);
+  const showReviewsSkeleton = useDelayedFlag(loadingReviews, 180);
+
+  // «Повторить» на карточке профиля — как и раньше, перезапускает обе загрузки.
+  const loadData = useCallback(() => {
+    void refetchProfile();
+    void refetchReviews();
+  }, [refetchProfile, refetchReviews]);
 
   // Форматирование даты отзыва: «месяц год» (например, «январь 2026»)
   const formatReviewDate = (isoDate: string): string => {
@@ -153,11 +153,13 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
 
       {/* Шапка профиля */}
       {loadingProfile ? (
-        <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 14px', gap: '12px' }}>
-          <Skeleton w={80} h={80} r={999} />
-          <Skeleton w="50%" h={20} r={10} />
-          <Skeleton w="70%" h={16} r={8} />
-        </Card>
+        showProfileSkeleton ? (
+          <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 14px', gap: '12px' }}>
+            <Skeleton w={80} h={80} r={999} />
+            <Skeleton w="50%" h={20} r={10} />
+            <Skeleton w="70%" h={16} r={8} />
+          </Card>
+        ) : null
       ) : profileError ? (
         <LoadErrorState
           subtitle="Не удалось загрузить профиль. Проверь соединение и попробуй ещё раз."
@@ -238,11 +240,13 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
         </div>
 
         {loadingReviews ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <ReviewSkeleton />
-            <ReviewSkeleton />
-            <ReviewSkeleton />
-          </div>
+          showReviewsSkeleton ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <ReviewSkeleton />
+              <ReviewSkeleton />
+              <ReviewSkeleton />
+            </div>
+          ) : null
         ) : reviews.length === 0 ? (
           <EmptyState
             icon={

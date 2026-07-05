@@ -6,7 +6,16 @@ import EmailLoginSection from '../components/EmailLoginSection';
 import ThemeModeSheet from '../components/ThemeModeSheet';
 import type { ThemeMode } from '../hooks/useTheme';
 import { useProfile } from '../contexts/ProfileContext';
-import { getMyCars } from '../lib/api';
+import { useScreenData } from '../hooks/useScreenData';
+import { prefetchScreenData } from '../lib/screenDataCache';
+import {
+  fetchMyCars,
+  fetchMyTripsUpcoming,
+  fetchMyTripsPast,
+  fetchMyAlerts,
+  fetchSafety,
+} from '../lib/screenFetchers';
+import type { Car } from '../types/api';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 
 interface ProfileScreenProps {
@@ -125,7 +134,6 @@ const THEME_MODE_LABEL: Record<ThemeMode, string> = {
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onMyAlerts, themeMode = 'system', onSetThemeMode, theme, onOpenProfile, onLogout }) => {
   const { profile, loading, needsTelegram, refetch } = useProfile();
-  const [carsCount, setCarsCount] = useState(0);
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
 
   // Профиль живёт в контексте (не размонтируется), поэтому при заходе на экран
@@ -137,12 +145,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Счётчик машин — через общий кэш подстраниц (issue #352), убирает дублирующий
+  // локальный фетч: тот же 'my-cars', что читает и MyCarsScreen.
+  const { data: cars } = useScreenData<Car[]>('my-cars', fetchMyCars);
+  const carsCount = cars?.length ?? 0;
+
+  // Прогрев кэша подстраниц профиля (issue #352): fire-and-forget при маунте —
+  // «Мои поездки»/«Мои машины»/«Мои заявки»/«Безопасность» открываются из уже
+  // тёплого screenDataCache, без скелетона на первом заходе. Чужой user-profile
+  // не префетчим (userId заранее неизвестен).
   useEffect(() => {
-    getMyCars()
-      .then((r) => setCarsCount(r.cars.length))
-      .catch(() => {
-        // Не блокируем UI при ошибке — оставляем 0.
-      });
+    void prefetchScreenData('my-trips:upcoming', fetchMyTripsUpcoming);
+    void prefetchScreenData('my-trips:past', fetchMyTripsPast);
+    void prefetchScreenData('my-cars', fetchMyCars);
+    void prefetchScreenData('my-alerts', fetchMyAlerts);
+    void prefetchScreenData('safety', fetchSafety);
   }, []);
 
   const initials = profile

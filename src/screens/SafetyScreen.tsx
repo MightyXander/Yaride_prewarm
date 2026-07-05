@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card from '../components/ui/Card';
 import Toggle from '../components/ui/Toggle';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
-import { getMySafety, saveMySafety, ApiException } from '../lib/api';
-import type { TrustedContact } from '../types/api';
+import { Slot } from '../components/ui/Skeleton';
+import { saveMySafety, ApiException } from '../lib/api';
+import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
+import { fetchSafety, DEFAULT_SAFETY } from '../lib/screenFetchers';
+import type { GetMySafetyResponse } from '../types/api';
 import { showToast } from '../lib/toast';
 
 const sectionLabelStyle: React.CSSProperties = {
@@ -39,9 +42,10 @@ interface SafetyRowProps {
   hint?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }
 
-const SafetyRow: React.FC<SafetyRowProps> = ({ icon, title, hint, checked, onChange }) => (
+const SafetyRow: React.FC<SafetyRowProps> = ({ icon, title, hint, checked, onChange, disabled }) => (
   <div
     style={{
       display: 'flex',
@@ -73,60 +77,41 @@ const SafetyRow: React.FC<SafetyRowProps> = ({ icon, title, hint, checked, onCha
         </div>
       )}
     </div>
-    <Toggle checked={checked} onChange={onChange} aria-label={title} />
+    <Toggle checked={checked} onChange={onChange} disabled={disabled} aria-label={title} />
   </div>
 );
 
 const SafetyScreen: React.FC = () => {
   // Дефолты совпадают с серверными (см. GET /api/me/safety) — до ответа сети
   // тумблеры уже показывают корректное для нового пользователя состояние.
-  const [sosEnabled, setSosEnabled] = useState(true);
-  const [autoShare, setAutoShare] = useState(false);
-  const [womenOnly, setWomenOnly] = useState(true);
-  const [trustedContact, setTrustedContact] = useState<TrustedContact | null>(null);
+  // useScreenData сам тихо остаётся на DEFAULT_SAFETY при ошибке (см. fetchSafety) —
+  // здесь никакого отдельного error-состояния не нужно, как и раньше (issue #344).
+  const { data: safety, loading, mutate } = useScreenData<GetMySafetyResponse>('safety', fetchSafety);
+  const showSkeleton = useDelayedFlag(loading, 180);
+
+  const sosEnabled = safety?.sosEnabled ?? DEFAULT_SAFETY.sosEnabled;
+  const autoShare = safety?.autoShare ?? DEFAULT_SAFETY.autoShare;
+  const womenOnly = safety?.womenOnly ?? DEFAULT_SAFETY.womenOnly;
+  const trustedContact = safety?.trustedContact ?? DEFAULT_SAFETY.trustedContact;
 
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [savingContact, setSavingContact] = useState(false);
 
-  // Загрузка реального состояния при маунте (issue #344, срез 1 из #323).
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await getMySafety();
-        if (cancelled) return;
-        setSosEnabled(res.sosEnabled);
-        setAutoShare(res.autoShare);
-        setWomenOnly(res.womenOnly);
-        setTrustedContact(res.trustedContact);
-      } catch {
-        // Тихо остаёмся на дефолтах — следующее переключение тумблера всё равно
-        // отправит PUT с актуальным полным состоянием.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   /** Тумблер шлёт PUT сразу при переключении; ошибка — откат значения + toast. */
   const persistToggle = async (
     field: 'sosEnabled' | 'autoShare' | 'womenOnly',
     value: boolean,
   ) => {
-    const prev = { sosEnabled, autoShare, womenOnly };
+    const prev = { sosEnabled, autoShare, womenOnly, trustedContact };
     const next = { ...prev, [field]: value };
-    setSosEnabled(next.sosEnabled);
-    setAutoShare(next.autoShare);
-    setWomenOnly(next.womenOnly);
+    mutate(next);
     try {
-      await saveMySafety({ ...next, trustedContact });
+      const result = await saveMySafety({ ...next, trustedContact });
+      mutate(result);
     } catch {
-      setSosEnabled(prev.sosEnabled);
-      setAutoShare(prev.autoShare);
-      setWomenOnly(prev.womenOnly);
+      mutate(prev);
       showToast('Не удалось сохранить настройку');
     }
   };
@@ -152,7 +137,7 @@ const SafetyScreen: React.FC = () => {
         womenOnly,
         trustedContact: { name, phone },
       });
-      setTrustedContact(result.trustedContact);
+      mutate(result);
       setShowContactForm(false);
     } catch (e) {
       showToast(
@@ -169,7 +154,7 @@ const SafetyScreen: React.FC = () => {
     setSavingContact(true);
     try {
       const result = await saveMySafety({ sosEnabled, autoShare, womenOnly, trustedContact: null });
-      setTrustedContact(result.trustedContact);
+      mutate(result);
       setShowContactForm(false);
       setContactName('');
       setContactPhone('');
@@ -193,31 +178,38 @@ const SafetyScreen: React.FC = () => {
     >
       <Header title="Безопасность" />
 
-      {/* Переключатели безопасности */}
-      <Card style={{ padding: '4px 14px' }}>
-        <SafetyRow
-          icon="i-sos"
-          title="Кнопка SOS в поездке"
-          checked={sosEnabled}
-          onChange={(v) => persistToggle('sosEnabled', v)}
-        />
-        <div style={{ height: '1px', background: 'var(--border)' }} />
-        <SafetyRow
-          icon="i-pin"
-          title="Авто-делиться поездкой"
-          hint="Близкий видит маршрут автоматически"
-          checked={autoShare}
-          onChange={(v) => persistToggle('autoShare', v)}
-        />
-        <div style={{ height: '1px', background: 'var(--border)' }} />
-        <SafetyRow
-          icon="i-user"
-          title="Только женский состав"
-          hint="Показывать поездки с женщинами-водителями"
-          checked={womenOnly}
-          onChange={(v) => persistToggle('womenOnly', v)}
-        />
-      </Card>
+      {/* Переключатели безопасности — Slot-кроссфейд лечит «дефолты→реальные»
+          мигание (issue #352): маска показывается только если загрузка длится
+          дольше 180мс (showSkeleton), иначе дефолты видны сразу без мерцания. */}
+      <Slot ready={!showSkeleton} block r={18}>
+        <Card style={{ padding: '4px 14px' }}>
+          <SafetyRow
+            icon="i-sos"
+            title="Кнопка SOS в поездке"
+            checked={sosEnabled}
+            onChange={(v) => persistToggle('sosEnabled', v)}
+            disabled={loading}
+          />
+          <div style={{ height: '1px', background: 'var(--border)' }} />
+          <SafetyRow
+            icon="i-pin"
+            title="Авто-делиться поездкой"
+            hint="Близкий видит маршрут автоматически"
+            checked={autoShare}
+            onChange={(v) => persistToggle('autoShare', v)}
+            disabled={loading}
+          />
+          <div style={{ height: '1px', background: 'var(--border)' }} />
+          <SafetyRow
+            icon="i-user"
+            title="Только женский состав"
+            hint="Показывать поездки с женщинами-водителями"
+            checked={womenOnly}
+            onChange={(v) => persistToggle('womenOnly', v)}
+            disabled={loading}
+          />
+        </Card>
+      </Slot>
 
       {/* Доверенный контакт */}
       <div>

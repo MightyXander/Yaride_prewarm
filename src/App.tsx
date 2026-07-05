@@ -1,4 +1,4 @@
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icons } from './components/Icons';
 import BackButton from './components/BackButton';
@@ -23,6 +23,8 @@ import { loadRole, type UserRole } from './lib/role';
 import { shouldGateBrowserAuth } from './lib/auth';
 import { showToast } from './lib/toast';
 import { ProfileProvider } from './contexts/ProfileContext';
+import { prefetchScreenData } from './lib/screenDataCache';
+import { fetchNotifications } from './lib/screenFetchers';
 import { screenRegistry } from './lib/screenRegistry';
 import type { ScreenCtx } from './lib/screenRegistry';
 import type { Screen } from './types/navigation';
@@ -119,6 +121,28 @@ function App() {
   });
 
   const { handleCancelAlert } = useAlertHandlers({ alertId: publishedTripId, navigate });
+
+  // Idle-прогрев кэша уведомлений (issue #352): колокол доступен отовсюду
+  // (FloatingNav), поэтому греем один раз при старте приложения, а не при
+  // заходе на конкретный экран — requestIdleCallback не блокирует первый
+  // рендер; в браузерах без него (Safari) — fallback на setTimeout.
+  useEffect(() => {
+    const win = window as Window & {
+      requestIdleCallback?: (cb: () => void) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    const warm = () => {
+      void prefetchScreenData('notifications', fetchNotifications);
+    };
+
+    if (win.requestIdleCallback) {
+      const id = win.requestIdleCallback(warm);
+      return () => win.cancelIdleCallback?.(id);
+    }
+
+    const timeoutId = window.setTimeout(warm, 2000);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   const showBackButton = !NO_BACK_BUTTON_SCREENS.includes(currentScreen);
   const navVisible = NAV_VISIBLE_SCREENS.includes(currentScreen);
