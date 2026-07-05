@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import { RouteDot, RouteMidConnector } from '../components/ui/RouteConnector';
@@ -8,38 +8,11 @@ import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { hapticImpact, hapticNotify } from '../lib/haptics';
-import { useRefetchOnFocus } from '../hooks/useRefetchOnFocus';
-import { getMyAlerts, cancelAlert, ApiException } from '../lib/api';
+import { cancelAlert } from '../lib/api';
+import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
+import { fetchMyAlerts } from '../lib/screenFetchers';
 import type { MyAlertItem } from '../types/api';
 import { Appear, AppearList } from '../components/Appear';
-
-// Демо-данные для браузера без Telegram (graceful fallback при 401) — тот же
-// приём, что MyTripsScreen/MyCarsScreen (issue #244).
-const getDemoAlerts = (): MyAlertItem[] => {
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const formatDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  return [
-    {
-      id: 1,
-      fromPointId: 1,
-      toPointId: 2,
-      fromTitle: 'Брагино, ул. Урицкого, 12',
-      toTitle: 'Центр, пл. Волкова',
-      desiredDate: formatDate(tomorrow),
-      desiredTime: '08:00',
-      status: 'active',
-      createdAt: new Date().toISOString(),
-    },
-  ];
-};
 
 interface MyAlertsScreenProps {
   /** Перейти к форме создания заявки (пустой список → «Оставить заявку»). */
@@ -64,39 +37,10 @@ const formatAlertDate = (desiredDate: string, desiredTime: string | null): strin
 };
 
 const MyAlertsScreen: React.FC<MyAlertsScreenProps> = ({ onCreateAlert }) => {
-  const [alerts, setAlerts] = useState<MyAlertItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const { data: alerts = [], loading, error, refetch, mutate } = useScreenData<MyAlertItem[]>('my-alerts', fetchMyAlerts);
+  const showSkeleton = useDelayedFlag(loading, 180);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [cancelErrorId, setCancelErrorId] = useState<number | null>(null);
-
-  const loadAlerts = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError(false);
-    try {
-      const res = await getMyAlerts();
-      setAlerts(res.alerts);
-    } catch (err) {
-      // 401 (браузер без Telegram) — graceful демо-фолбэк; иначе — состояние ошибки.
-      if (err instanceof ApiException && err.status === 401) {
-        setAlerts(getDemoAlerts());
-      } else {
-        setError(true);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadAlerts();
-  }, [loadAlerts]);
-
-  // Возврат фокуса/видимости вкладки — свежий список (заявку могли отменить
-  // из другого места, например повторным заходом на passenger-request).
-  useRefetchOnFocus(() => {
-    void loadAlerts(true);
-  });
 
   const handleCancel = async (alertId: number) => {
     if (cancellingId !== null) return;
@@ -105,7 +49,9 @@ const MyAlertsScreen: React.FC<MyAlertsScreenProps> = ({ onCreateAlert }) => {
     setCancellingId(alertId);
     try {
       await cancelAlert(alertId);
-      setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+      // Обновляем и кэш, и текущий стейт (issue #352) — при возврате на экран
+      // отменённая заявка не должна воскреснуть из протухшего кэша.
+      mutate((prev) => (prev ?? []).filter((a) => a.id !== alertId));
     } catch (err) {
       console.error('[MyAlertsScreen] Ошибка отмены заявки:', err);
       setCancelErrorId(alertId);
@@ -130,20 +76,22 @@ const MyAlertsScreen: React.FC<MyAlertsScreenProps> = ({ onCreateAlert }) => {
 
       <AnimatePresence mode="wait">
         {loading ? (
-          <Appear key="loading-skeleton" instant>
-            <>
-              {[1, 2].map((i) => (
-                <Card key={i} style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '110px', marginBottom: '12px' }}>
-                  <Skeleton h={16} w="50%" r={8} />
-                  <Skeleton h={14} w="90%" r={7} />
-                  <Skeleton h={14} w="90%" r={7} />
-                </Card>
-              ))}
-            </>
-          </Appear>
+          showSkeleton ? (
+            <Appear key="loading-skeleton" instant>
+              <>
+                {[1, 2].map((i) => (
+                  <Card key={i} style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '110px', marginBottom: '12px' }}>
+                    <Skeleton h={16} w="50%" r={8} />
+                    <Skeleton h={14} w="90%" r={7} />
+                    <Skeleton h={14} w="90%" r={7} />
+                  </Card>
+                ))}
+              </>
+            </Appear>
+          ) : null
         ) : error ? (
           <Appear key="error" animateKey="error">
-            <LoadErrorState onRetry={() => { void loadAlerts(); }} />
+            <LoadErrorState onRetry={() => { void refetch(); }} />
           </Appear>
         ) : alerts.length === 0 ? (
           <Appear key="empty" animateKey="empty">

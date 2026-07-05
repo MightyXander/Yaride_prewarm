@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import Card from '../components/ui/Card';
@@ -8,8 +8,9 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import { Appear } from '../components/Appear';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
-import { useRefetchOnFocus } from '../hooks/useRefetchOnFocus';
-import { getNotifications, markNotificationRead, deleteNotification, clearNotifications } from '../lib/api';
+import { markNotificationRead, deleteNotification, clearNotifications } from '../lib/api';
+import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
+import { fetchNotifications } from '../lib/screenFetchers';
 import { hapticImpact } from '../lib/haptics';
 import { showToast } from '../lib/toast';
 import type { NotificationItem, NotificationType } from '../types/api';
@@ -258,9 +259,14 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ notif, index, reduc
  * POST /api/notifications/clear; при ошибке список восстанавливается целиком.
  */
 const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate }) => {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const {
+    data: notifications = [],
+    loading,
+    error,
+    refetch,
+    mutate,
+  } = useScreenData<NotificationItem[]>('notifications', fetchNotifications);
+  const showSkeleton = useDelayedFlag(loading, 180);
   const [clearing, setClearing] = useState(false);
   // Синхронный guard от повторного входа: React-состояние clearing коммитится
   // асинхронно, и два клика подряд (до коммита ре-рендера) оба видят
@@ -269,30 +275,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
   const clearingRef = useRef(false);
   const reducedMotion = useReducedMotion() ?? false;
 
-  // silent=true — тихий рефетч (без скелета) для обновления по фокусу.
-  const loadNotifications = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError(false);
-    try {
-      const res = await getNotifications();
-      setNotifications(res.notifications);
-    } catch (err) {
-      console.error('Ошибка загрузки уведомлений:', err);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadNotifications();
-  }, [loadNotifications]);
-
-  // Возврат фокуса/видимости вкладки → свежая лента уведомлений.
-  useRefetchOnFocus(() => {
-    void loadNotifications(true);
-  });
-
   const handleNotificationClick = async (notif: NotificationItem) => {
     window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
 
@@ -300,9 +282,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
     if (!notif.read) {
       try {
         await markNotificationRead(notif.id);
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
-        );
+        mutate((prev) => (prev ?? []).map((n) => (n.id === notif.id ? { ...n, read: true } : n)));
       } catch (err) {
         console.error('Ошибка пометки уведомления как прочитанного:', err);
       }
@@ -313,25 +293,29 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
   };
 
   // Свайп-удаление одной карточки (issue #337): оптимистично убираем из
-  // состояния, шлём DELETE; при ошибке возвращаем на место (по created_at) и тост.
-  const handleSwipeDelete = useCallback((notif: NotificationItem) => {
-    hapticImpact('light');
-    setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+  // состояния (и кэша — issue #352), шлём DELETE; при ошибке возвращаем на
+  // место (по created_at) и тост.
+  const handleSwipeDelete = useCallback(
+    (notif: NotificationItem) => {
+      hapticImpact('light');
+      mutate((prev) => (prev ?? []).filter((n) => n.id !== notif.id));
 
-    void (async () => {
-      try {
-        await deleteNotification(notif.id);
-      } catch (err) {
-        console.error('Ошибка удаления уведомления:', err);
-        setNotifications((prev) => {
-          const next = [...prev, notif];
-          next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-          return next;
-        });
-        showToast('Не удалось удалить уведомление. Попробуйте ещё раз.');
-      }
-    })();
-  }, []);
+      void (async () => {
+        try {
+          await deleteNotification(notif.id);
+        } catch (err) {
+          console.error('Ошибка удаления уведомления:', err);
+          mutate((prev) => {
+            const next = [...(prev ?? []), notif];
+            next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            return next;
+          });
+          showToast('Не удалось удалить уведомление. Попробуйте ещё раз.');
+        }
+      })();
+    },
+    [mutate],
+  );
 
   // Кнопка «Очистить» (issue #337): карточки исчезают по очереди (stagger),
   // затем один POST /notifications/clear. Ошибка — список восстанавливается целиком.
@@ -347,7 +331,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
 
     snapshot.forEach((n, i) => {
       window.setTimeout(() => {
-        setNotifications((prev) => prev.filter((x) => x.id !== n.id));
+        mutate((prev) => (prev ?? []).filter((x) => x.id !== n.id));
       }, i * staggerMs);
     });
 
@@ -358,7 +342,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
           await clearNotifications();
         } catch (err) {
           console.error('Ошибка очистки уведомлений:', err);
-          setNotifications(snapshot);
+          mutate(snapshot);
           showToast('Не удалось очистить уведомления. Попробуйте ещё раз.');
         } finally {
           clearingRef.current = false;
@@ -366,7 +350,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
         }
       })();
     }, totalWait);
-  }, [notifications, reducedMotion]);
+  }, [notifications, reducedMotion, mutate]);
 
   // Скелетон уведомления (та же геометрия, что и реальное)
   const NotificationSkeleton: React.FC = () => (
@@ -405,18 +389,20 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
 
       <AnimatePresence mode="wait">
         {loading ? (
-          <Appear key="loading">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <NotificationSkeleton />
-              <NotificationSkeleton />
-              <NotificationSkeleton />
-            </div>
-          </Appear>
+          showSkeleton ? (
+            <Appear key="loading">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <NotificationSkeleton />
+                <NotificationSkeleton />
+                <NotificationSkeleton />
+              </div>
+            </Appear>
+          ) : null
         ) : error ? (
           <Appear key="error">
             <LoadErrorState
               subtitle="Не удалось загрузить уведомления. Проверь соединение и попробуй ещё раз."
-              onRetry={() => { void loadNotifications(); }}
+              onRetry={() => { void refetch(); }}
             />
           </Appear>
         ) : showEmpty ? (

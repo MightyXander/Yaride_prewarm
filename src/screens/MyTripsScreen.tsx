@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -8,89 +8,11 @@ import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
 import { hapticSelection, hapticImpact } from '../lib/haptics';
-import { useRefetchOnFocus } from '../hooks/useRefetchOnFocus';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
-import { getMyTrips, ApiException } from '../lib/api';
+import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
+import { fetchMyTripsUpcoming, fetchMyTripsPast } from '../lib/screenFetchers';
 import type { UserTripItem } from '../types/api';
 import { Appear, AppearList } from '../components/Appear';
-
-// Демо-данные для браузера без Telegram (graceful fallback при 401).
-// Даты относительно сегодня: upcoming = сегодня/завтра, past = вчера/позавчера.
-const getDemoData = () => {
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const twoDaysAgo = new Date(today);
-  twoDaysAgo.setDate(today.getDate() - 2);
-
-  const formatDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const upcomingTrips: UserTripItem[] = [
-    {
-      trip_id: 1,
-      role: 'passenger',
-      trip_date: formatDate(today),
-      departure_time: '07:40:00',
-      time_slot: 'morning',
-      start_title: 'Брагино, ул. Урицкого, 12',
-      end_title: 'Центр, пл. Волкова',
-      price_rub: 100,
-      seats_total: 3,
-      seats_booked: 1,
-      trip_status: 'open',
-      booking_id: 10,
-      booking_status: 'active',
-      passenger_seats: 1,
-      driver_id: 5,
-    },
-    {
-      trip_id: 2,
-      role: 'driver',
-      trip_date: formatDate(tomorrow),
-      departure_time: '17:40:00',
-      time_slot: 'evening',
-      start_title: 'Центр, пл. Волкова',
-      end_title: 'Брагино, ул. Урицкого, 12',
-      price_rub: 150,
-      seats_total: 3,
-      seats_booked: 0,
-      trip_status: 'open',
-      booking_id: null,
-      booking_status: null,
-      passenger_seats: null,
-      driver_id: null,
-    },
-  ];
-
-  const pastTrips: UserTripItem[] = [
-    {
-      trip_id: 3,
-      role: 'passenger',
-      trip_date: formatDate(yesterday),
-      departure_time: '07:55:00',
-      time_slot: 'morning',
-      start_title: 'Брагино, пр-т Дзержинского, 8',
-      end_title: 'Центр, пл. Волкова',
-      price_rub: 100,
-      seats_total: 3,
-      seats_booked: 2,
-      trip_status: 'completed',
-      booking_id: 9,
-      booking_status: 'active',
-      passenger_seats: 1,
-      driver_id: 7,
-    },
-  ];
-
-  return { upcomingTrips, pastTrips };
-};
 
 interface MyTripsScreenProps {
   onCreateTrip?: () => void;
@@ -101,45 +23,28 @@ interface MyTripsScreenProps {
 
 const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip, onRateTrip }) => {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
-  const [upcomingTrips, setUpcomingTrips] = useState<UserTripItem[]>([]);
-  const [pastTrips, setPastTrips] = useState<UserTripItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
 
-  // silent=true — тихий рефетч (без скелета): для обновления по фокусу,
-  // чтобы возврат к вкладке не мигал загрузкой поверх уже показанных данных.
-  const loadTrips = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError(false);
-    try {
-      const [upcomingRes, pastRes] = await Promise.all([
-        getMyTrips({ status: 'upcoming' }),
-        getMyTrips({ status: 'past' }),
-      ]);
-      setUpcomingTrips(upcomingRes.trips);
-      setPastTrips(pastRes.trips);
-    } catch (err) {
-      // 401 (браузер без Telegram) — graceful демо-фолбэк; иначе — состояние ошибки.
-      if (err instanceof ApiException && err.status === 401) {
-        const { upcomingTrips: demoUp, pastTrips: demoPast } = getDemoData();
-        setUpcomingTrips(demoUp);
-        setPastTrips(demoPast);
-      } else {
-        setError(true);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const {
+    data: upcomingTrips = [],
+    loading: loadingUpcoming,
+    error: errorUpcoming,
+    refetch: refetchUpcoming,
+  } = useScreenData<UserTripItem[]>('my-trips:upcoming', fetchMyTripsUpcoming);
+  const {
+    data: pastTrips = [],
+    loading: loadingPast,
+    error: errorPast,
+    refetch: refetchPast,
+  } = useScreenData<UserTripItem[]>('my-trips:past', fetchMyTripsPast);
 
-  useEffect(() => {
-    void loadTrips();
-  }, [loadTrips]);
+  const loading = loadingUpcoming || loadingPast;
+  const error = errorUpcoming || errorPast;
+  const showSkeleton = useDelayedFlag(loading, 180);
 
-  // Возврат фокуса/видимости вкладки → свежий список (новые брони/отмены/статусы).
-  useRefetchOnFocus(() => {
-    void loadTrips(true);
-  });
+  const retryTrips = () => {
+    void refetchUpcoming();
+    void refetchPast();
+  };
 
   const trips = activeTab === 'upcoming' ? upcomingTrips : pastTrips;
 
@@ -272,21 +177,23 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip,
 
       <AnimatePresence mode="wait">
         {loading ? (
-          <Appear key="loading-skeleton" instant>
-            <>
-              {[1, 2].map((i) => (
-                <Card key={i} style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '140px', marginBottom: '12px' }}>
-                  <Skeleton h={16} w="50%" r={8} />
-                  <Skeleton h={20} w="70%" r={10} />
-                  <Skeleton h={14} w="90%" r={7} />
-                  <Skeleton h={14} w="90%" r={7} />
-                </Card>
-              ))}
-            </>
-          </Appear>
+          showSkeleton ? (
+            <Appear key="loading-skeleton" instant>
+              <>
+                {[1, 2].map((i) => (
+                  <Card key={i} style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '140px', marginBottom: '12px' }}>
+                    <Skeleton h={16} w="50%" r={8} />
+                    <Skeleton h={20} w="70%" r={10} />
+                    <Skeleton h={14} w="90%" r={7} />
+                    <Skeleton h={14} w="90%" r={7} />
+                  </Card>
+                ))}
+              </>
+            </Appear>
+          ) : null
         ) : error ? (
           <Appear key="error" animateKey="error">
-            <LoadErrorState onRetry={() => { void loadTrips(); }} />
+            <LoadErrorState onRetry={retryTrips} />
           </Appear>
         ) : trips.length === 0 ? (
           <Appear key={`empty-${activeTab}`} animateKey={`empty-${activeTab}`}>

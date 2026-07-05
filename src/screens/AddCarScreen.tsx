@@ -7,6 +7,8 @@ import { addCar, ApiException } from '../lib/api';
 import { showToast } from '../lib/toast';
 import { hapticSelection } from '../lib/haptics';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
+import { getScreenData, setScreenData } from '../lib/screenDataCache';
+import type { Car } from '../types/api';
 
 interface AddCarScreenProps {
   /** Машина сохранена — обычно возврат на предыдущий экран. */
@@ -103,11 +105,18 @@ const AddCarScreen: React.FC<AddCarScreenProps> = ({ onSaved }) => {
     if (!canSave || saving) return;
     try {
       setSaving(true);
-      await addCar({
+      const res = await addCar({
         model: model.trim(),
         color: color.trim() || null,
         plate: plate.trim() || null,
       });
+      // Обновляем кэш «Моих машин» (issue #352): если экран уже прогрет
+      // (префетч из ProfileScreen/предыдущий заход), возврат назад должен
+      // сразу показать новую машину, а не протухший список из кэша.
+      const cachedCars = getScreenData<Car[]>('my-cars');
+      if (cachedCars !== undefined) {
+        setScreenData<Car[]>('my-cars', [...cachedCars, res.car]);
+      }
       showToast('Машина добавлена');
       onSaved?.();
     } catch (err) {
