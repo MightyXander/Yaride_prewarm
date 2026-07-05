@@ -27,6 +27,8 @@
  *   GET  /api/me/phone               { phone, verified, verificationEnabled } (issue #328)
  *   POST /api/me/phone/send-code     { phone } — сохранить номер + выслать код (issue #328)
  *   POST /api/me/phone/verify-code   { code } — подтвердить код (issue #328)
+ *   GET  /api/me/safety              настройки безопасности + доверенный контакт (issue #344)
+ *   PUT  /api/me/safety              { sosEnabled, autoShare, womenOnly, trustedContact } — сохранить целиком (issue #344)
  *
  * Валидация входа — ручная (zod в deps нет). Telegram initData проверяется через
  * verifyInitData (HMAC по BOT_TOKEN; без токена — dev-bypass с пометкой).
@@ -60,6 +62,9 @@ import {
   createPhoneVerificationCode,
   incrementPhoneVerificationAttempts,
   markPhoneVerified,
+  getSafetySettings,
+  saveSafetySettings,
+  type SafetySettings,
   upsertPushToken,
   getUserProfileById,
   getUserTripsById,
@@ -862,6 +867,62 @@ export async function handleSaveMyPhone(req: ApiRequest): Promise<ApiResponse> {
   }
 
   return { status: 200, body: { phone } };
+}
+
+// ============================================================================
+// Настройки безопасности + доверенный контакт (issue #344, срез 1 из #323).
+// SOS/112, live-шеринг и телефон-блок — не здесь.
+// ============================================================================
+
+/**
+ * GET /api/me/safety — настройки безопасности текущего пользователя (issue #344).
+ * Нет записи в БД → дефолты sosEnabled=true/autoShare=false/womenOnly=true/
+ * trustedContact=null (см. getSafetySettings).
+ */
+export async function handleGetMySafety(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const settings = await getSafetySettings(userId);
+  return { status: 200, body: settings };
+}
+
+/**
+ * PUT /api/me/safety — сохранить настройки безопасности целиком (issue #344).
+ * Body: { sosEnabled, autoShare, womenOnly, trustedContact: { name, phone } | null }.
+ * Полное состояние, без диффов. Телефон доверенного контакта валидируется той
+ * же нормализацией РФ-номера, что и собственный телефон пользователя
+ * (normalizeRuPhone) — невалидный номер → 400 { error: 'invalid_phone' }.
+ * trustedContact: null удаляет сохранённый контакт.
+ */
+export async function handleSaveMySafety(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const body = asRecord(req.body);
+  const sosEnabled = Boolean(body.sosEnabled);
+  const autoShare = Boolean(body.autoShare);
+  const womenOnly = Boolean(body.womenOnly);
+
+  let trustedContact: SafetySettings['trustedContact'] = null;
+  if (body.trustedContact !== null && body.trustedContact !== undefined) {
+    const contact = asRecord(body.trustedContact);
+    const name = typeof contact.name === 'string' ? contact.name.trim() : '';
+    const rawPhone = typeof contact.phone === 'string' ? contact.phone : '';
+    const phone = normalizeRuPhone(rawPhone);
+    if (phone === null) {
+      return err(400, 'invalid_phone');
+    }
+    trustedContact = { name, phone };
+  }
+
+  const settings: SafetySettings = { sosEnabled, autoShare, womenOnly, trustedContact };
+  await saveSafetySettings(userId, settings);
+  return { status: 200, body: settings };
 }
 
 // ============================================================================

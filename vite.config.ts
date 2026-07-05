@@ -152,6 +152,19 @@ function mockApiPlugin() {
         pdnConsentVersion: null,
         offerConsentVersion: null,
       };
+      // Настройки безопасности + доверенный контакт (#344, срез 1 из #323).
+      // Дефолты совпадают с реальным бэком (нет строки в safety_settings).
+      let mockSafety: {
+        sosEnabled: boolean;
+        autoShare: boolean;
+        womenOnly: boolean;
+        trustedContact: { name: string; phone: string } | null;
+      } = {
+        sosEnabled: true,
+        autoShare: false,
+        womenOnly: true,
+        trustedContact: null,
+      };
       const normalizeRuPhoneMock = (raw: string): string | null => {
         const digits = String(raw).replace(/\D/g, '');
         let national: string;
@@ -652,6 +665,40 @@ function mockApiPlugin() {
             }
             mockPhoneVerified = true;
             sendJson({ verified: true });
+          });
+          return;
+        }
+
+        // GET /api/me/safety — настройки безопасности + доверенный контакт (#344)
+        if (method === 'GET' && pathname === '/me/safety') {
+          sendJson(mockSafety);
+          return;
+        }
+
+        // PUT /api/me/safety — сохранить целиком (#344); невалидный телефон
+        // доверенного контакта → 400 invalid_phone, как в реальном хендлере.
+        if (method === 'PUT' && pathname === '/me/safety') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            const p = JSON.parse(body || '{}');
+            let trustedContact: { name: string; phone: string } | null = null;
+            if (p.trustedContact !== null && p.trustedContact !== undefined) {
+              const name = String(p.trustedContact.name ?? '').trim();
+              const phone = normalizeRuPhoneMock(p.trustedContact.phone ?? '');
+              if (phone === null) {
+                sendJson({ error: 'invalid_phone' }, 400);
+                return;
+              }
+              trustedContact = { name, phone };
+            }
+            mockSafety = {
+              sosEnabled: Boolean(p.sosEnabled),
+              autoShare: Boolean(p.autoShare),
+              womenOnly: Boolean(p.womenOnly),
+              trustedContact,
+            };
+            sendJson(mockSafety);
           });
           return;
         }

@@ -229,6 +229,32 @@ export interface SaveMyPhoneResponse {
   phone: string;
 }
 
+// GET/PUT /api/me/safety — настройки безопасности + доверенный контакт
+// (issue #344, срез 1 из #323). PUT сохраняет полное состояние (без диффов).
+export interface TrustedContact {
+  name: string;
+  /** Нормализованный сервером номер в форме +7XXXXXXXXXX. */
+  phone: string;
+}
+
+export interface GetMySafetyResponse {
+  sosEnabled: boolean;
+  autoShare: boolean;
+  womenOnly: boolean;
+  /** null — контакт не задан. */
+  trustedContact: TrustedContact | null;
+}
+
+export interface SaveMySafetyRequest {
+  sosEnabled: boolean;
+  autoShare: boolean;
+  womenOnly: boolean;
+  /** null — удалить сохранённый контакт. Телефон валидируется как РФ-номер (400 invalid_phone). */
+  trustedContact: { name: string; phone: string } | null;
+}
+
+export type SaveMySafetyResponse = GetMySafetyResponse;
+
 // POST /api/me/phone/send-code — выслать код подтверждения номера (issue #328).
 export interface SendPhoneCodeRequest {
   phone: string;
