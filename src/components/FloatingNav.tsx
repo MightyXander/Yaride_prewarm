@@ -231,13 +231,12 @@ function FloatingNavBar({
                 {bellActive ? (
                   <motion.span
                     key="label"
-                    initial={{ opacity: 0, x: -6 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -6 }}
+                    initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                    animate={{ opacity: 1, width: 'auto', marginLeft: 6 }}
+                    exit={{ opacity: 0, width: 0, marginLeft: 0 }}
                     transition={prefersReduced ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 32 }}
                     style={{
-                      display: 'inline-block',
-                      marginLeft: 6,
+                      overflow: 'hidden',
                       fontSize: '15px',
                       fontWeight: 600,
                       lineHeight: 1,
@@ -306,13 +305,12 @@ function FloatingNavBar({
                     {active ? (
                       <motion.span
                         key="label"
-                        initial={{ opacity: 0, x: -6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -6 }}
+                        initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                        animate={{ opacity: 1, width: 'auto', marginLeft: 6 }}
+                        exit={{ opacity: 0, width: 0, marginLeft: 0 }}
                         transition={prefersReduced ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 32 }}
                         style={{
-                          display: 'inline-block',
-                          marginLeft: 6,
+                          overflow: 'hidden',
                           fontSize: '15px',
                           fontWeight: 600,
                           lineHeight: 1,
