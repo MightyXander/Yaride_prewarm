@@ -181,6 +181,8 @@ export interface TripParticipant {
   rating: number;
   rating_count: number;
   license_verified: boolean;
+  /** Уже оценил ли текущий запрашивающий (rater) этого участника (issue #354). */
+  rated_by_me: boolean;
 }
 
 /** Результат запроса участников поездки: список либо причина отказа. */
@@ -224,24 +226,33 @@ export async function getTripParticipants(
   // Guard (issue #311): бронь с passenger_id = driver_id этой же поездки (кривые/тестовые
   // данные — пассажир де-факто сам себе водитель) исключаем из пассажирской ветки, иначе
   // один и тот же user_id задваивается в списке участников как driver И passenger.
+  // rated_by_me (issue #354): уже оценил ли requesterUserId ($2, как rater) этого
+  // участника (u.id, как ratee) в этой поездке — рейтинг только пассажир→водитель,
+  // но EXISTS одинаково безопасен для обеих строк UNION (для не-рейтингующих пар — false).
   const res = await getPool().query<TripParticipant>(
     `SELECT u.id AS user_id, u.name,
             CASE WHEN u.id = t.driver_id THEN 'driver' ELSE 'passenger' END AS role,
             u.rating_avg AS rating, u.rating_count,
-            (u.license_status = 'verified') AS license_verified
+            (u.license_status = 'verified') AS license_verified,
+            EXISTS(
+              SELECT 1 FROM ratings r WHERE r.trip_id = t.id AND r.rater_id = $2 AND r.ratee_id = u.id
+            ) AS rated_by_me
      FROM trips t
      JOIN users u ON u.id = t.driver_id
      WHERE t.id = $1
      UNION
      SELECT u.id AS user_id, u.name, 'passenger' AS role,
             u.rating_avg AS rating, u.rating_count,
-            (u.license_status = 'verified') AS license_verified
+            (u.license_status = 'verified') AS license_verified,
+            EXISTS(
+              SELECT 1 FROM ratings r WHERE r.trip_id = t.id AND r.rater_id = $2 AND r.ratee_id = u.id
+            ) AS rated_by_me
      FROM bookings b
      JOIN users u ON u.id = b.passenger_id
      JOIN trips t ON t.id = b.trip_id
      WHERE b.trip_id = $1 AND b.status = 'active' AND b.passenger_id != t.driver_id
      ORDER BY role ASC, name ASC`,
-    [tripId],
+    [tripId, requesterUserId],
   );
   return { ok: true, participants: res.rows };
 }

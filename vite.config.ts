@@ -65,6 +65,11 @@ function mockApiPlugin() {
         { id: 1, model: 'Hyundai Solaris', color: 'белый', plate: 'Е456КХ' },
       ];
 
+      // In-memory отслеживание уже отправленных оценок (issue #354): ключ `${tripId}:${rateeId}`.
+      // Повторный POST /ratings для той же пары → 409 already_rated; rated_by_me в
+      // GET /me/trips и GET /trips/:id/participants отражает это состояние между запросами.
+      const mockRatedPairs = new Set<string>();
+
       // In-memory заявки-алерты (issue #321): переживают между запросами, чтобы
       // POST /api/alerts → GET /api/me/alerts → DELETE /api/alerts/:id вели себя
       // как реальный backend (route_alerts). Точки маршрута — те же id, что
@@ -797,6 +802,7 @@ function mockApiPlugin() {
               booking_status: null,
               passenger_seats: null,
               driver_id: null,
+              rated_by_me: false,
             },
             {
               trip_id: 5,
@@ -814,6 +820,7 @@ function mockApiPlugin() {
               booking_status: 'active',
               passenger_seats: 1,
               driver_id: 101,
+              rated_by_me: mockRatedPairs.has('5:101'),
             },
           ];
 
@@ -834,6 +841,7 @@ function mockApiPlugin() {
               booking_status: 'active',
               passenger_seats: 1,
               driver_id: 101,
+              rated_by_me: mockRatedPairs.has('6:101'),
             },
           ];
 
@@ -993,12 +1001,19 @@ function mockApiPlugin() {
           return;
         }
 
-        // POST /api/ratings
+        // POST /api/ratings — повторный сабмит той же пары (tripId, rateeId) → 409
+        // already_rated (issue #354), как чистая ошибка бэка вместо сырого 23505.
         if (method === 'POST' && pathname === '/ratings') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
           req.on('end', () => {
             const params = JSON.parse(body);
+            const key = `${params.tripId}:${params.rateeId}`;
+            if (mockRatedPairs.has(key)) {
+              sendJson({ error: 'Вы уже оценили эту поездку', code: 'already_rated' }, 409);
+              return;
+            }
+            mockRatedPairs.add(key);
             const rating = {
               ratingId: Math.floor(Math.random() * 1000),
               tripId: params.tripId,
@@ -1034,11 +1049,13 @@ function mockApiPlugin() {
 
         // GET /api/trips/:id/participants — участники поездки (водитель + активные пассажиры)
         if (method === 'GET' && pathname.match(/^\/trips\/\d+\/participants$/)) {
+          const participantsTripIdMatch = pathname.match(/^\/trips\/(\d+)\/participants$/);
+          const participantsTripId = participantsTripIdMatch ? participantsTripIdMatch[1] : '';
           const participants = [
-            { user_id: 1, name: 'Андрей К.', role: 'driver', rating: 4.9, rating_count: 25, license_verified: true },
+            { user_id: 1, name: 'Андрей К.', role: 'driver', rating: 4.9, rating_count: 25, license_verified: true, rated_by_me: mockRatedPairs.has(`${participantsTripId}:1`) },
             ...(forceEmpty ? [] : [
-              { user_id: 500, name: 'Анна С.', role: 'passenger', rating: 4.8, rating_count: 12, license_verified: false },
-              { user_id: 501, name: 'Игорь П.', role: 'passenger', rating: 5.0, rating_count: 3, license_verified: false },
+              { user_id: 500, name: 'Анна С.', role: 'passenger', rating: 4.8, rating_count: 12, license_verified: false, rated_by_me: mockRatedPairs.has(`${participantsTripId}:500`) },
+              { user_id: 501, name: 'Игорь П.', role: 'passenger', rating: 5.0, rating_count: 3, license_verified: false, rated_by_me: mockRatedPairs.has(`${participantsTripId}:501`) },
             ]),
           ];
           sendJson({ participants });

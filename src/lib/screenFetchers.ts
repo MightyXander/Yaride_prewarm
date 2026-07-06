@@ -44,6 +44,7 @@ function getDemoTrips(): { upcomingTrips: UserTripItem[]; pastTrips: UserTripIte
       booking_status: 'active',
       passenger_seats: 1,
       driver_id: 5,
+      rated_by_me: false,
     },
     {
       trip_id: 2,
@@ -61,6 +62,7 @@ function getDemoTrips(): { upcomingTrips: UserTripItem[]; pastTrips: UserTripIte
       booking_status: null,
       passenger_seats: null,
       driver_id: null,
+      rated_by_me: false,
     },
   ];
 
@@ -81,6 +83,7 @@ function getDemoTrips(): { upcomingTrips: UserTripItem[]; pastTrips: UserTripIte
       booking_status: 'active',
       passenger_seats: 1,
       driver_id: 7,
+      rated_by_me: false,
     },
   ];
 

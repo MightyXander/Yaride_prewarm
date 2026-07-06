@@ -142,6 +142,27 @@ export async function archiveOldReadNotificationsById(userId: number): Promise<v
   );
 }
 
+/**
+ * Удалить напоминание «Оцените поездку» по (userId, tripId, rateeId) — issue #354.
+ * Вызывается из handleCreateRating: в success-пути после фиксации оценки (уведомление
+ * больше не нужно) И в 409-пути already_rated (самолечение осиротевших напоминаний,
+ * оставшихся с периода бага — ensureRateRemindersById их не пересоздаст, т.к. рейтинг
+ * уже существует). Точечный аналог deleteNotificationById (:110-117), без id уведомления.
+ */
+export async function deleteRateReminderById(
+  userId: number,
+  tripId: number,
+  rateeId: number,
+): Promise<boolean> {
+  await ensureReady();
+  const res = await getPool().query(
+    `DELETE FROM notifications
+     WHERE user_id = $1 AND type = 'rate_reminder' AND ref_trip_id = $2 AND ref_user_id = $3`,
+    [userId, tripId, rateeId],
+  );
+  return res.rowCount !== null && res.rowCount > 0;
+}
+
 export async function ensureRateRemindersById(userId: number, today: string): Promise<void> {
   await ensureReady();
   await getPool().query(
