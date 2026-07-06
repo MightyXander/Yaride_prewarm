@@ -26,10 +26,10 @@ const PhoneLink: React.FC<PhoneLinkProps> = ({ phone, name }) => {
         display: 'inline-flex',
         alignItems: 'center',
         gap: '6px',
-        minHeight: '36px',
-        padding: '7px 11px',
+        minHeight: '30px',
+        padding: '4px 10px',
         border: '1px solid var(--border)',
-        borderRadius: '10px',
+        borderRadius: '8px',
         background: 'color-mix(in srgb, var(--foreground) 5%, var(--card))',
         color: 'var(--foreground)',
         fontWeight: 700,
@@ -40,7 +40,7 @@ const PhoneLink: React.FC<PhoneLinkProps> = ({ phone, name }) => {
         verticalAlign: 'middle',
       }}
     >
-      <Icon id="i-phone" style={{ width: '14px', height: '14px', color: 'var(--brand)' }} />
+      <Icon id="i-phone" style={{ width: '13px', height: '13px', color: 'var(--brand)' }} />
       {phone}
     </a>
   );
