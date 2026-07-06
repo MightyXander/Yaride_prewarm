@@ -1321,17 +1321,36 @@ export async function handleCreateRating(req: ApiRequest): Promise<ApiResponse> 
     const result = await createRatingById(userId, { tripId, rateeId, stars, tags, comment });
     // Оценка зафиксирована — напоминание «Оцените поездку» больше не нужно (issue #354).
     // ПОСЛЕ транзакции рейтинга (не внутри неё — rollback отменил бы удаление).
-    await deleteRateReminderById(userId, tripId, rateeId);
+    // Best-effort (fix/358): своя try/catch — сбой удаления не должен превращать
+    // уже зафиксированный 201 в 400/500 на клиенте.
+    await deleteRateReminderBestEffort(userId, tripId, rateeId);
     return { status: 201, body: { rating: result } };
   } catch (e) {
     if (e instanceof AlreadyRatedError) {
       // Самолечение осиротевших напоминаний, оставшихся с периода бага #354.
-      await deleteRateReminderById(userId, tripId, rateeId);
+      // Best-effort (fix/358): сбой удаления не должен помешать вернуть 409.
+      await deleteRateReminderBestEffort(userId, tripId, rateeId);
       return err(409, 'Вы уже оценили эту поездку', { code: 'already_rated' });
     }
     const message = e instanceof Error ? e.message : 'Не удалось создать рейтинг';
     const status = message.includes('не найден') ? 404 : 400;
     return err(status, message);
+  }
+}
+
+/**
+ * Обёртка над deleteRateReminderById, гарантирующая best-effort семантику
+ * (fix/358, issue #358 axis 3): без неё сбой удаления напоминания в success-пути
+ * попадал в catch(e) handleCreateRating и подменял уже зафиксированный 201 на
+ * 400/404, а в already_rated-пути — необработанно всплывал до wrap() в server.js
+ * и подменял 409 на 500. Оценка/факт already_rated к этому моменту уже
+ * зафиксированы в БД — ошибка чистки напоминания не должна долетать до клиента.
+ */
+async function deleteRateReminderBestEffort(userId: number, tripId: number, rateeId: number): Promise<void> {
+  try {
+    await deleteRateReminderById(userId, tripId, rateeId);
+  } catch (e) {
+    console.error('Не удалось удалить напоминание об оценке (best-effort):', e instanceof Error ? e.message : e);
   }
 }
 
