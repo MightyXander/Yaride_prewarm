@@ -4,6 +4,7 @@ import Button from '../components/ui/Button';
 import Chip from '../components/ui/Chip';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
+import { EmptyState } from '../components/ui/StateView';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
 import { createRating, getTripParticipants, ApiException } from '../lib/api';
 import { showToast } from '../lib/toast';
@@ -28,6 +29,9 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, onSubmit
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [ratee, setRatee] = useState<TripParticipant | null>(null);
+  // Read-only состояние «Оценка уже оставлена» (issue #354): участник уже оценён
+  // (rated_by_me из /trips/:id/participants) либо повторный сабмит вернул 409 already_rated.
+  const [alreadyRated, setAlreadyRated] = useState(false);
 
   // Определяем, оцениваем водителя (passenger) или пассажира (driver)
   const raterRole = ratingContext?.raterRole || 'passenger';
@@ -50,6 +54,9 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, onSubmit
         if (cancelled) return;
         const found = res.participants.find((p) => p.user_id === rateeId);
         setRatee(found ?? null);
+        if (found?.rated_by_me) {
+          setAlreadyRated(true);
+        }
       })
       .catch((err) => {
         console.error('Ошибка загрузки участников поездки:', err);
@@ -94,7 +101,10 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, onSubmit
       showToast('Оценка отправлена');
       onSubmit?.();
     } catch (err) {
-      if (err instanceof ApiException && err.status === 401) {
+      if (err instanceof ApiException && err.status === 409 && err.details?.code === 'already_rated') {
+        // Гонка/повторный тап — бэкенд отвечает чистым 409, без сырого текста Postgres.
+        setAlreadyRated(true);
+      } else if (err instanceof ApiException && err.status === 401) {
         showToast('В браузере требуется авторизация через Telegram');
       } else {
         showToast(err instanceof Error ? err.message : 'Ошибка при отправке оценки');
@@ -102,6 +112,42 @@ const RateTripScreen: React.FC<RateTripScreenProps> = ({ ratingContext, onSubmit
       setLoading(false);
     }
   };
+
+  // Read-only состояние (issue #354): прошлые звёзды API не возвращает, отдельный
+  // эндпоинт ради них не окупается — вместо формы статичный экран «Оценка уже оставлена».
+  if (alreadyRated) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '6px 16px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+        }}
+      >
+        <Header
+          title="Поездка завершена"
+          rightIcon="i-close"
+          onRightClick={() => {
+            hapticNotify('warning');
+            onClose?.();
+          }}
+        />
+        <EmptyState
+          icon={<Icon id="i-check" style={{ width: '32px', height: '32px' }} />}
+          title="Оценка уже оставлена"
+          subtitle="Вы уже оценили эту поездку — изменить оценку пока нельзя."
+          action={
+            <Button variant="primary" onClick={() => onClose?.()}>
+              Назад
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
   return (
     <div

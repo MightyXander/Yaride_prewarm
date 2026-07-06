@@ -47,6 +47,8 @@ import {
   getTripCard,
   getLatestLicenseRequest,
   createRatingById,
+  AlreadyRatedError,
+  deleteRateReminderById,
   getTripBookings,
   getTripParticipants,
   cancelBookingByDriver,
@@ -1317,8 +1319,16 @@ export async function handleCreateRating(req: ApiRequest): Promise<ApiResponse> 
 
   try {
     const result = await createRatingById(userId, { tripId, rateeId, stars, tags, comment });
+    // Оценка зафиксирована — напоминание «Оцените поездку» больше не нужно (issue #354).
+    // ПОСЛЕ транзакции рейтинга (не внутри неё — rollback отменил бы удаление).
+    await deleteRateReminderById(userId, tripId, rateeId);
     return { status: 201, body: { rating: result } };
   } catch (e) {
+    if (e instanceof AlreadyRatedError) {
+      // Самолечение осиротевших напоминаний, оставшихся с периода бага #354.
+      await deleteRateReminderById(userId, tripId, rateeId);
+      return err(409, 'Вы уже оценили эту поездку', { code: 'already_rated' });
+    }
     const message = e instanceof Error ? e.message : 'Не удалось создать рейтинг';
     const status = message.includes('не найден') ? 404 : 400;
     return err(status, message);

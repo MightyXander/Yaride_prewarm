@@ -290,6 +290,8 @@ export interface UserTripItem {
   booking_status: string | null;
   passenger_seats: number | null;
   driver_id: number | null;
+  /** Уже оценена ли поездка текущим пользователем (issue #354). */
+  rated_by_me: boolean;
 }
 
 export interface GetMyTripsRequest {
@@ -347,6 +349,8 @@ export interface TripParticipant {
   rating: number;
   rating_count: number;
   license_verified: boolean;
+  /** Уже оценил ли текущий пользователь этого участника в этой поездке (issue #354). */
+  rated_by_me: boolean;
 }
 
 export interface GetTripParticipantsResponse {

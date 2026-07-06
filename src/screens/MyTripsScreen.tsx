@@ -215,7 +215,7 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip,
             {trips.map((trip) => {
               const status = getStatusLabel(trip);
               const name = trip.role === 'driver' ? 'Моя поездка' : 'Поездка';
-              const canRate = activeTab === 'past' && trip.driver_id !== null;
+              const canRate = activeTab === 'past' && trip.driver_id !== null && !trip.rated_by_me;
 
               return (
                 <Card

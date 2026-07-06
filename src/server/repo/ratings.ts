@@ -52,6 +52,18 @@ export interface CreateRatingResult {
 }
 
 /**
+ * Повторная оценка той же поездки тем же rater'ом (UNIQUE(trip_id, rater_id, ratee_id),
+ * schema.ts:196) — issue #354. По образцу credentials.ts: 23505 → типизированная ошибка,
+ * api.ts мапит на 409 already_rated вместо сырого текста Postgres.
+ */
+export class AlreadyRatedError extends Error {
+  constructor() {
+    super('already_rated');
+    this.name = 'AlreadyRatedError';
+  }
+}
+
+/**
  * Создать рейтинг после поездки. Оценивающий (rater) — по telegram-id, оцениваемый (ratee)
  * — по внутреннему id. После вставки рейтинга пересчитывается users.rating_avg/rating_count
  * у оцениваемого. UNIQUE(trip_id, rater_id, ratee_id) защищает от дублей.
@@ -96,13 +108,23 @@ export async function createRatingById(
       throw new Error('Оцениваемый пользователь не найден.');
     }
 
-    // Вставить рейтинг
-    const ins = await client.query<{ id: number }>(
-      `INSERT INTO ratings(trip_id, rater_id, ratee_id, stars, tags, comment)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id`,
-      [params.tripId, raterId, params.rateeId, params.stars, params.tags ?? null, params.comment ?? null],
-    );
+    // Вставить рейтинг. 23505 (UNIQUE(trip_id, rater_id, ratee_id)) — повторная оценка,
+    // не сырая ошибка БД наружу (issue #354).
+    let ins: { rows: { id: number }[] };
+    try {
+      ins = await client.query<{ id: number }>(
+        `INSERT INTO ratings(trip_id, rater_id, ratee_id, stars, tags, comment)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id`,
+        [params.tripId, raterId, params.rateeId, params.stars, params.tags ?? null, params.comment ?? null],
+      );
+    } catch (e) {
+      const pgErr = e as { code?: string };
+      if (pgErr.code === '23505') {
+        throw new AlreadyRatedError();
+      }
+      throw e;
+    }
 
     // Пересчитать агрегаты у ratee
     const aggRes = await client.query<{ avg: number; cnt: number }>(
