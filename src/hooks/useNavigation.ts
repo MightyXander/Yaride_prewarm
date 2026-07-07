@@ -19,7 +19,6 @@ const PARENT_SCREEN: Record<Screen, Screen> = {
   // «Назад» со статусного экрана ВУ ведёт в профиль (а не в форму ввода ВУ).
   // Повторная подача заявки — через явную кнопку «Отправить заново» (onRetry).
   'license-review': 'profile',
-  'in-trip': 'booking-confirmed',
   safety: 'profile',
   'passenger-request': 'empty-state',
   'request-published': 'empty-state',
@@ -64,7 +63,6 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       profile: 0,
       'become-driver': 0,
       'license-review': 0,
-      'in-trip': 0,
       safety: 0,
       'passenger-request': 0,
       'request-published': 0,

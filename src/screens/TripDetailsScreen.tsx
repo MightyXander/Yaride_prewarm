@@ -8,6 +8,8 @@ import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import PhoneLink from '../components/PhoneLink';
 import { showToast } from '../lib/toast';
+import { hapticNotify } from '../lib/haptics';
+import { shareToTelegram, buildTripDeepLink } from '../lib/share';
 import { Appear } from '../components/Appear';
 import BookingCard from '../components/BookingCard';
 import BookingSpotlight from '../components/BookingSpotlight';
@@ -106,6 +108,9 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
   const memberSince = trip.driver.memberSince || 'мая 2026';
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // Двухшаговый arm/confirm для SOS (перенесено из удалённого InTripScreen,
+  // issue #361): страхует от случайного вызова 112 при обычном тапе.
+  const [sosArmed, setSosArmed] = useState(false);
 
   // Участники поездки («Кто едет») — для пассажира с активной бронью на чужую
   // поездку. Для своей поездки (isOwn) этот раздел заменяет секция «Брони»
@@ -294,6 +299,31 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
   const handleConfirmCancel = () => {
     setCancelling(true);
     onCancelTrip?.();
+  };
+
+  // «Поделиться» (issue #361): та же Telegram-шеринг-петля, что и share.ts для
+  // заявок пассажира (buildAlertDeepLink), только на конкретную поездку.
+  const handleShareTrip = () => {
+    hapticNotify('success');
+    const from = trip.route?.from || `Брагино, ${trip.address}`;
+    const to = trip.route?.to || 'Центр, пл. Волкова';
+    shareToTelegram(
+      `Еду ${from} → ${to}, выезд ${trip.time}. Присоединяйся в Yaride!`,
+      buildTripDeepLink(Number(trip.id)),
+    );
+  };
+
+  // SOS с двухшаговым arm/confirm (перенесено из InTripScreen): 1-й тап — предупреждение
+  // с haptic 'warning', 2-й тап — реальный звонок 112 с haptic 'error'.
+  const handleSosClick = () => {
+    if (sosArmed) {
+      hapticNotify('error');
+      window.location.href = 'tel:112';
+      setSosArmed(false);
+      return;
+    }
+    hapticNotify('warning');
+    setSosArmed(true);
   };
 
   const handleAvatarClick = (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -711,9 +741,74 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
             >
               Забронировать место
             </Button>
-            <Button variant="ghost" icon="i-share" style={{ minHeight: '44px' }}>
-              Поделиться поездкой
+          </>
+        )}
+        {/* Поделиться + SOS (issue #361, перенесено из удалённого InTripScreen) —
+            только на актуальном (не прошедшем) своём/забронированном рейсе: на
+            чужом непросмотренном/незабронированном и на прошедшем рейсе шеринг
+            и SOS бессмысленны. */}
+        {!isPast && (trip.isOwn || trip.booked) && (
+          <>
+            <Button variant="ghost" icon="i-share" onClick={handleShareTrip} style={{ minHeight: '44px' }}>
+              Поделиться
             </Button>
+            <button
+              type="button"
+              className="focus-ring pressable"
+              aria-label={sosArmed ? 'Подтвердить вызов помощи' : 'Кнопка SOS — вызвать помощь'}
+              onClick={handleSosClick}
+              style={{
+                minHeight: '60px',
+                padding: '12px 16px',
+                borderRadius: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                fontWeight: 800,
+                fontSize: '16px',
+                letterSpacing: '0.01em',
+                border: 'none',
+                background: 'var(--gradient-danger)',
+                color: 'var(--danger-foreground)',
+                boxShadow: 'var(--shadow-danger)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              <Icon id="i-sos" style={{ width: '22px', height: '22px', strokeWidth: 2.2 }} />
+              {sosArmed ? 'Нажми ещё раз — вызвать 112' : 'SOS — вызвать помощь'}
+            </button>
+            {sosArmed && (
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--muted-foreground)',
+                  textAlign: 'center',
+                  lineHeight: 1.4,
+                }}
+              >
+                Позвоним 112 и отправим геопозицию доверенному контакту.{' '}
+                <button
+                  type="button"
+                  className="focus-ring"
+                  onClick={() => setSosArmed(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--foreground)',
+                    fontWeight: 700,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    fontFamily: 'var(--font-sans)',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Отмена
+                </button>
+              </div>
+            )}
           </>
         )}
         </div>

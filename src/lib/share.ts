@@ -21,6 +21,17 @@ export function buildAlertDeepLink(alertId?: number | null): string {
   return alertId != null ? `${base}?startapp=alert-${alertId}` : base;
 }
 
+/**
+ * Deep-link на карточку конкретной поездки — та же схема startapp=trip-<id>,
+ * что уже понимает useStartParam (префикс 'trip-') и что шлют push-уведомления
+ * водителю (server/notify.ts). Используется для «Поделиться поездкой» из
+ * TripDetailsScreen (issue #361).
+ */
+export function buildTripDeepLink(tripId: number): string {
+  const base = `https://t.me/${BOT_USERNAME}/${MINIAPP_SHORT_NAME}`;
+  return `${base}?startapp=trip-${tripId}`;
+}
+
 /** Открывает нативный Telegram-шит "поделиться" с готовым текстом и ссылкой. */
 export function shareToTelegram(text: string, url: string): void {
   const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;

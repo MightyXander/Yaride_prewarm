@@ -14,7 +14,6 @@ export type Screen =
   | 'profile'
   | 'become-driver'
   | 'license-review'
-  | 'in-trip'
   | 'safety'
   | 'passenger-request'
   | 'request-published'
