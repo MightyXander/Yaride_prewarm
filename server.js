@@ -362,6 +362,16 @@ app.get('/offer', (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'dist')));
 
+// Issue #371: SPA-фолбэк для десктоп-браузера. express.static выше уже отдал
+// бы реально существующий файл статики; сюда falls через только запросы,
+// которые не нашли соответствия — прямой заход/рефреш на клиентском роуте
+// React (например /trip/123) не должен давать 404. НЕ перехватываем /api/*,
+// /webhook/*, /health — они уже обработаны своими роутами выше и здесь
+// должны падать в обычное 404 Express, если не совпали ни с чем.
+app.get(/^(?!\/api|\/webhook|\/health).*$/, (req, res) => {
+  res.sendFile('index.html', { root: path.join(__dirname, 'dist') });
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

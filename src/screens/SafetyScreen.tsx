@@ -10,6 +10,8 @@ import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
 import { fetchSafety, DEFAULT_SAFETY } from '../lib/screenFetchers';
 import type { GetMySafetyResponse } from '../types/api';
 import { showToast } from '../lib/toast';
+import { hapticNotify } from '../lib/haptics';
+import { isTelegramContext } from '../lib/auth';
 
 const sectionLabelStyle: React.CSSProperties = {
   fontSize: '12px',
@@ -335,8 +337,18 @@ const SafetyScreen: React.FC = () => {
           <Button
             variant="secondary"
             onClick={() => {
-              window.Telegram?.WebApp?.showAlert?.('Функция появится в следующих версиях');
-              window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('warning');
+              const message = 'Функция появится в следующих версиях';
+              // Скрипт telegram-web-app.js подключён в index.html всегда, поэтому
+              // window.Telegram.WebApp.showAlert существует и в обычном браузере,
+              // но там некому его показать (нет моста к клиенту Telegram) — кнопка
+              // молчала. isTelegramContext() (issue #371) отличает реальный
+              // Telegram-клиент от браузера по platform/initData.
+              if (isTelegramContext()) {
+                window.Telegram?.WebApp?.showAlert?.(message);
+              } else {
+                showToast(message);
+              }
+              hapticNotify('warning');
             }}
             style={{ minHeight: '40px', padding: '6px 14px', flexShrink: 0 }}
           >
