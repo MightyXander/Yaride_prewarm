@@ -17,6 +17,7 @@ import {
 } from '../lib/screenFetchers';
 import type { Car } from '../types/api';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
+import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 
 interface ProfileScreenProps {
   onBecomeDriver: () => void;
@@ -219,6 +220,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
         gap: '12px',
       }}
     >
+      {/* Десктоп (>=900px): центрированная читаемая колонка ~720px вместо растяжения
+          на всю ширину десктоп-оболочки; мобиль/Telegram — passthrough (issue #377, эпик #364). */}
+      <ResponsiveColumn maxWidth={720} style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
       <Header title="Профиль" />
 
       {/* Карточка профиля */}
@@ -334,6 +338,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
           </Button>
         )}
       </div>
+      </ResponsiveColumn>
 
       <ThemeModeSheet
         open={themeSheetOpen}

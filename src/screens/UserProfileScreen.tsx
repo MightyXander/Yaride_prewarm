@@ -7,6 +7,7 @@ import Chip from '../components/ui/Chip';
 import { Skeleton } from '../components/ui/Skeleton';
 import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
+import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 import { getUserProfile, getUserReviews } from '../lib/api';
 import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
 import type { PublicUserProfile, UserReview } from '../types/api';
@@ -149,6 +150,9 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
         gap: '12px',
       }}
     >
+      {/* Десктоп (>=900px): центрированная читаемая колонка ~720px вместо растяжения
+          на всю ширину десктоп-оболочки; мобиль/Telegram — passthrough (issue #377, эпик #364). */}
+      <ResponsiveColumn maxWidth={720} style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
       <Header title="Профиль" />
 
       {/* Шапка профиля */}
@@ -386,6 +390,7 @@ const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, on
         )}
       </div>
       )}
+      </ResponsiveColumn>
     </div>
   );
 };

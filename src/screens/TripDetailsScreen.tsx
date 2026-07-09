@@ -14,6 +14,7 @@ import { Appear } from '../components/Appear';
 import BookingCard from '../components/BookingCard';
 import BookingSpotlight from '../components/BookingSpotlight';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
+import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 import {
   getTripParticipants,
   getTripBookings,
@@ -346,6 +347,12 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
         gap: '12px',
       }}
     >
+      {/* Десктоп (>=900px): центрированная читаемая колонка ~720px вместо растяжения
+          на всю ширину десктоп-оболочки; мобиль/Telegram — passthrough (issue #377, эпик
+          #364). Оборачиваем ВНУТРИ внешнего scroll/clearance-контейнера (padding с
+          FLOATING_NAV_SCROLL_CLEARANCE выше) — сетка броней, Поделиться/SOS и сам
+          контейнер не трогаем. */}
+      <ResponsiveColumn maxWidth={720} style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
       <Header title={`Поездка ${trip.time}`} />
 
       <Appear delay={0}>
@@ -813,6 +820,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
         )}
         </div>
       </Appear>
+      </ResponsiveColumn>
     </div>
   );
 };
