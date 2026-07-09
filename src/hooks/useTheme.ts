@@ -59,6 +59,12 @@ export function useTheme() {
   // (portaled-элементы ThemeToggle/BackButton/FloatingNav/ToastHost тоже их видят).
   useEffect(() => {
     document.documentElement.className = theme;
+    // Снимаем anti-FOUC инлайн-фон (#0f0f12) из index.html — после применения
+    // класса темы фоном должна управлять CSS-переменная --background, иначе
+    // зарезервированный gutter скроллбара (scrollbar-gutter: stable) остаётся
+    // чёрным поверх любой темы (#381).
+    document.documentElement.style.backgroundColor = '';
+    document.body.style.backgroundColor = '';
   }, [theme]);
 
   // Подписка на авто-источник: влияет на тему только в режиме 'system'
