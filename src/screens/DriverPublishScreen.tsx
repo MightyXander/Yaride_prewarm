@@ -15,6 +15,7 @@ import { getMyTemplate, publishTrip, ApiException, getRoutePoints, getMyCars } f
 import { showToast } from '../lib/toast';
 import { localDateStr, validateDeparture, DEPARTURE_ERROR_MESSAGES } from '../lib/dateLocal';
 import { Appear } from '../components/Appear';
+import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 import type { SelectOption } from '../components/ui/Select';
 import type { GetMyTemplateResponse, RoutePoint, Car } from '../types/api';
 import type { PublishedTripSummary } from '../types/navigation';
@@ -327,6 +328,9 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
         gap: '12px',
       }}
     >
+      {/* Десктоп (>=900px): центрированная читаемая колонка ~520px вместо растяжения
+          на всю ширину десктоп-оболочки; мобиль/Telegram — passthrough (issue #375, эпик #364). */}
+      <ResponsiveColumn maxWidth={520} style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
       <Header title={title} />
 
       <AnimatePresence mode="wait">
@@ -809,6 +813,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
           </Appear>
         )}
       </AnimatePresence>
+      </ResponsiveColumn>
     </div>
   );
 };

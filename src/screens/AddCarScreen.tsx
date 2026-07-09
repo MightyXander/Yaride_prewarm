@@ -7,6 +7,7 @@ import { addCar, ApiException } from '../lib/api';
 import { showToast } from '../lib/toast';
 import { hapticSelection } from '../lib/haptics';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
+import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 import { getScreenData, setScreenData } from '../lib/screenDataCache';
 import type { Car } from '../types/api';
 
@@ -138,6 +139,9 @@ const AddCarScreen: React.FC<AddCarScreenProps> = ({ onSaved }) => {
         gap: '14px',
       }}
     >
+      {/* Десктоп (>=900px): центрированная читаемая колонка ~520px вместо растяжения
+          на всю ширину десктоп-оболочки; мобиль/Telegram — passthrough (issue #375, эпик #364). */}
+      <ResponsiveColumn maxWidth={520} style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1 }}>
       <Header title="Добавить машину" />
 
       <div>
@@ -185,6 +189,7 @@ const AddCarScreen: React.FC<AddCarScreenProps> = ({ onSaved }) => {
           {saving ? 'Сохраняем…' : 'Сохранить машину'}
         </Button>
       </div>
+      </ResponsiveColumn>
     </div>
   );
 };

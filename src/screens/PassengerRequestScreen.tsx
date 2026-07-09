@@ -7,6 +7,7 @@ import { LoadErrorState } from '../components/ui/StateView';
 import type { SelectOption } from '../components/ui/Select';
 import { Skeleton } from '../components/ui/Skeleton';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
+import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
 import { createAlert, getRoutePoints } from '../lib/api';
 import { ApiException } from '../lib/api';
@@ -208,6 +209,9 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
         gap: '12px',
       }}
     >
+      {/* Десктоп (>=900px): центрированная читаемая колонка ~520px вместо растяжения
+          на всю ширину десктоп-оболочки; мобиль/Telegram — passthrough (issue #375, эпик #364). */}
+      <ResponsiveColumn maxWidth={520} style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
       <Header title="Оставить заявку" />
 
       <div style={{ fontSize: '15px', color: 'var(--muted-foreground)' }}>
@@ -481,6 +485,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
           Пришлём пуш, как только кто-то откликнется
         </div>
       </div>
+      </ResponsiveColumn>
     </div>
   );
 };
