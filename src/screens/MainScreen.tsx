@@ -9,6 +9,7 @@ import EmptyTripsState from '../components/EmptyTripsState';
 import ErrorTripsState from '../components/ErrorTripsState';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { AppearList } from '../components/Appear';
+import { useResponsiveCardGridStyle } from '../components/ui/ResponsiveCardGrid';
 import type { Trip } from '../types/navigation';
 import type { UserRole } from '../lib/role';
 import { formatSubtitle } from '../lib/date';
@@ -49,6 +50,10 @@ const MainScreen: React.FC<MainScreenProps> = ({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const prefersReduced = useReducedMotion();
   const { profile } = useProfile();
+  // Десктоп (issue #367): список поездок — адаптивная сетка (несколько колонок),
+  // на мобиле/Telegram — прежняя одна колонка. Переиспользуемый паттерн см.
+  // src/components/ui/ResponsiveCardGrid.tsx.
+  const tripGridStyle = useResponsiveCardGridStyle();
 
   // Кнопку «Создать поездку» показываем водителю. Источник истины — серверный
   // статус ВУ (license_status==='verified'), а не только localStorage-роль:
@@ -128,7 +133,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                 onPublish={onPublish}
                 showPublish={canPublish}
               />
-              <AppearList stagger={40} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <AppearList stagger={40} style={{ flexShrink: 0, ...tripGridStyle }}>
                 {trips.map((trip, index) => (
                   <TripCard
                     key={trip.id}
