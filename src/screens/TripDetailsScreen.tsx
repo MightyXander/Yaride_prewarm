@@ -14,7 +14,9 @@ import { Appear } from '../components/Appear';
 import BookingCard from '../components/BookingCard';
 import BookingSpotlight from '../components/BookingSpotlight';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
-import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
+import { ResponsiveTwoColumn } from '../components/ui/ResponsiveTwoColumn';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { DESKTOP_BREAKPOINT } from '../lib/layout';
 import {
   getTripParticipants,
   getTripBookings,
@@ -104,6 +106,11 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
   bookingFocusUserId,
   onClearBookingFocus,
 }) => {
+  // Десктоп (>=900px, issue #383, эпик #364): 2 колонки — контент + липкий aside с
+  // действиями/сводкой мест, через ResponsiveTwoColumn. Мобиль/Telegram — одна колонка,
+  // как раньше (примитив уже возвращает passthrough сам, здесь флаг нужен только для
+  // локального решения — заворачивать ли aside-действия в Card и показывать ли сводку мест).
+  const isDesktop = useMediaQuery(DESKTOP_BREAKPOINT);
   const age = trip.driver.age || 34;
   const verified = trip.driver.verified !== false;
   const memberSince = trip.driver.memberSince || 'мая 2026';
@@ -336,6 +343,174 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
     }
   };
 
+  // Кнопки действий (Отменить/Забронировать + Поделиться/SOS) — извлечены в
+  // переменную, чтобы переиспользовать один-в-один и в мобильном aside-слоте
+  // (одна колонка), и в десктопном (issue #383, эпик #364). Логика/состояния/
+  // обработчики не менялись — только вынесены из инлайн-JSX.
+  const actionButtons = (
+    <>
+      {trip.isOwn ? (
+        // Прошедшую/завершённую поездку отменять нельзя — действие скрыто.
+        isPast ? null : confirmingCancel ? (
+          <>
+            <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', lineHeight: 1.5 }}>
+              Отменить поездку? Все брони будут сняты, пассажиры получат уведомление.
+            </div>
+            <Button
+              variant="primary"
+              onClick={handleConfirmCancel}
+              disabled={cancelling}
+              style={{ background: 'var(--destructive)', color: '#ffffff' }}
+            >
+              {cancelling ? 'Отменяем…' : 'Да, отменить поездку'}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirmingCancel(false)} disabled={cancelling} style={{ minHeight: '44px' }}>
+              Не отменять
+            </Button>
+          </>
+        ) : (
+          <Button
+            variant="ghost"
+            onClick={() => setConfirmingCancel(true)}
+            style={{ minHeight: '48px', color: 'var(--destructive)', fontWeight: 700 }}
+          >
+            Отменить поездку
+          </Button>
+        )
+      ) : (
+        <>
+          <Button
+            variant="primary"
+            onClick={handleBook}
+            style={{
+              ...(trip.booked && {
+                opacity: 0.5,
+                background: 'var(--muted)',
+                color: 'var(--muted-foreground)',
+                cursor: 'not-allowed',
+              }),
+            }}
+          >
+            Забронировать место
+          </Button>
+        </>
+      )}
+      {/* Поделиться + SOS (issue #361, перенесено из удалённого InTripScreen) —
+          только на актуальном (не прошедшем) своём/забронированном рейсе: на
+          чужом непросмотренном/незабронированном и на прошедшем рейсе шеринг
+          и SOS бессмысленны. */}
+      {!isPast && (trip.isOwn || trip.booked) && (
+        <>
+          <Button variant="ghost" icon="i-share" onClick={handleShareTrip} style={{ minHeight: '44px' }}>
+            Поделиться
+          </Button>
+          <button
+            type="button"
+            className="focus-ring pressable"
+            aria-label={sosArmed ? 'Подтвердить вызов помощи' : 'Кнопка SOS — вызвать помощь'}
+            onClick={handleSosClick}
+            style={{
+              minHeight: '60px',
+              padding: '12px 16px',
+              borderRadius: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              fontWeight: 800,
+              fontSize: '16px',
+              letterSpacing: '0.01em',
+              border: 'none',
+              background: 'var(--gradient-danger)',
+              color: 'var(--danger-foreground)',
+              boxShadow: 'var(--shadow-danger)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            <Icon id="i-sos" style={{ width: '22px', height: '22px', strokeWidth: 2.2 }} />
+            {sosArmed ? 'Нажми ещё раз — вызвать 112' : 'SOS — вызвать помощь'}
+          </button>
+          {sosArmed && (
+            <div
+              style={{
+                fontSize: '12px',
+                color: 'var(--muted-foreground)',
+                textAlign: 'center',
+                lineHeight: 1.4,
+              }}
+            >
+              Позвоним 112 и отправим геопозицию доверенному контакту.{' '}
+              <button
+                type="button"
+                className="focus-ring"
+                onClick={() => setSosArmed(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--foreground)',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  fontFamily: 'var(--font-sans)',
+                  textDecoration: 'underline',
+                }}
+              >
+                Отмена
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+
+  // Сводка мест (issue #383): компактная строка «занято X из Y» в десктопном
+  // aside — те же уже посчитанные takenSeats/totalSeats/seatsLeft, что и в
+  // заголовке карточки «Брони» (main-слот), никакой новой логики/данных.
+  const seatsSummary = trip.isOwn ? (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '10px 14px',
+        borderRadius: '14px',
+        background: 'var(--secondary)',
+        fontSize: '13px',
+        fontWeight: 700,
+      }}
+    >
+      <span style={{ color: 'var(--muted-foreground)', fontWeight: 600 }}>Занято мест</span>
+      <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+        {takenSeats} из {totalSeats}
+      </span>
+    </div>
+  ) : null;
+
+  // Aside-контент действий: на десктопе — карточка (Card) со сводкой мест сверху
+  // действий, липнет через ResponsiveTwoColumn; на мобиле — прежний неоформленный
+  // блок, прижатый книзу через marginTop:'auto' (issue #383, эпик #364).
+  const asideContent = isDesktop ? (
+    <Card style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+      {seatsSummary}
+      {actionButtons}
+    </Card>
+  ) : (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '9px',
+        marginTop: 'auto',
+        paddingTop: '6px',
+      }}
+    >
+      {actionButtons}
+    </div>
+  );
+
   return (
     <div
       style={{
@@ -347,14 +522,19 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
         gap: '12px',
       }}
     >
-      {/* Десктоп (>=900px): центрированная читаемая колонка ~720px вместо растяжения
-          на всю ширину десктоп-оболочки; мобиль/Telegram — passthrough (issue #377, эпик
-          #364). Оборачиваем ВНУТРИ внешнего scroll/clearance-контейнера (padding с
-          FLOATING_NAV_SCROLL_CLEARANCE выше) — сетка броней, Поделиться/SOS и сам
-          контейнер не трогаем. */}
-      <ResponsiveColumn maxWidth={720} style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
       <Header title={`Поездка ${trip.time}`} />
 
+      {/* Десктоп (>=900px, issue #383, эпик #364): 2 колонки — main (карточка
+          водителя/маршрут/детали/банер/брони) + липкий aside (действия +
+          сводка мест), через ResponsiveTwoColumn. Мобиль/Telegram — прежняя
+          одна колонка (main, затем aside), passthrough внутри примитива.
+          Оборачиваем ВНУТРИ внешнего scroll/clearance-контейнера (padding с
+          FLOATING_NAV_SCROLL_CLEARANCE выше) — сам контейнер не трогаем. */}
+      <ResponsiveTwoColumn
+        style={{ flex: 1 }}
+        aside={<Appear delay={150}>{asideContent}</Appear>}
+        main={
+          <>
       <Appear delay={0}>
         <Card
         style={{
@@ -693,134 +873,9 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
       {spotlightBooking && spotlightRect && (
         <BookingSpotlight booking={spotlightBooking} rect={spotlightRect} onDone={handleSpotlightDone} />
       )}
-
-      <Appear delay={150}>
-        <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '9px',
-          marginTop: 'auto',
-          paddingTop: '6px',
-        }}
-      >
-        {trip.isOwn ? (
-          // Прошедшую/завершённую поездку отменять нельзя — действие скрыто.
-          isPast ? null : confirmingCancel ? (
-            <>
-              <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', lineHeight: 1.5 }}>
-                Отменить поездку? Все брони будут сняты, пассажиры получат уведомление.
-              </div>
-              <Button
-                variant="primary"
-                onClick={handleConfirmCancel}
-                disabled={cancelling}
-                style={{ background: 'var(--destructive)', color: '#ffffff' }}
-              >
-                {cancelling ? 'Отменяем…' : 'Да, отменить поездку'}
-              </Button>
-              <Button variant="ghost" onClick={() => setConfirmingCancel(false)} disabled={cancelling} style={{ minHeight: '44px' }}>
-                Не отменять
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="ghost"
-              onClick={() => setConfirmingCancel(true)}
-              style={{ minHeight: '48px', color: 'var(--destructive)', fontWeight: 700 }}
-            >
-              Отменить поездку
-            </Button>
-          )
-        ) : (
-          <>
-            <Button
-              variant="primary"
-              onClick={handleBook}
-              style={{
-                ...(trip.booked && {
-                  opacity: 0.5,
-                  background: 'var(--muted)',
-                  color: 'var(--muted-foreground)',
-                  cursor: 'not-allowed',
-                }),
-              }}
-            >
-              Забронировать место
-            </Button>
           </>
-        )}
-        {/* Поделиться + SOS (issue #361, перенесено из удалённого InTripScreen) —
-            только на актуальном (не прошедшем) своём/забронированном рейсе: на
-            чужом непросмотренном/незабронированном и на прошедшем рейсе шеринг
-            и SOS бессмысленны. */}
-        {!isPast && (trip.isOwn || trip.booked) && (
-          <>
-            <Button variant="ghost" icon="i-share" onClick={handleShareTrip} style={{ minHeight: '44px' }}>
-              Поделиться
-            </Button>
-            <button
-              type="button"
-              className="focus-ring pressable"
-              aria-label={sosArmed ? 'Подтвердить вызов помощи' : 'Кнопка SOS — вызвать помощь'}
-              onClick={handleSosClick}
-              style={{
-                minHeight: '60px',
-                padding: '12px 16px',
-                borderRadius: '18px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '10px',
-                fontWeight: 800,
-                fontSize: '16px',
-                letterSpacing: '0.01em',
-                border: 'none',
-                background: 'var(--gradient-danger)',
-                color: 'var(--danger-foreground)',
-                boxShadow: 'var(--shadow-danger)',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
-              <Icon id="i-sos" style={{ width: '22px', height: '22px', strokeWidth: 2.2 }} />
-              {sosArmed ? 'Нажми ещё раз — вызвать 112' : 'SOS — вызвать помощь'}
-            </button>
-            {sosArmed && (
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: 'var(--muted-foreground)',
-                  textAlign: 'center',
-                  lineHeight: 1.4,
-                }}
-              >
-                Позвоним 112 и отправим геопозицию доверенному контакту.{' '}
-                <button
-                  type="button"
-                  className="focus-ring"
-                  onClick={() => setSosArmed(false)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--foreground)',
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    padding: '2px 4px',
-                    fontFamily: 'var(--font-sans)',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  Отмена
-                </button>
-              </div>
-            )}
-          </>
-        )}
-        </div>
-      </Appear>
-      </ResponsiveColumn>
+        }
+      />
     </div>
   );
 };
