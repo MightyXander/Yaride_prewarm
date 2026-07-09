@@ -11,6 +11,7 @@ import { showToast } from '../lib/toast';
 import { Appear } from '../components/Appear';
 import BookingCard from '../components/BookingCard';
 import BookingSpotlight from '../components/BookingSpotlight';
+import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import {
   getTripParticipants,
   getTripBookings,
@@ -37,19 +38,38 @@ interface TripDetailsScreenProps {
 const plateBadgeStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  height: '19px',
-  padding: '0 7px',
+  height: '24px',
+  padding: '0 9px',
   gap: '3px',
   border: '1px solid var(--border)',
-  borderRadius: '4px',
+  borderRadius: '6px',
   background: 'color-mix(in srgb, var(--foreground) 6%, var(--card))',
   fontWeight: 800,
-  fontSize: '11px',
+  fontSize: '13px',
   letterSpacing: '0.03em',
   color: 'var(--foreground)',
   fontVariantNumeric: 'tabular-nums',
   verticalAlign: 'middle',
 };
+
+// Строка «label — значение» в карточке маршрута: фиксированная колонка подписи
+// выравнивает все значения (номер, телефон, бензин) в один столбец.
+const infoLabelStyle: React.CSSProperties = {
+  minWidth: '76px',
+  flexShrink: 0,
+  color: 'var(--muted-foreground)',
+};
+
+const InfoRow: React.FC<{ label: string; align?: 'center' | 'baseline'; children: React.ReactNode }> = ({
+  label,
+  align = 'center',
+  children,
+}) => (
+  <div style={{ display: 'flex', gap: '12px', alignItems: align }}>
+    <span style={infoLabelStyle}>{label}</span>
+    <span style={{ flex: 1, minWidth: 0 }}>{children}</span>
+  </div>
+);
 
 /** Замазанный номер: бэйдж с «шумной» серой цензурой (квадраты разной плотности). */
 const CensoredPlate: React.FC = () => {
@@ -63,7 +83,7 @@ const CensoredPlate: React.FC = () => {
           aria-hidden
           style={{
             width: '6px',
-            height: '11px',
+            height: '13px',
             borderRadius: '1.5px',
             background: `color-mix(in srgb, var(--muted-foreground) ${Math.round(o * 100)}%, transparent)`,
           }}
@@ -290,7 +310,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: '6px 16px 16px',
+        padding: `6px 16px ${FLOATING_NAV_SCROLL_CLEARANCE}`,
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
@@ -401,51 +421,59 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
         <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
         <div
           style={{
-            fontSize: '14px',
-            color: 'var(--muted-foreground)',
-            marginTop: '9px',
-            lineHeight: 1.5,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '13px',
+            marginTop: '13px',
+            fontSize: '15px',
           }}
         >
-          Выезд&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>{weekday ? `${weekday}, ` : ''}{trip.time}</b>
-          <br />
+          <InfoRow label="Выезд">
+            <b style={{ color: 'var(--foreground)', fontWeight: 700 }}>{weekday ? `${weekday}, ` : ''}{trip.time}</b>
+          </InfoRow>
           {trip.car && (
-            <>
-              Машина&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>{trip.car}{trip.carColor ? `, ${trip.carColor}` : ''}</b>
-              <br />
-            </>
+            <InfoRow label="Машина">
+              <b
+                style={{
+                  color: 'var(--foreground)',
+                  fontWeight: 700,
+                  display: 'block',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {trip.car}{trip.carColor ? `, ${trip.carColor}` : ''}
+              </b>
+            </InfoRow>
           )}
           {(trip.plate || trip.plateLocked) && (
-            <>
-              Номер&nbsp;&nbsp;
+            <InfoRow label="Номер">
               {trip.plate ? (
                 <span style={plateBadgeStyle}>{trip.plate}</span>
               ) : (
-                <>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                   <CensoredPlate />
-                  <span style={{ color: 'var(--muted-foreground)', fontSize: '12px' }}>
-                    &nbsp;&nbsp;откроется после бронирования
-                  </span>
-                </>
+                  <span style={{ color: 'var(--muted-foreground)', fontSize: '13px' }}>откроется после бронирования</span>
+                </span>
               )}
-              <br />
-            </>
+            </InfoRow>
           )}
           {(trip.driverPhone || trip.driverPhoneLocked) && (
-            <>
-              Телефон&nbsp;&nbsp;
+            <InfoRow label="Телефон">
               {trip.driverPhone ? (
                 <PhoneLink phone={trip.driverPhone} name={trip.driver.name} />
               ) : (
-                <span style={{ color: 'var(--muted-foreground)', fontSize: '12px' }}>
+                <span style={{ color: 'var(--muted-foreground)', fontSize: '13px' }}>
                   станет виден после подтверждения брони
                 </span>
               )}
-              <br />
-            </>
+            </InfoRow>
           )}
-          Бензин&nbsp;&nbsp;<b style={{ color: 'var(--foreground)', fontWeight: 700 }}>≈ {trip.price} ₽</b>{' '}
-          <span style={{ color: 'var(--muted-foreground)' }}>(пополам · не оплата)</span>
+          <InfoRow label="Бензин" align="baseline">
+            <b style={{ color: 'var(--foreground)', fontWeight: 700 }}>≈ {trip.price} ₽</b>{' '}
+            <span style={{ color: 'var(--muted-foreground)', fontSize: '13px' }}>(пополам · не оплата)</span>
+          </InfoRow>
         </div>
         </Card>
       </Appear>
@@ -600,13 +628,15 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
             </div>
             {loadingBookings && bookings.length === 0 ? (
               <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Загрузка…</div>
-            ) : bookings.length === 0 ? (
+            ) : activeBookings.length === 0 ? (
+              // Отклонённые водителем и отменённые пассажиром брони не показываем —
+              // в списке только активные (issue: чистим «Брони» от cancelled).
               <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', padding: '12px 0' }}>
                 Пока нет броней
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {bookings.map((b) => (
+                {activeBookings.map((b) => (
                   <BookingCard
                     key={b.booking_id}
                     booking={b}
