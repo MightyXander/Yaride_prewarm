@@ -13,6 +13,7 @@ import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
 import { fetchMyAlerts } from '../lib/screenFetchers';
 import type { MyAlertItem } from '../types/api';
 import { Appear, AppearList } from '../components/Appear';
+import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 
 interface MyAlertsScreenProps {
   /** Перейти к форме создания заявки (пустой список → «Оставить заявку»). */
@@ -69,135 +70,138 @@ const MyAlertsScreen: React.FC<MyAlertsScreenProps> = ({ onCreateAlert }) => {
         padding: `6px 16px ${FLOATING_NAV_SCROLL_CLEARANCE}`,
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px',
       }}
     >
-      <Header title="Мои заявки" />
+      {/* Десктоп (>=900px): центрированная читаемая колонка ~640px вместо растяжения
+          на всю ширину десктоп-оболочки (1100px); мобиль/Telegram — passthrough (issue #373). */}
+      <ResponsiveColumn style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+        <Header title="Мои заявки" />
 
-      <AnimatePresence mode="wait">
-        {loading ? (
-          showSkeleton ? (
-            <Appear key="loading-skeleton" instant>
-              <>
-                {[1, 2].map((i) => (
-                  <Card key={i} style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '110px', marginBottom: '12px' }}>
-                    <Skeleton h={16} w="50%" r={8} />
-                    <Skeleton h={14} w="90%" r={7} />
-                    <Skeleton h={14} w="90%" r={7} />
-                  </Card>
-                ))}
-              </>
+        <AnimatePresence mode="wait">
+          {loading ? (
+            showSkeleton ? (
+              <Appear key="loading-skeleton" instant>
+                <>
+                  {[1, 2].map((i) => (
+                    <Card key={i} style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '110px', marginBottom: '12px' }}>
+                      <Skeleton h={16} w="50%" r={8} />
+                      <Skeleton h={14} w="90%" r={7} />
+                      <Skeleton h={14} w="90%" r={7} />
+                    </Card>
+                  ))}
+                </>
+              </Appear>
+            ) : null
+          ) : error ? (
+            <Appear key="error" animateKey="error">
+              <LoadErrorState onRetry={() => { void refetch(); }} />
             </Appear>
-          ) : null
-        ) : error ? (
-          <Appear key="error" animateKey="error">
-            <LoadErrorState onRetry={() => { void refetch(); }} />
-          </Appear>
-        ) : alerts.length === 0 ? (
-          <Appear key="empty" animateKey="empty">
-            <EmptyState
-              icon={<Icon id="i-bell" style={{ width: '32px', height: '32px', strokeWidth: 1.6 }} />}
-              title="Активных заявок нет"
-              subtitle="Оставь заявку на маршрут — как только водитель опубликует подходящую поездку, ты узнаешь."
-            />
-          </Appear>
-        ) : (
-          <AppearList key="alerts" animateKey="alerts" stagger={40} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {alerts.map((alert) => {
-              const isCancelling = cancellingId === alert.id;
-              return (
-                <Card key={alert.id} style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
-                  <div
-                    style={{
-                      fontWeight: 800,
-                      fontSize: '16px',
-                      letterSpacing: '-0.02em',
-                      fontVariantNumeric: 'tabular-nums',
-                    }}
-                  >
-                    {formatAlertDate(alert.desiredDate, alert.desiredTime)}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '24px', fontSize: '15px', fontWeight: 600 }}>
-                      <RouteDot filled />
-                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {alert.fromTitle}
-                      </span>
+          ) : alerts.length === 0 ? (
+            <Appear key="empty" animateKey="empty">
+              <EmptyState
+                icon={<Icon id="i-bell" style={{ width: '32px', height: '32px', strokeWidth: 1.6 }} />}
+                title="Активных заявок нет"
+                subtitle="Оставь заявку на маршрут — как только водитель опубликует подходящую поездку, ты узнаешь."
+              />
+            </Appear>
+          ) : (
+            <AppearList key="alerts" animateKey="alerts" stagger={40} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {alerts.map((alert) => {
+                const isCancelling = cancellingId === alert.id;
+                return (
+                  <Card key={alert.id} style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        fontSize: '16px',
+                        letterSpacing: '-0.02em',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {formatAlertDate(alert.desiredDate, alert.desiredTime)}
                     </div>
-                    <RouteMidConnector />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '24px', fontSize: '15px', fontWeight: 600 }}>
-                      <RouteDot />
-                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {alert.toTitle}
-                      </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '24px', fontSize: '15px', fontWeight: 600 }}>
+                        <RouteDot filled />
+                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {alert.fromTitle}
+                        </span>
+                      </div>
+                      <RouteMidConnector />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '24px', fontSize: '15px', fontWeight: 600 }}>
+                        <RouteDot />
+                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {alert.toTitle}
+                        </span>
+                      </div>
                     </div>
-                  </div>
 
-                  {cancelErrorId === alert.id && (
-                    <div style={{ fontSize: '12px', color: 'var(--destructive-foreground)', background: 'var(--destructive)', borderRadius: 'var(--radius-md)', padding: '8px 10px' }}>
-                      Не удалось отменить заявку. Попробуй ещё раз.
-                    </div>
-                  )}
+                    {cancelErrorId === alert.id && (
+                      <div style={{ fontSize: '12px', color: 'var(--destructive-foreground)', background: 'var(--destructive)', borderRadius: 'var(--radius-md)', padding: '8px 10px' }}>
+                        Не удалось отменить заявку. Попробуй ещё раз.
+                      </div>
+                    )}
 
-                  <button
-                    type="button"
-                    className="focus-ring pressable"
-                    onClick={() => { void handleCancel(alert.id); }}
-                    disabled={cancellingId !== null}
-                    style={{
-                      marginTop: '3px',
-                      minHeight: '40px',
-                      padding: '0 16px',
-                      borderRadius: '14px',
-                      border: '1px solid var(--field-border)',
-                      background: 'var(--field)',
-                      boxShadow: 'var(--field-shadow)',
-                      color: 'var(--foreground)',
-                      fontWeight: 700,
-                      fontSize: '14px',
-                      fontFamily: 'var(--font-sans)',
-                      cursor: cancellingId !== null ? 'default' : 'pointer',
-                      opacity: cancellingId !== null && !isCancelling ? 0.5 : 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '7px',
-                    }}
-                  >
-                    {isCancelling ? 'Отменяем…' : 'Отменить заявку'}
-                  </button>
-                </Card>
-              );
-            })}
-          </AppearList>
+                    <button
+                      type="button"
+                      className="focus-ring pressable"
+                      onClick={() => { void handleCancel(alert.id); }}
+                      disabled={cancellingId !== null}
+                      style={{
+                        marginTop: '3px',
+                        minHeight: '40px',
+                        padding: '0 16px',
+                        borderRadius: '14px',
+                        border: '1px solid var(--field-border)',
+                        background: 'var(--field)',
+                        boxShadow: 'var(--field-shadow)',
+                        color: 'var(--foreground)',
+                        fontWeight: 700,
+                        fontSize: '14px',
+                        fontFamily: 'var(--font-sans)',
+                        cursor: cancellingId !== null ? 'default' : 'pointer',
+                        opacity: cancellingId !== null && !isCancelling ? 0.5 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '7px',
+                      }}
+                    >
+                      {isCancelling ? 'Отменяем…' : 'Отменить заявку'}
+                    </button>
+                  </Card>
+                );
+              })}
+            </AppearList>
+          )}
+        </AnimatePresence>
+
+        {!loading && !error && onCreateAlert && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: 'auto', paddingTop: '6px' }}>
+            <button
+              type="button"
+              className="focus-ring pressable"
+              onClick={() => {
+                hapticImpact('light');
+                onCreateAlert();
+              }}
+              style={{
+                minHeight: '48px',
+                borderRadius: '18px',
+                border: '1px solid var(--border)',
+                background: 'transparent',
+                color: 'var(--foreground)',
+                fontWeight: 600,
+                fontSize: '15px',
+                fontFamily: 'var(--font-sans)',
+                cursor: 'pointer',
+              }}
+            >
+              Оставить новую заявку
+            </button>
+          </div>
         )}
-      </AnimatePresence>
-
-      {!loading && !error && onCreateAlert && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: 'auto', paddingTop: '6px' }}>
-          <button
-            type="button"
-            className="focus-ring pressable"
-            onClick={() => {
-              hapticImpact('light');
-              onCreateAlert();
-            }}
-            style={{
-              minHeight: '48px',
-              borderRadius: '18px',
-              border: '1px solid var(--border)',
-              background: 'transparent',
-              color: 'var(--foreground)',
-              fontWeight: 600,
-              fontSize: '15px',
-              fontFamily: 'var(--font-sans)',
-              cursor: 'pointer',
-            }}
-          >
-            Оставить новую заявку
-          </button>
-        </div>
-      )}
+      </ResponsiveColumn>
     </div>
   );
 };

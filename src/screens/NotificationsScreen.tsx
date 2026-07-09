@@ -7,6 +7,7 @@ import { Icon } from '../components/Icons';
 import { Skeleton } from '../components/ui/Skeleton';
 import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import { Appear } from '../components/Appear';
+import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { markNotificationRead, deleteNotification, clearNotifications } from '../lib/api';
 import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
@@ -382,86 +383,89 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
         paddingBottom: FLOATING_NAV_SCROLL_CLEARANCE,
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px',
       }}
     >
-      <Header title="Уведомления" />
+      {/* Десктоп (>=900px): центрированная читаемая колонка ~640px вместо растяжения
+          на всю ширину десктоп-оболочки (1100px); мобиль/Telegram — passthrough (issue #373). */}
+      <ResponsiveColumn style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <Header title="Уведомления" />
 
-      <AnimatePresence mode="wait">
-        {loading ? (
-          showSkeleton ? (
-            <Appear key="loading">
+        <AnimatePresence mode="wait">
+          {loading ? (
+            showSkeleton ? (
+              <Appear key="loading">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <NotificationSkeleton />
+                  <NotificationSkeleton />
+                  <NotificationSkeleton />
+                </div>
+              </Appear>
+            ) : null
+          ) : error ? (
+            <Appear key="error">
+              <LoadErrorState
+                subtitle="Не удалось загрузить уведомления. Проверь соединение и попробуй ещё раз."
+                onRetry={() => { void refetch(); }}
+              />
+            </Appear>
+          ) : showEmpty ? (
+            <Appear key="empty">
+              <EmptyState
+                icon={
+                  <svg viewBox="0 0 24 24" style={{ width: '32px', height: '32px', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
+                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                  </svg>
+                }
+                title="Пока нет уведомлений"
+                subtitle="Здесь появятся брони, подтверждения и напоминания оценить поездку."
+              />
+            </Appear>
+          ) : (
+            <Appear key="list">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <NotificationSkeleton />
-                <NotificationSkeleton />
-                <NotificationSkeleton />
+                <AnimatePresence>
+                  {notifications.map((notif, index) => (
+                    <NotificationCard
+                      key={notif.id}
+                      notif={notif}
+                      index={index}
+                      reducedMotion={reducedMotion}
+                      onClick={(n) => void handleNotificationClick(n)}
+                      onSwipeDelete={handleSwipeDelete}
+                    />
+                  ))}
+                </AnimatePresence>
+
+                {(notifications.length > 0 || clearing) && (
+                  <button
+                    type="button"
+                    className="focus-ring pressable"
+                    disabled={clearing}
+                    onClick={handleClearAll}
+                    style={{
+                      minHeight: '44px',
+                      padding: '10px 18px',
+                      borderRadius: '18px',
+                      border: '1px solid var(--border)',
+                      background: 'transparent',
+                      color: 'var(--muted-foreground)',
+                      fontWeight: 600,
+                      fontSize: '14px',
+                      fontFamily: 'var(--font-sans)',
+                      cursor: clearing ? 'not-allowed' : 'pointer',
+                      opacity: clearing ? 0.5 : 1,
+                      transition: 'opacity 0.15s ease',
+                    }}
+                  >
+                    Очистить
+                  </button>
+                )}
               </div>
             </Appear>
-          ) : null
-        ) : error ? (
-          <Appear key="error">
-            <LoadErrorState
-              subtitle="Не удалось загрузить уведомления. Проверь соединение и попробуй ещё раз."
-              onRetry={() => { void refetch(); }}
-            />
-          </Appear>
-        ) : showEmpty ? (
-          <Appear key="empty">
-            <EmptyState
-              icon={
-                <svg viewBox="0 0 24 24" style={{ width: '32px', height: '32px', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
-                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-                </svg>
-              }
-              title="Пока нет уведомлений"
-              subtitle="Здесь появятся брони, подтверждения и напоминания оценить поездку."
-            />
-          </Appear>
-        ) : (
-          <Appear key="list">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <AnimatePresence>
-                {notifications.map((notif, index) => (
-                  <NotificationCard
-                    key={notif.id}
-                    notif={notif}
-                    index={index}
-                    reducedMotion={reducedMotion}
-                    onClick={(n) => void handleNotificationClick(n)}
-                    onSwipeDelete={handleSwipeDelete}
-                  />
-                ))}
-              </AnimatePresence>
-
-              {(notifications.length > 0 || clearing) && (
-                <button
-                  type="button"
-                  className="focus-ring pressable"
-                  disabled={clearing}
-                  onClick={handleClearAll}
-                  style={{
-                    minHeight: '44px',
-                    padding: '10px 18px',
-                    borderRadius: '18px',
-                    border: '1px solid var(--border)',
-                    background: 'transparent',
-                    color: 'var(--muted-foreground)',
-                    fontWeight: 600,
-                    fontSize: '14px',
-                    fontFamily: 'var(--font-sans)',
-                    cursor: clearing ? 'not-allowed' : 'pointer',
-                    opacity: clearing ? 0.5 : 1,
-                    transition: 'opacity 0.15s ease',
-                  }}
-                >
-                  Очистить
-                </button>
-              )}
-            </div>
-          </Appear>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </ResponsiveColumn>
     </div>
   );
 };
