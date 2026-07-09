@@ -5,7 +5,7 @@ import { hapticImpact, hapticSelection } from '../lib/haptics';
 import type { Screen } from '../types/navigation';
 
 // Какой таб нижней навигации владеет экраном (2 таба: Поездки / Профиль).
-// Экспортируется — переиспользуется DesktopNav (issue #365), у него те же навигационные цели.
+// Экспортируется — переиспользуется DesktopSidebar (issue #379, было DesktopNav #365), у него те же навигационные цели.
 export type NavTabRoot = 'main' | 'profile';
 
 interface NavItem {
@@ -20,7 +20,7 @@ const ITEMS: NavItem[] = [
 ];
 
 // Экраны, на которых nav скрыт (flow-экраны, где pill мешает).
-// Экспортируется — DesktopNav (issue #365) скрывается на тех же flow-экранах.
+// Экспортируется — DesktopSidebar (issue #379, было DesktopNav #365) скрывается на тех же flow-экранах.
 export const HIDDEN_ON: Screen[] = [
   'auth-gate',
   'login',
@@ -40,7 +40,7 @@ export const HIDDEN_ON: Screen[] = [
 
 // Маппинг экрана → корневой таб. Поток поездок → Поездки; профиль → Профиль.
 // 'notifications' — особый «таб»: навбар виден, активна подсветка колокола (не Поездки/Профиль).
-// Экспортируется — переиспользуется DesktopNav (issue #365).
+// Экспортируется — переиспользуется DesktopSidebar (issue #379, было DesktopNav #365).
 export const SCREEN_TO_TAB: Record<Screen, NavTabRoot | 'notifications' | null> = {
   'auth-gate': null,
   login: null,
@@ -329,7 +329,7 @@ function FloatingNavBar({
   );
 }
 
-/** Виден ли нав-хром (FloatingNav/DesktopNav) на этом экране — общая проверка
+/** Виден ли нав-хром (FloatingNav/DesktopSidebar) на этом экране — общая проверка
  * (issue #365), чтобы BackButton знал, резервировать ли место под топбар. */
 export function isNavVisibleForScreen(screen: Screen): boolean {
   return !HIDDEN_ON.includes(screen) && !!SCREEN_TO_TAB[screen];

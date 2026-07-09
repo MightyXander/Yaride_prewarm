@@ -2,17 +2,23 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icons';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import { DESKTOP_BREAKPOINT, DESKTOP_BACK_BUTTON_OFFSET_PX, MOBILE_BACK_BUTTON_OFFSET_PX } from '../lib/layout';
-import { DESKTOP_NAV_HEIGHT } from './DesktopNav';
+import {
+  DESKTOP_BREAKPOINT,
+  DESKTOP_BACK_BUTTON_OFFSET_PX,
+  MOBILE_BACK_BUTTON_OFFSET_PX,
+  DESKTOP_MAX_PX,
+  SIDEBAR_PX,
+  CONTAINER_INSET_PX,
+} from '../lib/layout';
 import { isNavVisibleForScreen } from './FloatingNav';
 import type { Screen } from '../types/navigation';
 
 interface BackButtonProps {
   onClick: () => void;
   show: boolean;
-  /** Текущий экран — нужен, чтобы знать, рендерится ли на нём DesktopNav-топбар
-   * (issue #365): на flow-экранах (HIDDEN_ON) топбара нет даже на десктопе, и кнопка
-   * должна оставаться у самого верха, а не резервировать место под несуществующий топбар. */
+  /** Текущий экран — нужен, чтобы знать, виден ли на нём десктоп-сайдбар
+   * (issue #379, было DesktopNav-топбар #365): на flow-экранах (HIDDEN_ON) сайдбара
+   * нет даже на десктопе, и содержимое центрируется как раньше — без сдвига под сайдбар. */
   currentScreen: Screen;
 }
 
@@ -46,15 +52,29 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show, currentScreen })
     return null;
   }
 
-  const backButtonOffsetPx = isDesktop ? DESKTOP_BACK_BUTTON_OFFSET_PX : MOBILE_BACK_BUTTON_OFFSET_PX;
-  // На десктопе поверх контента есть DesktopNav-топбар (issue #365) — без сдвига кнопка
-  // «Назад» перекрывала бы лого/табы навигации. Но топбар рендерится не на всех экранах
-  // (flow-экраны из HIDDEN_ON скрывают его так же, как FloatingNav) — резервируем место
-  // под него, только если он реально виден на текущем экране.
-  const desktopTopbarVisible = isDesktop && isNavVisibleForScreen(currentScreen);
-  const topOffset = desktopTopbarVisible
-    ? `calc(${DESKTOP_NAV_HEIGHT} + env(safe-area-inset-top) + 12px)`
-    : 'calc(env(safe-area-inset-top) + 12px)';
+  // Сайдбар (issue #379) занимает только горизонтальное место слева — в отличие от
+  // бывшего DesktopNav-топбара (#365) он никогда не резервирует место сверху, поэтому
+  // top-отступ теперь всегда один и тот же, на мобиле и на десктопе.
+  const topOffset = 'calc(env(safe-area-inset-top) + 12px)';
+
+  // Виден ли сейчас сайдбар (те же правила, что у него самого — isNavVisibleForScreen):
+  // если виден, контент справа от сайдбара центрируется в оставшейся ширине —
+  // формула отступа должна прибавлять SIDEBAR_PX. Если не виден (flow-экраны, HIDDEN_ON)
+  // — контент, как и раньше, центрируется по всей ширине вьюпорта без сайдбара.
+  const sidebarVisible = isDesktop && isNavVisibleForScreen(currentScreen);
+
+  let leftValue: string;
+  if (!isDesktop) {
+    leftValue = `max(calc(env(safe-area-inset-left) + 16px), calc(50% - ${MOBILE_BACK_BUTTON_OFFSET_PX}px))`;
+  } else if (!sidebarVisible) {
+    leftValue = `max(calc(env(safe-area-inset-left) + 16px), calc(50% - ${DESKTOP_BACK_BUTTON_OFFSET_PX}px))`;
+  } else {
+    // Контент справа от сайдбара: его левый край — SIDEBAR_PX + половина зазора,
+    // если оставшаяся ширина больше DESKTOP_MAX_PX (широкие мониторы), иначе контент
+    // просто прижат к сайдбару (зазора нет). Кнопка стоит на CONTAINER_INSET_PX
+    // правее этого края — тот же отступ, что и без сайдбара.
+    leftValue = `max(calc(env(safe-area-inset-left) + 16px), calc(${SIDEBAR_PX}px + max(0px, (100% - ${SIDEBAR_PX}px - ${DESKTOP_MAX_PX}px) / 2) + ${CONTAINER_INSET_PX}px))`;
+  }
 
   return createPortal(
     <button
@@ -64,12 +84,10 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show, currentScreen })
       style={{
         position: 'fixed',
         top: topOffset,
-        // Привязываем к левому краю центрированного контент-контейнера приложения (#40),
-        // а не к краю вьюпорта: иначе на широком десктопе кнопка улетает влево от приложения.
-        // Отступ — общая константа контейнера (issue #365, MOBILE/DESKTOP_BACK_BUTTON_OFFSET_PX
-        // в lib/layout.ts), больше не magic-число. На узких вьюпортах кнопка встаёт на 16px
-        // (край full-width приложения), на широких — у левого края контент-контейнера.
-        left: `max(calc(env(safe-area-inset-left) + 16px), calc(50% - ${backButtonOffsetPx}px))`,
+        // Привязываем к левому краю контент-области (не к краю вьюпорта) — иначе на
+        // широком десктопе кнопка улетает влево от приложения/сайдбара. Формула зависит
+        // от режима (мобиль/десктоп без сайдбара/десктоп с сайдбаром) — см. leftValue выше.
+        left: leftValue,
         width: '32px',
         height: '32px',
         borderRadius: '11px',
