@@ -11,8 +11,12 @@ export const DESKTOP_MAX_PX = 1100;
 /** Брейкпоинт переключения мобиль → десктоп-раскладка (see useMediaQuery). */
 export const DESKTOP_BREAKPOINT = '(min-width: 900px)';
 
-/** Внутренний отступ контент-контейнера от его края (использовался как часть magic 199). */
-const CONTAINER_INSET_PX = 16;
+/** Ширина постоянного левого сайдбара на десктопе (issue #379, заменяет DesktopNav-топбар #365). */
+export const SIDEBAR_PX = 264;
+
+/** Внутренний отступ контент-контейнера от его края (использовался как часть magic 199).
+ * Экспортируется — переиспользуется BackButton.tsx для формулы отступа рядом с сайдбаром. */
+export const CONTAINER_INSET_PX = 16;
 
 /** Отступ слева для BackButton в мобильном режиме: половина колонки минус внутр. отступ. */
 export const MOBILE_BACK_BUTTON_OFFSET_PX = MOBILE_COLUMN_PX / 2 - CONTAINER_INSET_PX;

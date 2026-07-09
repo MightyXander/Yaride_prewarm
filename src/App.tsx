@@ -7,7 +7,7 @@ import Splash from './components/Splash';
 import ErrorBoundary from './components/ErrorBoundary';
 import ScreenSkeleton from './components/ScreenSkeleton';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
-import { DesktopNav } from './components/DesktopNav';
+import { DesktopSidebar } from './components/DesktopSidebar';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { DESKTOP_BREAKPOINT, DESKTOP_MAX_PX, MOBILE_COLUMN_PX } from './lib/layout';
@@ -195,6 +195,44 @@ function App() {
     setBookingFocusUserId,
   };
 
+  // Смена экрана (AnimatePresence + направленный слайд) — общая для мобиля и десктопа,
+  // различается только внешняя обвязка (сайдбар-строка vs мобильная колонка), поэтому
+  // вынесена в переменную, а не задублирована в обеих ветках раскладки ниже.
+  const screenTransition = (
+    <AnimatePresence mode="wait" initial={false} custom={direction}>
+      <motion.div
+        key={currentScreen}
+        custom={direction}
+        variants={screenVariants}
+        initial={prefersReducedMotion ? 'reducedInitial' : 'enter'}
+        animate="center"
+        exit={prefersReducedMotion ? 'reducedExit' : 'exit'}
+        transition={
+          prefersReducedMotion
+            ? { duration: 0.12 }
+            : { type: 'spring', stiffness: 520, damping: 42, mass: 0.9 }
+        }
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          paddingBottom:
+            navVisible && !isDesktop ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
+        }}
+      >
+        <ErrorBoundary resetKey={currentScreen}>
+        <Suspense fallback={<ScreenSkeleton />}>
+        {screenRegistry[currentScreen]?.(screenCtx)}
+        </Suspense>
+        </ErrorBoundary>
+      </motion.div>
+    </AnimatePresence>
+  );
+
   return (
     <ProfileProvider>
       <div
@@ -217,65 +255,62 @@ function App() {
             onHidden={() => setSplashVisible(false)}
           />
         )}
-        <div
-          style={{
-            // На десктопе (≥900px) кап не 430px-колонка, а широкий центрированный контент
-            // (issue #365); ниже 900 — прежняя мобильная колонка без изменений.
-            maxWidth: isDesktop ? `${DESKTOP_MAX_PX}px` : `${MOBILE_COLUMN_PX}px`,
-            margin: '0 auto',
-            color: 'var(--foreground)',
-            height: '100dvh',
-            position: 'relative',
-            display: 'flex',
-            flexDirection: 'column',
-            paddingTop: 'env(safe-area-inset-top)',
-            paddingLeft: 'env(safe-area-inset-left)',
-            paddingRight: 'env(safe-area-inset-right)',
-            overflowX: 'clip',
-          }}
-        >
-        {isDesktop && (
-          <DesktopNav
-            currentScreen={currentScreen}
-            onNavigate={(root) => resetTo(root === 'profile' ? 'profile' : 'main')}
-            onNotificationsClick={() => navigate('notifications')}
-          />
-        )}
-        <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-        <AnimatePresence mode="wait" initial={false} custom={direction}>
-          <motion.div
-            key={currentScreen}
-            custom={direction}
-            variants={screenVariants}
-            initial={prefersReducedMotion ? 'reducedInitial' : 'enter'}
-            animate="center"
-            exit={prefersReducedMotion ? 'reducedExit' : 'exit'}
-            transition={
-              prefersReducedMotion
-                ? { duration: 0.12 }
-                : { type: 'spring', stiffness: 520, damping: 42, mass: 0.9 }
-            }
+        {isDesktop ? (
+          // Десктоп (≥900px, issue #379): постоянный левый сайдбар (264px, лого «ЯРайд»)
+          // вместо топбара DesktopNav (#365) + контент справа. Сайдбар сам скрывается на
+          // flow-экранах (isNavVisibleForScreen) — тогда контент занимает всю ширину
+          // строки один-в-один как раньше (без сайдбара).
+          <div
             style={{
+              height: '100dvh',
               display: 'flex',
-              flexDirection: 'column',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              paddingBottom:
-                navVisible && !isDesktop ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
+              flexDirection: 'row',
+              paddingTop: 'env(safe-area-inset-top)',
+              paddingLeft: 'env(safe-area-inset-left)',
+              paddingRight: 'env(safe-area-inset-right)',
+              overflowX: 'clip',
             }}
           >
-            <ErrorBoundary resetKey={currentScreen}>
-            <Suspense fallback={<ScreenSkeleton />}>
-            {screenRegistry[currentScreen]?.(screenCtx)}
-            </Suspense>
-            </ErrorBoundary>
-          </motion.div>
-        </AnimatePresence>
-        </div>
-        </div>
+            <DesktopSidebar
+              currentScreen={currentScreen}
+              onNavigate={(root) => resetTo(root === 'profile' ? 'profile' : 'main')}
+              onNotificationsClick={() => navigate('notifications')}
+              onPublish={() => navigate('driver-publish')}
+            />
+            <div style={{ flex: 1, minWidth: 0, height: '100%', position: 'relative', overflow: 'hidden' }}>
+              <div
+                style={{
+                  maxWidth: `${DESKTOP_MAX_PX}px`,
+                  margin: '0 auto',
+                  height: '100%',
+                  position: 'relative',
+                  color: 'var(--foreground)',
+                }}
+              >
+                {screenTransition}
+              </div>
+            </div>
+          </div>
+        ) : (
+          // Мобиль/Telegram (<900px) — прежняя колонка без изменений (issue #379 её не трогает).
+          <div
+            style={{
+              maxWidth: `${MOBILE_COLUMN_PX}px`,
+              margin: '0 auto',
+              color: 'var(--foreground)',
+              height: '100dvh',
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              paddingTop: 'env(safe-area-inset-top)',
+              paddingLeft: 'env(safe-area-inset-left)',
+              paddingRight: 'env(safe-area-inset-right)',
+              overflowX: 'clip',
+            }}
+          >
+            <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>{screenTransition}</div>
+          </div>
+        )}
         {!isDesktop && (
           <FloatingNav
             currentScreen={currentScreen}
