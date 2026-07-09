@@ -18,8 +18,6 @@ interface BookingConfirmedScreenProps {
   onDone: () => void;
   /** Только для publish: открыть список броней пассажиров на свой рейс. */
   onViewBookings?: () => void;
-  /** Перейти на экран активной поездки (экран 9 «В пути»). Только для брони пассажира. */
-  onStartTrip?: () => void;
 }
 
 const sectionLabelStyle: React.CSSProperties = {
@@ -62,7 +60,6 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
   publishedTrip,
   onDone,
   onViewBookings,
-  onStartTrip,
 }) => {
   // Экран успеха: тактильное подтверждение исхода при появлении.
   useEffect(() => {
@@ -313,11 +310,6 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
           paddingTop: '6px',
         }}
       >
-        {!isPublish && onStartTrip && (
-          <Button variant="secondary" icon="i-car" onClick={onStartTrip}>
-            Открыть поездку «в пути»
-          </Button>
-        )}
         <Button variant="primary" onClick={onDone}>
           На главную
         </Button>

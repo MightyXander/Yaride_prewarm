@@ -11,7 +11,6 @@ const BookingConfirmedScreen = lazy(() => import('../screens/BookingConfirmedScr
 const ProfileScreen = lazy(() => import('../screens/ProfileScreen'));
 const BecomeDriverScreen = lazy(() => import('../screens/BecomeDriverScreen'));
 const LicenseReviewScreen = lazy(() => import('../screens/LicenseReviewScreen'));
-const InTripScreen = lazy(() => import('../screens/InTripScreen'));
 const SafetyScreen = lazy(() => import('../screens/SafetyScreen'));
 const PassengerRequestScreen = lazy(() => import('../screens/PassengerRequestScreen'));
 const RequestPublishedScreen = lazy(() => import('../screens/RequestPublishedScreen'));
@@ -221,7 +220,6 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       onViewBookings={
         ctx.publishedTripId ? () => void ctx.handleOpenTripById(ctx.publishedTripId!, 'main') : undefined
       }
-      onStartTrip={() => ctx.navigate('in-trip')}
     />
   ),
   profile: (ctx) => (
@@ -243,7 +241,6 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
   'license-review': (ctx) => (
     <LicenseReviewScreen onFindRide={() => ctx.navigate('main')} onRetry={() => ctx.navigate('become-driver')} />
   ),
-  'in-trip': (ctx) => <InTripScreen trip={ctx.selectedTrip} onOpenProfile={ctx.handleOpenUserProfile} />,
   safety: () => <SafetyScreen />,
   'passenger-request': (ctx) => (
     <PassengerRequestScreen
