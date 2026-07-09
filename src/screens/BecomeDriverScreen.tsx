@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { submitLicense } from '../lib/api';
 import { showToast } from '../lib/toast';
+import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 
 interface BecomeDriverScreenProps {
   onSubmit: () => void;
@@ -172,6 +173,9 @@ const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => 
         gap: '12px',
       }}
     >
+      {/* Десктоп (>=900px): центрированная читаемая колонка ~520px вместо растяжения
+          на всю ширину десктоп-оболочки; мобиль/Telegram — passthrough (issue #375, эпик #364). */}
+      <ResponsiveColumn maxWidth={520} style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
       <Header title="Стать водителем" />
 
       <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
@@ -314,6 +318,7 @@ const BecomeDriverScreen: React.FC<BecomeDriverScreenProps> = ({ onSubmit }) => 
           Обычно проверяем за пару часов
         </div>
       </div>
+      </ResponsiveColumn>
     </div>
   );
 };
