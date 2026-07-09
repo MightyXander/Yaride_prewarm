@@ -7,8 +7,10 @@ import Splash from './components/Splash';
 import ErrorBoundary from './components/ErrorBoundary';
 import ScreenSkeleton from './components/ScreenSkeleton';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
+import { DesktopNav } from './components/DesktopNav';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
+import { DESKTOP_BREAKPOINT, DESKTOP_MAX_PX, MOBILE_COLUMN_PX } from './lib/layout';
 import { useStartParam } from './hooks/useStartParam';
 import { useTheme } from './hooks/useTheme';
 import { useCorridorTrips } from './hooks/useCorridorTrips';
@@ -68,7 +70,9 @@ function App() {
   const { currentScreen, selectedTrip, confirmKind, ratingContext, publishedTripId, direction, navigate, navigateToRateTrip, goBack, resetTo } =
     useNavigation(initialScreen);
   const prefersReducedMotion = useReducedMotion();
-  const isDesktop = useMediaQuery('(min-width: 430px)');
+  // ≥900px — десктоп-раскладка (широкий контент + верхняя навигация); <900px и Telegram —
+  // прежняя мобильная колонка (issue #365; было '(min-width: 430px)' — единственный кап).
+  const isDesktop = useMediaQuery(DESKTOP_BREAKPOINT);
 
   // Направление поездки на главном экране (morning/evening)
   const [mainDirection, setMainDirection] = useState<'morning' | 'evening'>('morning');
@@ -205,6 +209,7 @@ function App() {
         <BackButton
           onClick={currentScreen === 'user-profile' ? handleUserProfileBack : goBack}
           show={showBackButton}
+          currentScreen={currentScreen}
         />
         {splashVisible && (
           <Splash
@@ -214,7 +219,9 @@ function App() {
         )}
         <div
           style={{
-            maxWidth: isDesktop ? '430px' : 'none',
+            // На десктопе (≥900px) кап не 430px-колонка, а широкий центрированный контент
+            // (issue #365); ниже 900 — прежняя мобильная колонка без изменений.
+            maxWidth: isDesktop ? `${DESKTOP_MAX_PX}px` : `${MOBILE_COLUMN_PX}px`,
             margin: '0 auto',
             color: 'var(--foreground)',
             height: '100dvh',
@@ -227,7 +234,15 @@ function App() {
             overflowX: 'clip',
           }}
         >
-<AnimatePresence mode="wait" initial={false} custom={direction}>
+        {isDesktop && (
+          <DesktopNav
+            currentScreen={currentScreen}
+            onNavigate={(root) => resetTo(root === 'profile' ? 'profile' : 'main')}
+            onNotificationsClick={() => navigate('notifications')}
+          />
+        )}
+        <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
+        <AnimatePresence mode="wait" initial={false} custom={direction}>
           <motion.div
             key={currentScreen}
             custom={direction}
@@ -248,7 +263,8 @@ function App() {
               left: 0,
               right: 0,
               bottom: 0,
-              paddingBottom: navVisible ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
+              paddingBottom:
+                navVisible && !isDesktop ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
             }}
           >
             <ErrorBoundary resetKey={currentScreen}>
@@ -259,11 +275,14 @@ function App() {
           </motion.div>
         </AnimatePresence>
         </div>
-        <FloatingNav
-          currentScreen={currentScreen}
-          onNavigate={(root) => resetTo(root === 'profile' ? 'profile' : 'main')}
-          onNotificationsClick={() => navigate('notifications')}
-        />
+        </div>
+        {!isDesktop && (
+          <FloatingNav
+            currentScreen={currentScreen}
+            onNavigate={(root) => resetTo(root === 'profile' ? 'profile' : 'main')}
+            onNotificationsClick={() => navigate('notifications')}
+          />
+        )}
       </div>
     </ProfileProvider>
   );

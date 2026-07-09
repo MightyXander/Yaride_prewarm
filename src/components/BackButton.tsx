@@ -1,13 +1,22 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icons';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { DESKTOP_BREAKPOINT, DESKTOP_BACK_BUTTON_OFFSET_PX, MOBILE_BACK_BUTTON_OFFSET_PX } from '../lib/layout';
+import { DESKTOP_NAV_HEIGHT } from './DesktopNav';
+import { isNavVisibleForScreen } from './FloatingNav';
+import type { Screen } from '../types/navigation';
 
 interface BackButtonProps {
   onClick: () => void;
   show: boolean;
+  /** Текущий экран — нужен, чтобы знать, рендерится ли на нём DesktopNav-топбар
+   * (issue #365): на flow-экранах (HIDDEN_ON) топбара нет даже на десктопе, и кнопка
+   * должна оставаться у самого верха, а не резервировать место под несуществующий топбар. */
+  currentScreen: Screen;
 }
 
-const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
+const BackButton: React.FC<BackButtonProps> = ({ onClick, show, currentScreen }) => {
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     // Показываем нативную BackButton только если Telegram API >= 6.1 (когда BackButton появился)
@@ -31,9 +40,21 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
   // свою НЕ дублируем, иначе на экране две кнопки «Назад».
   const tg = window.Telegram?.WebApp;
   const nativeBackAvailable = !!(tg?.BackButton && tg.isVersionAtLeast?.('6.1'));
+  // Хук вызывается безусловно ДО раннего return ниже (rules-of-hooks).
+  const isDesktop = useMediaQuery(DESKTOP_BREAKPOINT);
   if (!show || nativeBackAvailable) {
     return null;
   }
+
+  const backButtonOffsetPx = isDesktop ? DESKTOP_BACK_BUTTON_OFFSET_PX : MOBILE_BACK_BUTTON_OFFSET_PX;
+  // На десктопе поверх контента есть DesktopNav-топбар (issue #365) — без сдвига кнопка
+  // «Назад» перекрывала бы лого/табы навигации. Но топбар рендерится не на всех экранах
+  // (flow-экраны из HIDDEN_ON скрывают его так же, как FloatingNav) — резервируем место
+  // под него, только если он реально виден на текущем экране.
+  const desktopTopbarVisible = isDesktop && isNavVisibleForScreen(currentScreen);
+  const topOffset = desktopTopbarVisible
+    ? `calc(${DESKTOP_NAV_HEIGHT} + env(safe-area-inset-top) + 12px)`
+    : 'calc(env(safe-area-inset-top) + 12px)';
 
   return createPortal(
     <button
@@ -42,12 +63,13 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show }) => {
       className="focus-ring pressable"
       style={{
         position: 'fixed',
-        top: 'calc(env(safe-area-inset-top) + 12px)',
-        // Привязываем к левому краю центрированной 430px-колонки приложения (#40),
-        // а не к краю вьюпорта: иначе на широком десктопе кнопка улетает влево
-        // от приложения. 199px = 430/2 − 16 (внутр. отступ). На вьюпортах ≤430
-        // кнопка встаёт на 16px (край full-width приложения), на ≥430 — у левого края колонки.
-        left: 'max(calc(env(safe-area-inset-left) + 16px), calc(50% - 199px))',
+        top: topOffset,
+        // Привязываем к левому краю центрированного контент-контейнера приложения (#40),
+        // а не к краю вьюпорта: иначе на широком десктопе кнопка улетает влево от приложения.
+        // Отступ — общая константа контейнера (issue #365, MOBILE/DESKTOP_BACK_BUTTON_OFFSET_PX
+        // в lib/layout.ts), больше не magic-число. На узких вьюпортах кнопка встаёт на 16px
+        // (край full-width приложения), на широких — у левого края контент-контейнера.
+        left: `max(calc(env(safe-area-inset-left) + 16px), calc(50% - ${backButtonOffsetPx}px))`,
         width: '32px',
         height: '32px',
         borderRadius: '11px',
