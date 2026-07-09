@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Topbar from '../components/Topbar';
 import Hero from '../components/Hero';
+import MainDashboardHeader from '../components/MainDashboardHeader';
 import TripCard from '../components/TripCard';
 import TripCardSkeleton from '../components/TripCardSkeleton';
 import HeroSkeleton from '../components/HeroSkeleton';
@@ -10,6 +11,8 @@ import ErrorTripsState from '../components/ErrorTripsState';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { AppearList } from '../components/Appear';
 import { useResponsiveCardGridStyle } from '../components/ui/ResponsiveCardGrid';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { DESKTOP_BREAKPOINT } from '../lib/layout';
 import type { Trip } from '../types/navigation';
 import type { UserRole } from '../lib/role';
 import { formatSubtitle } from '../lib/date';
@@ -54,6 +57,10 @@ const MainScreen: React.FC<MainScreenProps> = ({
   // на мобиле/Telegram — прежняя одна колонка. Переиспользуемый паттерн см.
   // src/components/ui/ResponsiveCardGrid.tsx.
   const tripGridStyle = useResponsiveCardGridStyle();
+  // Десктоп (issue #382, эпик #364): вместо Topbar+Hero — дашборд-шапка с
+  // горизонтальной строкой «Откуда/Куда/Когда» над сеткой. Мобиль/Telegram — без
+  // изменений (тот же Topbar+Hero, что и раньше).
+  const isDesktop = useMediaQuery(DESKTOP_BREAKPOINT);
 
   // Кнопку «Создать поездку» показываем водителю. Источник истины — серверный
   // статус ВУ (license_status==='verified'), а не только localStorage-роль:
@@ -68,6 +75,11 @@ const MainScreen: React.FC<MainScreenProps> = ({
   };
 
   const hasTrips = trips.length > 0;
+
+  // Общий текст счётчика — переиспользуется мобильным Hero (как раньше) и
+  // десктоп-дашборд-шапкой (issue #382), чтобы оба представления показывали
+  // один и тот же текст без дублирования логики склонения.
+  const tripsCountLabel = `${trips.length} ${trips.length === 1 ? 'поездка' : trips.length < 5 ? 'поездки' : 'поездок'} в твою сторону`;
 
   const D = prefersReduced ? 0 : 0.42;
   const DX = prefersReduced ? 0 : 0.3;
@@ -89,7 +101,16 @@ const MainScreen: React.FC<MainScreenProps> = ({
         gap: '12px',
       }}
     >
-      <Topbar title={title} subtitle={subtitle} />
+      {isDesktop ? (
+        <MainDashboardHeader
+          title={title}
+          subtitle={subtitle}
+          countLabel={tripsCountLabel}
+          onToggleDirection={onToggleDirection}
+        />
+      ) : (
+        <Topbar title={title} subtitle={subtitle} />
+      )}
 
       <div style={{ position: 'relative' }}>
         <AnimatePresence mode="popLayout" initial={false}>
@@ -102,7 +123,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
               transition={{ duration: DX, ease: EASE }}
               style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
             >
-              <HeroSkeleton />
+              {!isDesktop && <HeroSkeleton />}
               <TripCardSkeleton count={3} />
             </motion.div>
           ) : error ? (
@@ -124,15 +145,20 @@ const MainScreen: React.FC<MainScreenProps> = ({
               transition={{ duration: D, ease: EASE }}
               style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
             >
-              <Hero
-                subtitle={heroKicker}
-                title={`${trips.length} ${trips.length === 1 ? 'поездка' : trips.length < 5 ? 'поездки' : 'поездок'} в твою сторону`}
-                ctaText={`Ближайшая в ${trips[0].time}`}
-                onCtaClick={openFirstTripDetails}
-                onToggleDirection={onToggleDirection}
-                onPublish={onPublish}
-                showPublish={canPublish}
-              />
+              {/* На десктопе роль Hero (заголовок/счётчик/смена направления) уже взяла на
+                  себя MainDashboardHeader выше сетки, а «Опубликовать поездку» — постоянный
+                  CTA в DesktopSidebar (issue #379) — второй Hero-версии не нужен (issue #382). */}
+              {!isDesktop && (
+                <Hero
+                  subtitle={heroKicker}
+                  title={tripsCountLabel}
+                  ctaText={`Ближайшая в ${trips[0].time}`}
+                  onCtaClick={openFirstTripDetails}
+                  onToggleDirection={onToggleDirection}
+                  onPublish={onPublish}
+                  showPublish={canPublish}
+                />
+              )}
               <AppearList stagger={40} style={{ flexShrink: 0, ...tripGridStyle }}>
                 {trips.map((trip, index) => (
                   <TripCard
