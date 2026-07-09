@@ -13,6 +13,7 @@ import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
 import { fetchMyTripsUpcoming, fetchMyTripsPast } from '../lib/screenFetchers';
 import type { UserTripItem } from '../types/api';
 import { Appear, AppearList } from '../components/Appear';
+import { useResponsiveCardGridStyle } from '../components/ui/ResponsiveCardGrid';
 
 interface MyTripsScreenProps {
   onCreateTrip?: () => void;
@@ -23,6 +24,10 @@ interface MyTripsScreenProps {
 
 const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip, onRateTrip }) => {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  // Десктоп (issue #369): список поездок — адаптивная сетка (несколько колонок),
+  // на мобиле/Telegram — прежняя одна колонка. Переиспользуемый паттерн см.
+  // src/components/ui/ResponsiveCardGrid.tsx (issue #367).
+  const tripGridStyle = useResponsiveCardGridStyle({ gap: '12px' });
 
   const {
     data: upcomingTrips = [],
@@ -211,7 +216,7 @@ const MyTripsScreen: React.FC<MyTripsScreenProps> = ({ onCreateTrip, onOpenTrip,
             />
           </Appear>
         ) : (
-          <AppearList key={`trips-${activeTab}`} animateKey={`trips-${activeTab}`} stagger={40} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <AppearList key={`trips-${activeTab}`} animateKey={`trips-${activeTab}`} stagger={40} style={tripGridStyle}>
             {trips.map((trip) => {
               const status = getStatusLabel(trip);
               const name = trip.role === 'driver' ? 'Моя поездка' : 'Поездка';

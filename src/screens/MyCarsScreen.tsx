@@ -11,6 +11,7 @@ import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
 import { fetchMyCars } from '../lib/screenFetchers';
 import type { Car } from '../types/api';
 import { Appear, AppearList } from '../components/Appear';
+import { useResponsiveCardGridStyle } from '../components/ui/ResponsiveCardGrid';
 
 interface MyCarsScreenProps {
   /** Перейти к форме добавления машины. */
@@ -20,6 +21,10 @@ interface MyCarsScreenProps {
 const MyCarsScreen: React.FC<MyCarsScreenProps> = ({ onAddCar }) => {
   const { data: cars = [], loading, error, refetch } = useScreenData<Car[]>('my-cars', fetchMyCars);
   const showSkeleton = useDelayedFlag(loading, 180);
+  // Десктоп (issue #369): список машин — адаптивная сетка (несколько колонок),
+  // на мобиле/Telegram — прежняя одна колонка. Переиспользуемый паттерн см.
+  // src/components/ui/ResponsiveCardGrid.tsx (issue #367).
+  const carGridStyle = useResponsiveCardGridStyle({ gap: '12px' });
 
   return (
     <div
@@ -68,7 +73,7 @@ const MyCarsScreen: React.FC<MyCarsScreenProps> = ({ onAddCar }) => {
             />
           </Appear>
         ) : (
-          <AppearList key="cars" animateKey="cars" stagger={40} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <AppearList key="cars" animateKey="cars" stagger={40} style={carGridStyle}>
             {cars.map((car) => (
               <Card key={car.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div
