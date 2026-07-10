@@ -186,9 +186,11 @@ const PhoneField: React.FC<PhoneFieldProps> = ({
       emitReady(res.phone);
     } catch (err) {
       const message =
-        err instanceof ApiException
-          ? err.message
-          : 'Не удалось сохранить номер. Попробуйте ещё раз.';
+        err instanceof ApiException && err.status === 409 && err.message === 'phone_taken'
+          ? 'Номер уже используется другим аккаунтом'
+          : err instanceof ApiException
+            ? err.message
+            : 'Не удалось сохранить номер. Попробуйте ещё раз.';
       setError(message);
       setStatus('editing');
       showToast(message);
@@ -214,10 +216,13 @@ const PhoneField: React.FC<PhoneFieldProps> = ({
       hapticNotify('success');
     } catch (err) {
       const message =
-        err instanceof ApiException
-          ? err.message
-          : 'Не удалось отправить код. Попробуйте ещё раз.';
+        err instanceof ApiException && err.status === 409 && err.message === 'phone_taken'
+          ? 'Номер уже используется другим аккаунтом'
+          : err instanceof ApiException
+            ? err.message
+            : 'Не удалось отправить код. Попробуйте ещё раз.';
       setCodeStep('idle');
+      setCodeError(message);
       showToast(message);
       hapticNotify('error');
     }
@@ -307,14 +312,30 @@ const PhoneField: React.FC<PhoneFieldProps> = ({
                 Номер подтверждён
               </div>
             ) : codeStep === 'idle' || codeStep === 'sending' ? (
-              <Button
-                variant="secondary"
-                icon="i-shield"
-                onClick={handleSendCode}
-                disabled={codeStep === 'sending'}
-              >
-                {codeStep === 'sending' ? 'Отправляем код…' : 'Подтвердить номер'}
-              </Button>
+              <div>
+                <Button
+                  variant="secondary"
+                  icon="i-shield"
+                  onClick={handleSendCode}
+                  disabled={codeStep === 'sending'}
+                >
+                  {codeStep === 'sending' ? 'Отправляем код…' : 'Подтвердить номер'}
+                </Button>
+                {codeError && (
+                  <div
+                    role="alert"
+                    style={{
+                      marginTop: '8px',
+                      fontSize: '12px',
+                      lineHeight: 1.4,
+                      color: 'var(--destructive)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {codeError}
+                  </div>
+                )}
+              </div>
             ) : (
               <div>
                 <div

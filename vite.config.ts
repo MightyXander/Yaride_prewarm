@@ -143,6 +143,10 @@ function mockApiPlugin() {
       // SMSC.ru. verified сбрасывается при смене номера, как на реальном бэке.
       let mockPhoneVerified = false;
       const MOCK_VERIFICATION_CODE = '1234';
+      // Зарезервированный «занятый» номер (issue #390): имитирует номер, уже
+      // подтверждённый ДРУГИМ аккаунтом — save/send-code должны отдавать 409
+      // phone_taken, как реальные хендлеры (findVerifiedUserByPhone).
+      const MOCK_TAKEN_PHONE = '+79990000001'; // +7 999 000-00-01
       // In-memory статус входа по email текущего (TG) пользователя (#273).
       // Имитирует users-строку с tg_user_id и без пароля: username — снимок TG-ника.
       const mockCredentials: { hasPassword: boolean; email: string | null; username: string | null } = {
@@ -626,6 +630,10 @@ function mockApiPlugin() {
               sendJson({ error: 'Введите корректный российский номер телефона', field: 'phone' }, 400);
               return;
             }
+            if (phone === MOCK_TAKEN_PHONE) {
+              sendJson({ error: 'phone_taken' }, 409);
+              return;
+            }
             if (phone !== mockPhone) {
               mockPhoneVerified = false;
             }
@@ -645,6 +653,10 @@ function mockApiPlugin() {
             const phone = normalizeRuPhoneMock(p.phone ?? '');
             if (phone === null) {
               sendJson({ error: 'Введите корректный российский номер телефона', field: 'phone' }, 400);
+              return;
+            }
+            if (phone === MOCK_TAKEN_PHONE) {
+              sendJson({ error: 'phone_taken' }, 409);
               return;
             }
             if (phone !== mockPhone) {

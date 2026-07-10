@@ -60,6 +60,7 @@ import {
   getUserPhoneById,
   updateUserPhone,
   getUserPhoneVerified,
+  findVerifiedUserByPhone,
   getLatestPhoneVerificationCode,
   createPhoneVerificationCode,
   incrementPhoneVerificationAttempts,
@@ -863,6 +864,11 @@ export async function handleSaveMyPhone(req: ApiRequest): Promise<ApiResponse> {
     return err(400, 'Введите корректный российский номер телефона', { field: 'phone' });
   }
 
+  const taken = await findVerifiedUserByPhone(phone, userId);
+  if (taken !== null) {
+    return err(409, 'phone_taken');
+  }
+
   const ok = await updateUserPhone(userId, phone);
   if (!ok) {
     return err(404, 'Профиль не найден');
@@ -967,6 +973,11 @@ export async function handleSendPhoneVerificationCode(req: ApiRequest): Promise<
     return err(400, 'Введите корректный российский номер телефона', { field: 'phone' });
   }
 
+  const taken = await findVerifiedUserByPhone(phone, userId);
+  if (taken !== null) {
+    return err(409, 'phone_taken');
+  }
+
   const ok = await updateUserPhone(userId, phone);
   if (!ok) {
     return err(404, 'Профиль не найден');
@@ -1031,6 +1042,11 @@ export async function handleVerifyPhoneCode(req: ApiRequest): Promise<ApiRespons
     const attempts = await incrementPhoneVerificationAttempts(record.id);
     const attemptsLeft = Math.max(0, PHONE_CODE_MAX_ATTEMPTS - attempts);
     return err(400, 'Неверный код подтверждения', { attemptsLeft });
+  }
+
+  const taken = await findVerifiedUserByPhone(record.phone, userId);
+  if (taken !== null) {
+    return err(409, 'phone_taken');
   }
 
   await markPhoneVerified(userId, record.id);
