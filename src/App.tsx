@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icons } from './components/Icons';
 import BackButton from './components/BackButton';
@@ -11,7 +11,8 @@ import { DesktopSidebar } from './components/DesktopSidebar';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { DESKTOP_BREAKPOINT, DESKTOP_MAX_PX, MOBILE_COLUMN_PX } from './lib/layout';
-import { useStartParam } from './hooks/useStartParam';
+import { useStartParam, hasStartParam } from './hooks/useStartParam';
+import { loadLastScreen, clearLastScreen } from './lib/lastScreen';
 import { useTheme } from './hooks/useTheme';
 import { useCorridorTrips } from './hooks/useCorridorTrips';
 import { useSplashGate } from './hooks/useSplashGate';
@@ -63,9 +64,39 @@ function App() {
 
   const needsAuthGate = gateContext && !authed;
 
+  // Снимок sessionStorage строго на момент первого рендера (лениво, один раз):
+  // useNavigation ниже сам пишет в тот же ключ уже в первом эффекте после монтирования
+  // (currentScreen === initialScreen), и если читать через loadLastScreen() внутри
+  // ЭФФЕКТА (а не во время рендера), эффект useNavigation успевает отработать первым
+  // (хук вызван раньше в теле компонента) и затирает сохранённый trip-details на
+  // 'main' до того, как восстановление его увидит. Синхронный снимок в рендере
+  // от этой гонки не зависит.
+  const [savedEntryAtMount] = useState(() => loadLastScreen());
+
+  // Восстановление последнего экрана (issue #392), приоритеты:
+  // 1) needsAuthGate — гейт не обходим никогда, восстановление не читаем;
+  // 2) deep-link (tgWebAppStartParam) — явное намерение сильнее восстановления,
+  //    его обрабатывает useStartParam ниже и он в любом случае перезапишет
+  //    currentScreen эффектом после монтирования; здесь дополнительно не
+  //    читаем сохранённый trip-details, чтобы не запускать гонку двух фетчей;
+  // 3) сохранённый экран из whitelist (lastScreen.ts уже свёл его к main/
+  //    self-fetching экрану/trip-details при записи);
+  // 4) дефолт как раньше.
+  const savedScreenEntry = !needsAuthGate && !hasStartParam() ? savedEntryAtMount : null;
+  const restoredScreen: Screen | null =
+    savedScreenEntry && savedScreenEntry.screen !== 'trip-details' ? savedScreenEntry.screen : null;
+
   // Начальный экран: нужен гейт → auth-gate (скорректируем, если /me вернёт сессию);
-  // иначе роль выбрана — main, нет — intro.
-  const initialScreen: Screen = needsAuthGate ? 'auth-gate' : userRole ? 'main' : 'intro';
+  // иначе сохранённый экран (если есть) → он; иначе роль выбрана — main, нет — intro.
+  // trip-details восстанавливается отдельно, асинхронно (см. эффект ниже): стартуем
+  // на main, тут же дозагружаем поездку по сохранённому id.
+  const initialScreen: Screen = needsAuthGate
+    ? 'auth-gate'
+    : restoredScreen
+      ? restoredScreen
+      : userRole
+        ? 'main'
+        : 'intro';
 
   const { currentScreen, selectedTrip, confirmKind, ratingContext, publishedTripId, direction, navigate, navigateToRateTrip, goBack, resetTo } =
     useNavigation(initialScreen);
@@ -125,6 +156,37 @@ function App() {
   });
 
   const { handleCancelAlert } = useAlertHandlers({ alertId: publishedTripId, navigate });
+
+  // Асинхронное восстановление trip-details (issue #392): стартовали на main
+  // (initialScreen выше), теперь дозагружаем сохранённую поездку тем же путём,
+  // что и «Мои поездки»/уведомления. tripRestoreProcessed — гвард на один запуск
+  // (эффект перезапускается по needsAuthGate, пока гейт не снят — не восстанавливаем).
+  // Ошибка загрузки (поездка удалена/404) — handleOpenTripById молча остаётся
+  // на main (тостом предупредит пользователя), новый currentScreen ('main')
+  // тут же перезапишет протухший ключ в sessionStorage.
+  const tripRestoreProcessed = useRef(false);
+  useEffect(() => {
+    if (needsAuthGate) return;
+    if (tripRestoreProcessed.current) return;
+    tripRestoreProcessed.current = true;
+
+    // Deep-link сильнее восстановления (развилка #2) — если есть start_param,
+    // его логика (useStartParam) сама решит, куда перейти.
+    if (hasStartParam()) return;
+
+    // savedEntryAtMount, а не loadLastScreen() — к этому моменту useNavigation
+    // уже мог перезаписать ключ на 'main' (см. комментарий у savedEntryAtMount выше).
+    const saved = savedEntryAtMount;
+    if (saved?.screen !== 'trip-details') return;
+
+    const tripIdNum = saved.tripId ? Number(saved.tripId) : NaN;
+    if (!Number.isFinite(tripIdNum) || tripIdNum <= 0) {
+      clearLastScreen();
+      return;
+    }
+
+    void handleOpenTripById(tripIdNum, 'main');
+  }, [needsAuthGate, handleOpenTripById, savedEntryAtMount]);
 
   // Idle-прогрев кэша уведомлений (issue #352): колокол доступен отовсюду
   // (FloatingNav), поэтому греем один раз при старте приложения, а не при

@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Screen, Trip, ConfirmKind, NavigationState, RatingContext } from '../types/navigation';
+import { saveLastScreen, resolvePersistedEntry } from '../lib/lastScreen';
 
-// Фолбэк для goBack, когда стек истории пуст (напр. вход по deep-link — предыдущего экрана нет).
-const PARENT_SCREEN: Record<Screen, Screen> = {
+// Фолбэк для goBack, когда стек истории пуст (напр. вход по deep-link — предыдущего экрана нет);
+// также используется lastScreen.ts, чтобы найти ближайший восстановимый экран (issue #392).
+export const PARENT_SCREEN: Record<Screen, Screen> = {
   'auth-gate': 'auth-gate',
   login: 'auth-gate',
   register: 'auth-gate',
@@ -201,6 +203,14 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       }, 0);
     }
   }, [navState.currentScreen, navState.scrollPositions]);
+
+  // Персистенс «последнего экрана» (issue #392): одна точка записи покрывает
+  // navigate/resetTo/goBack/navigateToRateTrip — все они меняют currentScreen.
+  // Экраны вне whitelist приводятся к ближайшему восстановимому родителю.
+  useEffect(() => {
+    const entry = resolvePersistedEntry(navState.currentScreen, navState.selectedTrip?.id, PARENT_SCREEN);
+    saveLastScreen(entry);
+  }, [navState.currentScreen, navState.selectedTrip?.id]);
 
   return {
     currentScreen: navState.currentScreen,

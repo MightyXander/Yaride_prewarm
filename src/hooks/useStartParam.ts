@@ -4,6 +4,28 @@ import { getTrip } from '../lib/api';
 import { mapTripCardToTrip } from '../lib/mappers';
 
 /**
+ * Источник start_param Telegram Mini App (initDataUnsafe либо URL query) —
+ * вынесено из useEffect ниже, чтобы синхронно проверять наличие deep-link
+ * ещё до монтирования (issue #392: deep-link приоритетнее восстановления
+ * последнего экрана).
+ */
+const getStartParam = (): string | null => {
+  // Источник 1: Telegram.WebApp.initDataUnsafe.start_param
+  const tgStartParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+  if (tgStartParam) return tgStartParam;
+
+  // Источник 2: URL query parameter tgWebAppStartParam
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlStartParam = urlParams.get('tgWebAppStartParam');
+  if (urlStartParam) return urlStartParam;
+
+  return null;
+};
+
+/** true — присутствует deep-link start_param (явное намерение сильнее восстановления). */
+export const hasStartParam = (): boolean => getStartParam() !== null;
+
+/**
  * Хук для обработки deep-link через start_param Telegram Mini App.
  * Схема start_param:
  * - 'trip-<id>' → открыть карточку поездки
@@ -32,19 +54,6 @@ export const useStartParam = (
     // Обрабатываем start_param только один раз
     if (processed.current) return;
     processed.current = true;
-
-    const getStartParam = (): string | null => {
-      // Источник 1: Telegram.WebApp.initDataUnsafe.start_param
-      const tgStartParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-      if (tgStartParam) return tgStartParam;
-
-      // Источник 2: URL query parameter tgWebAppStartParam
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlStartParam = urlParams.get('tgWebAppStartParam');
-      if (urlStartParam) return urlStartParam;
-
-      return null;
-    };
 
     const startParam = getStartParam();
 
