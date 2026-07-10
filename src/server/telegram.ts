@@ -207,6 +207,63 @@ export async function sendMessage(
   }
 }
 
+/** Кэш username бота (без ведущего `@`). undefined = ещё не резолвили через getMe. */
+let cachedBotUsername: string | null | undefined;
+
+/**
+ * Вернуть username бота (без ведущего `@`) для сборки deep-link'ов привязки.
+ *
+ * Порядок разрешения:
+ *  1. env-override `BOT_USERNAME` — если задан, используется без сети (ведущий `@` срезается);
+ *  2. Bot API `getMe` по `BOT_TOKEN` (тот же base-url/fetch, что у sendMessage);
+ *     результат кэшируется в module-level переменной — getMe не дёргается на каждый запрос;
+ *  3. при отсутствии `BOT_TOKEN` или неуспехе getMe → `null`.
+ *
+ * @returns username без `@` либо `null`, если резолвить не удалось.
+ */
+export async function getBotUsername(): Promise<string | null> {
+  const override = (process.env.BOT_USERNAME ?? '').trim().replace(/^@/, '');
+  if (override !== '') {
+    return override;
+  }
+
+  if (cachedBotUsername !== undefined) {
+    return cachedBotUsername;
+  }
+
+  const token = (process.env.BOT_TOKEN ?? '').trim();
+  if (token === '') {
+    console.error('getBotUsername: BOT_TOKEN отсутствует — username не резолвить');
+    return null;
+  }
+
+  const url = `${TELEGRAM_API_BASE}/bot${token}/getMe`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`getMe failed (${response.status}):`, errorText);
+      return null;
+    }
+
+    const result = (await response.json()) as {
+      ok: boolean;
+      result?: { username?: string };
+    };
+    const username = (result.ok ? result.result?.username : undefined)?.trim().replace(/^@/, '');
+    if (!username) {
+      console.error('getMe вернул пустой username');
+      return null;
+    }
+
+    cachedBotUsername = username;
+    return username;
+  } catch (err) {
+    console.error('getMe exception:', err);
+    return null;
+  }
+}
+
 /**
  * Зарегистрировать webhook через Bot API setWebhook.
  *
