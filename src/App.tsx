@@ -115,7 +115,7 @@ function App() {
 
   const { handleRoleSelect, handleBecomeDriver } = useRoleHandlers({ setUserRole, navigate });
 
-  const { handleAuthLogin, handleAuthRegister, handleAuthTelegram, handleLogout } = useAuthHandlers({
+  const { handleAuthLogin, handleAuthRegister, handleLogout } = useAuthHandlers({
     gateContext,
     userRole,
     navigate,
@@ -244,7 +244,6 @@ function App() {
     handleBecomeDriver,
     handleAuthLogin,
     handleAuthRegister,
-    handleAuthTelegram,
     handleLogout,
     gateContext,
     handleOpenUserProfile,

@@ -85,7 +85,6 @@ export interface ScreenCtx {
 
   handleAuthLogin: (email: string, password: string) => Promise<void>;
   handleAuthRegister: (payload: RegisterPayload) => Promise<void>;
-  handleAuthTelegram: () => void;
   handleLogout: () => Promise<void>;
   gateContext: boolean;
 
@@ -121,18 +120,10 @@ type ScreenRenderer = (ctx: ScreenCtx) => ReactNode;
  */
 export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
   'auth-gate': (ctx) => (
-    <AuthGateScreen
-      onTelegram={ctx.handleAuthTelegram}
-      onLogin={() => ctx.navigate('login')}
-      onRegister={() => ctx.navigate('register')}
-    />
+    <AuthGateScreen onLogin={() => ctx.navigate('login')} onRegister={() => ctx.navigate('register')} />
   ),
   login: (ctx) => (
-    <LoginScreen
-      onSubmit={ctx.handleAuthLogin}
-      onTelegram={ctx.handleAuthTelegram}
-      onRegister={() => ctx.navigate('register')}
-    />
+    <LoginScreen onSubmit={ctx.handleAuthLogin} onRegister={() => ctx.navigate('register')} />
   ),
   register: (ctx) => <RegisterScreen onSubmit={ctx.handleAuthRegister} onLogin={() => ctx.navigate('login')} />,
   intro: (ctx) => <IntroScreen onRoleSelect={ctx.handleRoleSelect} />,
