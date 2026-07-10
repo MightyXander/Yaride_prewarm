@@ -1,6 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Screen, Trip, ConfirmKind, NavigationState, RatingContext } from '../types/navigation';
-import { saveLastScreen, resolvePersistedEntry } from '../lib/lastScreen';
+import { saveLastScreen, touchLastScreen, resolvePersistedEntry } from '../lib/lastScreen';
+
+// Heartbeat-интервал перезаписи ts у сохранённой записи (issue #402): без него
+// reload после долгого «стояния» на одном экране (без навигации) не попадал бы
+// во freshness-окно loadLastScreen — запись стухла бы, хотя это тот же reload.
+const HEARTBEAT_INTERVAL_MS = 10_000;
 
 // Фолбэк для goBack, когда стек истории пуст (напр. вход по deep-link — предыдущего экрана нет);
 // также используется lastScreen.ts, чтобы найти ближайший восстановимый экран (issue #392).
@@ -204,13 +209,40 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     }
   }, [navState.currentScreen, navState.scrollPositions]);
 
-  // Персистенс «последнего экрана» (issue #392): одна точка записи покрывает
+  // Персистенс «последнего экрана» (issue #392, #402): одна точка записи покрывает
   // navigate/resetTo/goBack/navigateToRateTrip — все они меняют currentScreen.
   // Экраны вне whitelist приводятся к ближайшему восстановимому родителю.
   useEffect(() => {
     const entry = resolvePersistedEntry(navState.currentScreen, navState.selectedTrip?.id, PARENT_SCREEN);
     saveLastScreen(entry);
   }, [navState.currentScreen, navState.selectedTrip?.id]);
+
+  // Heartbeat + pagehide/visibilitychange (issue #402): перезаписывают ts
+  // сохранённой записи, не меняя её screen/tripId, чтобы reload после долгого
+  // «стояния» на одном экране всё равно попадал в freshness-окно loadLastScreen.
+  // Один эффект на весь хук (не привязан к currentScreen) — подписки живут
+  // всё время жизни компонента и снимаются только на unmount.
+  useEffect(() => {
+    const intervalId = window.setInterval(touchLastScreen, HEARTBEAT_INTERVAL_MS);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        touchLastScreen();
+      }
+    };
+    const handlePageHide = () => {
+      touchLastScreen();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
+  }, []);
 
   return {
     currentScreen: navState.currentScreen,
