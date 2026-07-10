@@ -53,6 +53,7 @@ npm start
 | `DB_SCHEMA` | Имя схемы PostgreSQL | `prewarm` |
 | `DEMO_SEED` | **Демо-seed для dev**: `true` → сеять демо-коридор (Брагино↔Центр, демо-водители, рыба-поездки на сегодня). **НЕ задавать на проде** (прод real-only, без демо). | не задан (прод) |
 | `BOT_TOKEN` | Telegram bot token для проверки initData | — |
+| `BOT_USERNAME` | **Опциональный** override username бота (без `@`) для deep-link привязки `https://t.me/<бот>?start=link_...`. По умолчанию username авто-выводится из `BOT_TOKEN` через Bot API `getMe` (кэшируется) — задавать не нужно. | не задан (берётся из `getMe`) |
 | `ADMIN_CHAT_ID` | Числовой Telegram ID администратора (@mightyxander) — куда боту слать заявки на модерацию ВУ с кнопками «Подтвердить/Отклонить». Не задан → уведомления админу no-op (заявка всё равно создаётся). | не задан |
 | `ADMIN_USERNAME` | Username админа без `@` — дополнительная проверка прав на модерацию ВУ (callback `lic:*`). | `mightyxander` |
 

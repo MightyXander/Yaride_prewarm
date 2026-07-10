@@ -103,6 +103,7 @@ import {
   MIN_PASSWORD_LENGTH,
 } from './auth.ts';
 import {
+  getBotUsername,
   telegramDisplayName,
   verifyInitData,
   type TelegramUser,
@@ -1279,7 +1280,7 @@ export async function handleLinkMyAccount(req: ApiRequest): Promise<ApiResponse>
  * в БД хранится только его sha256-хэш; резолвит бота ветка `/start link_...`.
  *
  * Троттлинг: не более 5 токенов на пользователя за 15 минут (анти-спам выдачи).
- * Имя бота берётся из env BOT_USERNAME (не хардкодим) — без него 500.
+ * Имя бота резолвит getBotUsername() (env BOT_USERNAME → getMe по BOT_TOKEN); null → 500.
  */
 export async function handleCreateTelegramLinkToken(req: ApiRequest): Promise<ApiResponse> {
   const userId = await resolveCurrentUserId(req);
@@ -1294,9 +1295,9 @@ export async function handleCreateTelegramLinkToken(req: ApiRequest): Promise<Ap
     return err(429, 'Слишком много попыток. Попробуйте позже.', { code: 'too_many_attempts' });
   }
 
-  const botUsername = (process.env.BOT_USERNAME ?? '').trim().replace(/^@/, '');
-  if (botUsername === '') {
-    console.error('[telegram-link] BOT_USERNAME не задан — ссылку привязки не собрать');
+  const botUsername = await getBotUsername();
+  if (botUsername === null) {
+    console.error('[telegram-link] username бота не резолвится — ссылку привязки не собрать');
     return err(500, 'Привязка Telegram временно недоступна');
   }
 
