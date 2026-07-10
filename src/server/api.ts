@@ -86,6 +86,8 @@ import {
   UserConflictError,
   CredentialsAlreadySetError,
   logEvent,
+  createLinkToken,
+  countRecentLinkTokens,
   type FindTripsParams,
   type TimeSlot,
   type TripStatusFilter,
@@ -817,6 +819,8 @@ export async function handleGetMyProfile(req: ApiRequest): Promise<ApiResponse> 
         license_status: profile.license_status,
         license_series: license?.series_number ?? null,
         license_valid_until: license?.valid_until ?? null,
+        // Признак привязки Telegram (issue #401). Сам tg_user_id наружу не светим.
+        tg_linked: profile.tg_user_id != null,
       },
     },
   };
@@ -1266,6 +1270,39 @@ export async function handleLinkMyAccount(req: ApiRequest): Promise<ApiResponse>
       username: creds?.username ?? null,
     },
   };
+}
+
+/**
+ * POST /api/me/telegram-link-token — выпустить одноразовую deep-link ссылку
+ * привязки Telegram к текущему аккаунту (issue #401). Возвращает { url }:
+ * `https://t.me/<бот>?start=link_<токен>`. Токен одноразовый (TTL 10 мин),
+ * в БД хранится только его sha256-хэш; резолвит бота ветка `/start link_...`.
+ *
+ * Троттлинг: не более 5 токенов на пользователя за 15 минут (анти-спам выдачи).
+ * Имя бота берётся из env BOT_USERNAME (не хардкодим) — без него 500.
+ */
+export async function handleCreateTelegramLinkToken(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const TOKEN_THROTTLE_WINDOW_MS = 15 * 60 * 1000;
+  const TOKEN_THROTTLE_MAX = 5;
+  const recent = await countRecentLinkTokens(userId, TOKEN_THROTTLE_WINDOW_MS);
+  if (recent >= TOKEN_THROTTLE_MAX) {
+    return err(429, 'Слишком много попыток. Попробуйте позже.', { code: 'too_many_attempts' });
+  }
+
+  const botUsername = (process.env.BOT_USERNAME ?? '').trim().replace(/^@/, '');
+  if (botUsername === '') {
+    console.error('[telegram-link] BOT_USERNAME не задан — ссылку привязки не собрать');
+    return err(500, 'Привязка Telegram временно недоступна');
+  }
+
+  const { token } = await createLinkToken(userId);
+  const url = `https://t.me/${botUsername}?start=link_${token}`;
+  return { status: 200, body: { url } };
 }
 
 /** POST /api/me/push-token — сохранить FCM-токен устройства (issue #265). */

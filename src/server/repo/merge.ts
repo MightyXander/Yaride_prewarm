@@ -10,6 +10,7 @@
  */
 
 import { withTransaction } from '../db.ts';
+import type { PoolClient } from 'pg';
 
 /**
  * Слить карточку `dupeId` в `keepId`. keep остаётся, dupe удаляется; данные входа
@@ -98,4 +99,106 @@ export async function mergeAccounts(keepId: number, dupeId: number): Promise<voi
       [keepId],
     );
   });
+}
+
+/**
+ * Слить TG-only карточку `dupeId` в email-аккаунт `keepId`, СОХРАНИВ креды keep
+ * (issue #401, кейс 2 привязки Telegram из профиля). Ключевое отличие от
+ * mergeAccounts — КАПКАН из спеки: mergeAccounts безусловно перезаписывает
+ * email/username/password_hash keep данными dupe (без COALESCE), что здесь
+ * ОБНУЛИЛО бы email-логин пользователя. Поэтому:
+ *  - креды keep (email/username/password_hash) НЕ трогаем;
+ *  - вся история TG-only карточки (поездки/брони/рейтинги/алерты/уведомления/
+ *    события/токены/…) переезжает на keep, dupe удаляется — это освобождает её
+ *    tg_user_id в UNIQUE-индексе;
+ *  - keep получает освободившийся tg_user_id.
+ *
+ * Работает на переданном `client` — ВНУТРИ транзакции вызывающего
+ * (linkTelegramToUser держит FOR UPDATE-лок на строке-владельце tg_user_id),
+ * поэтому своей withTransaction здесь нет.
+ *
+ * @param client   активный PoolClient внутри транзакции вызывающего.
+ * @param keepId   email-аккаунт, который выживает (его креды и id сохраняются).
+ * @param dupeId   TG-only карточка, которая удаляется.
+ * @param tgUserId Telegram-id, переезжающий с dupe на keep.
+ */
+export async function mergeTelegramOnlyIntoAccount(
+  client: PoolClient,
+  keepId: number,
+  dupeId: number,
+  tgUserId: number,
+): Promise<void> {
+  // bookings: UNIQUE(trip_id, passenger_id) — сначала убираем брони dupe на те
+  // поездки, где keep уже забронирован, затем переносим остальные.
+  await client.query(
+    `DELETE FROM bookings b WHERE b.passenger_id = $1
+       AND EXISTS (SELECT 1 FROM bookings x WHERE x.passenger_id = $2 AND x.trip_id = b.trip_id)`,
+    [dupeId, keepId],
+  );
+  await client.query('UPDATE bookings SET passenger_id = $2 WHERE passenger_id = $1', [dupeId, keepId]);
+
+  // ratings: UNIQUE(trip_id, rater_id, ratee_id) — по обеим ролям.
+  await client.query(
+    `DELETE FROM ratings r WHERE r.rater_id = $1
+       AND EXISTS (SELECT 1 FROM ratings x WHERE x.trip_id = r.trip_id AND x.rater_id = $2 AND x.ratee_id = r.ratee_id)`,
+    [dupeId, keepId],
+  );
+  await client.query('UPDATE ratings SET rater_id = $2 WHERE rater_id = $1', [dupeId, keepId]);
+  await client.query(
+    `DELETE FROM ratings r WHERE r.ratee_id = $1
+       AND EXISTS (SELECT 1 FROM ratings x WHERE x.trip_id = r.trip_id AND x.rater_id = r.rater_id AND x.ratee_id = $2)`,
+    [dupeId, keepId],
+  );
+  await client.query('UPDATE ratings SET ratee_id = $2 WHERE ratee_id = $1', [dupeId, keepId]);
+
+  // push_tokens: UNIQUE(token).
+  await client.query(
+    `DELETE FROM push_tokens p WHERE p.user_id = $1
+       AND EXISTS (SELECT 1 FROM push_tokens x WHERE x.user_id = $2 AND x.token = p.token)`,
+    [dupeId, keepId],
+  );
+  await client.query('UPDATE push_tokens SET user_id = $2 WHERE user_id = $1', [dupeId, keepId]);
+
+  // Простые ссылки (без уникальных ограничений по user).
+  await client.query('UPDATE trips SET driver_id = $2 WHERE driver_id = $1', [dupeId, keepId]);
+  await client.query('UPDATE trip_templates SET driver_id = $2 WHERE driver_id = $1', [dupeId, keepId]);
+  await client.query('UPDATE cars SET driver_id = $2 WHERE driver_id = $1', [dupeId, keepId]);
+  await client.query('UPDATE license_requests SET driver_id = $2 WHERE driver_id = $1', [dupeId, keepId]);
+  await client.query('UPDATE route_alerts SET passenger_id = $2 WHERE passenger_id = $1', [dupeId, keepId]);
+  await client.query('UPDATE notifications SET user_id = $2 WHERE user_id = $1', [dupeId, keepId]);
+  await client.query('UPDATE notifications SET ref_user_id = $2 WHERE ref_user_id = $1', [dupeId, keepId]);
+  await client.query('UPDATE sessions SET user_id = $2 WHERE user_id = $1', [dupeId, keepId]);
+  await client.query('UPDATE events SET user_id = $2 WHERE user_id = $1', [dupeId, keepId]);
+  await client.query('UPDATE telegram_link_tokens SET user_id = $2 WHERE user_id = $1', [dupeId, keepId]);
+
+  // safety_settings: PK(user_id) — одна строка на юзера. Настройки живого
+  // email-аккаунта keep актуальнее; строку dupe отбрасываем, если у keep уже
+  // есть своя, иначе переносим.
+  await client.query(
+    `DELETE FROM safety_settings WHERE user_id = $1
+       AND EXISTS (SELECT 1 FROM safety_settings k WHERE k.user_id = $2)`,
+    [dupeId, keepId],
+  );
+  await client.query('UPDATE safety_settings SET user_id = $2 WHERE user_id = $1', [dupeId, keepId]);
+
+  // phone_verification_codes эфемерны (TTL 5 мин) — коды dupe не нужны, удаляем.
+  await client.query('DELETE FROM phone_verification_codes WHERE user_id = $1', [dupeId]);
+
+  // Удаляем TG-only карточку — освобождает её tg_user_id в UNIQUE-индексе.
+  await client.query('DELETE FROM users WHERE id = $1', [dupeId]);
+
+  // keep получает освободившийся tg_user_id. Креды keep (email/username/
+  // password_hash) НЕ трогаем — ключевое отличие от mergeAccounts (КАПКАН).
+  await client.query('UPDATE users SET tg_user_id = $2 WHERE id = $1', [keepId, tgUserId]);
+
+  // Пересчёт денормализованных счётчиков/рейтинга keep из источников (как #243).
+  await client.query(
+    `UPDATE users u SET
+       trips_driver_count    = (SELECT COUNT(*) FROM trips t WHERE t.driver_id = u.id AND t.status <> 'cancelled'),
+       trips_passenger_count = (SELECT COUNT(*) FROM bookings b WHERE b.passenger_id = u.id AND b.status = 'active'),
+       rating_avg            = (SELECT COALESCE(AVG(r.stars), 0.0) FROM ratings r WHERE r.ratee_id = u.id),
+       rating_count          = (SELECT COUNT(*) FROM ratings r WHERE r.ratee_id = u.id)
+     WHERE u.id = $1`,
+    [keepId],
+  );
 }

@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 17;
+export const CURRENT_SCHEMA_VERSION = 18;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -291,6 +291,21 @@ const BOOTSTRAP_SQL = `
     trusted_phone TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+
+  -- Привязка Telegram из профиля (issue #401): одноразовые токены deep-link
+  -- t.me/<бот>?start=link_<токен>. В БД хранится только sha256-хэш токена (тот
+  -- же приём, что sessions.token_hash). TTL 10 минут, одноразовый (used_at).
+  CREATE TABLE IF NOT EXISTS telegram_link_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    token_hash TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS uq_telegram_link_tokens_hash ON telegram_link_tokens(token_hash);
+  CREATE INDEX IF NOT EXISTS idx_telegram_link_tokens_user ON telegram_link_tokens(user_id, created_at);
 `;
 
 /**
@@ -329,6 +344,9 @@ const BOOTSTRAP_SQL = `
  * v16→v17: настройки безопасности + доверенный контакт (issue #344, срез 1 из
  *        #323) — новая таблица safety_settings (одна строка на пользователя,
  *        UPSERT по user_id). Аддитивно, никаких существующих таблиц не трогает.
+ * v17→v18: привязка Telegram из профиля (issue #401) — новая таблица
+ *        telegram_link_tokens (одноразовые deep-link токены /start link_...).
+ *        Аддитивно, никаких существующих таблиц не трогает.
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -665,6 +683,24 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
         trusted_phone TEXT,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+    return;
+  }
+  if (fromV === 17 && toV === 18) {
+    // Привязка Telegram из профиля (issue #401). Аддитивно — новая таблица
+    // одноразовых токенов deep-link, ничего существующего не трогает.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS telegram_link_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        token_hash TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_telegram_link_tokens_hash ON telegram_link_tokens(token_hash);
+      CREATE INDEX IF NOT EXISTS idx_telegram_link_tokens_user ON telegram_link_tokens(user_id, created_at);
     `);
     return;
   }

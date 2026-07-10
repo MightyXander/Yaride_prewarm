@@ -62,6 +62,7 @@ import type {
   LinkAccountRequest,
   LinkAccountResponse,
   ApiErrorResponse,
+  CreateTelegramLinkTokenResponse,
 } from '../types/api.ts';
 
 const API_BASE = '/api';
@@ -194,6 +195,14 @@ export async function cancelTrip(tripId: number): Promise<CancelTripResponse> {
 /** GET /api/me/profile */
 export async function getMyProfile(): Promise<GetMyProfileResponse> {
   return apiFetch<GetMyProfileResponse>('/me/profile');
+}
+
+/** POST /api/me/telegram-link-token — выпустить одноразовую ссылку привязки TG (issue #401). */
+export async function createTelegramLinkToken(): Promise<CreateTelegramLinkTokenResponse> {
+  return apiFetch<CreateTelegramLinkTokenResponse>('/me/telegram-link-token', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
 }
 
 /**

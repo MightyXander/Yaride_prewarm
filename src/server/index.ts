@@ -66,6 +66,7 @@ export {
   handleGetMyCredentials,
   handleAddMyCredentials,
   handleLinkMyAccount,
+  handleCreateTelegramLinkToken,
   handleSavePushToken,
   handleGetMyTrips,
   handleGetMyTemplate,

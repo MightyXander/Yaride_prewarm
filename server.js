@@ -41,6 +41,7 @@ try {
     getMyCredentials: mod.handleGetMyCredentials,
     addMyCredentials: mod.handleAddMyCredentials,
     linkMyAccount: mod.handleLinkMyAccount,
+    createTelegramLinkToken: mod.handleCreateTelegramLinkToken,
     savePushToken: mod.handleSavePushToken,
     getMyTrips: mod.handleGetMyTrips,
     getMyTemplate: mod.handleGetMyTemplate,
@@ -279,6 +280,7 @@ app.put('/api/me/safety', wrap(api?.saveMySafety));
 app.get('/api/me/credentials', wrap(api?.getMyCredentials));
 app.post('/api/me/credentials', wrap(api?.addMyCredentials));
 app.post('/api/me/link-account', wrap(api?.linkMyAccount));
+app.post('/api/me/telegram-link-token', wrap(api?.createTelegramLinkToken));
 app.post('/api/me/push-token', wrap(api?.savePushToken));
 app.get('/api/me/trips', wrap(api?.getMyTrips));
 // Issue #321: активные заявки текущего юзера (устойчивая точка входа к отмене #319).

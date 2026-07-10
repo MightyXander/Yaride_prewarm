@@ -37,3 +37,4 @@ export * from './merge.ts';
 export * from './events.ts';
 export * from './sms-verification.ts';
 export * from './safety.ts';
+export * from './telegram-link.ts';
