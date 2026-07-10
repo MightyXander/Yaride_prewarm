@@ -168,6 +168,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
     <div
       style={{
         flex: 1,
+        minHeight: 0,
         overflow: 'auto',
         padding: '18px 16px 24px',
         display: 'flex',
