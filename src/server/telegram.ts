@@ -503,6 +503,20 @@ export async function handleWebhookUpdate(
 
   if (text.startsWith('/start')) {
     const appUrl = (miniAppUrl ?? process.env.MINIAPP_URL ?? '').trim();
+
+    // Deep-link привязки Telegram из профиля (issue #401): /start link_<токен>.
+    // Проверяется ДО общего приветствия — обычный /start (без параметра) идёт
+    // дальше по ветке приветствия.
+    const startParam = text.slice('/start'.length).trim();
+    if (startParam.startsWith('link_')) {
+      return await handleStartLinkToken(
+        chatId,
+        tgUserId,
+        startParam.slice('link_'.length),
+        appUrl,
+        token,
+      );
+    }
     const greeting =
       '👋 Привет! Это ЯРайд — попутчики по Ярославлю.\n\n' +
       'Находите попутку или подвозите по пути: дешевле такси и удобнее, ' +
@@ -542,6 +556,66 @@ export async function handleWebhookUpdate(
   }
 
   return true;
+}
+
+/**
+ * Ветка `/start link_<токен>` (issue #401): резолвит одноразовый токен привязки
+ * и связывает Telegram-аккаунт с email-аккаунтом, выпустившим токен.
+ *
+ * Исходы:
+ *  - токен просрочен/использован/не найден → «Ссылка устарела …»;
+ *  - tg_user_id занят другим аккаунтом С кредами → «уже привязан …»;
+ *  - иначе привязка (или идемпотентно уже привязан) → успех + кнопка приложения.
+ */
+async function handleStartLinkToken(
+  chatId: number,
+  tgUserId: number,
+  rawToken: string,
+  appUrl: string,
+  botToken: string,
+): Promise<boolean> {
+  // Ленивый доступ к repo — как и все прочие обращения к repo.ts в этом модуле:
+  // telegram.ts держит repo-зависимости отложенными (модуль в цикле импорта с
+  // notify.ts), статический импорт стал бы вторым стилем в файле.
+  const { consumeLinkToken, linkTelegramToUser, TelegramAlreadyLinkedError } =
+    await import('./repo.ts');
+
+  const consumed = await consumeLinkToken(rawToken);
+  if (consumed === null) {
+    return await sendMessage(
+      chatId,
+      'Ссылка устарела — сгенерируйте новую в профиле.',
+      {},
+      botToken,
+    );
+  }
+
+  try {
+    await linkTelegramToUser(consumed.userId, tgUserId);
+  } catch (e) {
+    if (e instanceof TelegramAlreadyLinkedError) {
+      return await sendMessage(
+        chatId,
+        'Этот Telegram уже привязан к другому аккаунту.',
+        {},
+        botToken,
+      );
+    }
+    throw e;
+  }
+
+  const opts: SendMessageOptions = {};
+  if (appUrl !== '') {
+    opts.reply_markup = {
+      inline_keyboard: [[{ text: 'Открыть приложение', url: appUrl }]],
+    };
+  }
+  return await sendMessage(
+    chatId,
+    '✅ Telegram подключён. Теперь пришлём уведомления о поездках и бронях.',
+    opts,
+    botToken,
+  );
 }
 
 /**

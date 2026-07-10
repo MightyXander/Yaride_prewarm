@@ -174,6 +174,11 @@ function mockApiPlugin() {
         womenOnly: true,
         trustedContact: null,
       };
+      // Привязка Telegram из профиля (#401): статус привязки текущего аккаунта.
+      // Стартует false (CTA-бейдж виден); POST /me/telegram-link-token имитирует
+      // «юзер дошёл до бота» и через ~6с переводит в true — так тестируется
+      // поллинг перехода в «Telegram подключён» без реального бота.
+      let mockTgLinked = false;
       const normalizeRuPhoneMock = (raw: string): string | null => {
         const digits = String(raw).replace(/\D/g, '');
         let national: string;
@@ -580,8 +585,22 @@ function mockApiPlugin() {
             trips_driver_count: 15,
             trips_passenger_count: 40,
             license_status: 'verified',
+            tg_linked: mockTgLinked,
           };
           sendJson({ profile });
+          return;
+        }
+
+        // POST /api/me/telegram-link-token — мок-ссылка привязки TG (#401).
+        // Возвращает фиктивный t.me-url; через ~6с помечает профиль привязанным,
+        // симулируя, что пользователь дошёл до бота и нажал /start link_...
+        if (method === 'POST' && pathname === '/me/telegram-link-token') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            setTimeout(() => { mockTgLinked = true; }, 6000);
+            sendJson({ url: 'https://t.me/yaride_dev_bot?start=link_mocktoken' });
+          });
           return;
         }
 

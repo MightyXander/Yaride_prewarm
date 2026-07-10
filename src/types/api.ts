@@ -176,6 +176,8 @@ export interface UserProfile {
   trips_driver_count: number;
   trips_passenger_count: number;
   license_status: string;
+  /** Привязан ли Telegram к аккаунту (issue #401). tg_user_id наружу не отдаётся. */
+  tg_linked: boolean;
   /** Серия/номер ВУ из последней заявки (для статусного экрана). null — заявок нет. */
   license_series?: string | null;
   /** Срок действия ВУ из последней заявки. null — заявок нет. */
@@ -184,6 +186,12 @@ export interface UserProfile {
 
 export interface GetMyProfileResponse {
   profile: UserProfile;
+}
+
+// POST /api/me/telegram-link-token — одноразовая deep-link ссылка привязки TG (issue #401).
+export interface CreateTelegramLinkTokenResponse {
+  /** t.me/<бот>?start=link_<токен> — открыть, чтобы бот привязал tg_user_id. */
+  url: string;
 }
 
 // GET /api/me/consent — статус согласия с Политикой ПДн/Офертой (issue #234).

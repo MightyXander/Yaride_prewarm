@@ -3,6 +3,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import EmailLoginSection from '../components/EmailLoginSection';
+import TelegramLinkSection from '../components/TelegramLinkSection';
 import ThemeModeSheet from '../components/ThemeModeSheet';
 import type { ThemeMode } from '../hooks/useTheme';
 import { useProfile } from '../contexts/ProfileContext';
@@ -313,6 +314,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
       {/* Вход по email (issue #273): только в Telegram и только аккаунту без пароля.
           Видимостью управляет сам компонент (см. EmailLoginSection). */}
       <EmailLoginSection />
+
+      {/* Привязка Telegram (issue #401): CTA-бейдж вне TG / «подключён» внутри TG.
+          Видимостью и состоянием управляет сам компонент (см. TelegramLinkSection). */}
+      <TelegramLinkSection />
 
       {/* Стать водителем */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: 'auto', paddingTop: '6px' }}>
