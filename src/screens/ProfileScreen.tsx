@@ -17,7 +17,7 @@ import {
 } from '../lib/screenFetchers';
 import type { Car } from '../types/api';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
-import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
+import { ResponsiveTwoColumn } from '../components/ui/ResponsiveTwoColumn';
 
 interface ProfileScreenProps {
   onBecomeDriver: () => void;
@@ -208,80 +208,69 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
     </span>
   );
 
-  return (
-    <div
-      style={{
-        flex: 1,
-        overflow: 'auto',
-        padding: '6px 16px',
-        paddingBottom: FLOATING_NAV_SCROLL_CLEARANCE,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-      }}
+  // Карточка идентичности (аватар/имя/рейтинг): aside-колонка десктоп-раскладки
+  // (issue #387, эпик #364), на мобиле/Telegram идёт первой — без изменений
+  // содержимого/порядка относительно прежней раскладки.
+  const identityCard = loading ? (
+    <Card style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '18px' }}>
+      <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ height: '18px', width: '55%', borderRadius: '8px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        <div style={{ height: '13px', width: '40%', borderRadius: '6px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite', marginTop: '8px' }} />
+      </div>
+    </Card>
+  ) : !profile ? (
+    // Вне Telegram / 401 без засиженного профиля — честная карточка-баннер
+    // вместо выдуманных данных (#244). Меню навигации ниже остаётся видимым.
+    <Card style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '18px' }}>
+      <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--secondary)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+        <svg viewBox="0 0 24 24" style={{ width: '28px', height: '28px', fill: 'none', stroke: 'var(--muted-foreground)', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
+          <path d="M21 5 2 12l7 2 2 7 3-5 5 4z" />
+        </svg>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '16px', fontWeight: 700 }}>Откройте в Telegram</div>
+        <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '3px', lineHeight: 1.4 }}>
+          {needsTelegram
+            ? 'Профиль доступен после входа через Telegram. Откройте приложение в боте @Yaride_bot.'
+            : 'Не удалось загрузить профиль. Откройте приложение в боте @Yaride_bot.'}
+        </div>
+      </div>
+    </Card>
+  ) : (
+    <Card
+      role={userId && onOpenProfile ? 'button' : undefined}
+      tabIndex={userId && onOpenProfile ? 0 : undefined}
+      aria-label={userId && onOpenProfile ? 'Открыть мой публичный профиль' : undefined}
+      onClick={userId && onOpenProfile ? openSelf : undefined}
+      onKeyDown={userId && onOpenProfile ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSelf(); } } : undefined}
+      className={userId && onOpenProfile ? 'focus-ring pressable' : undefined}
+      style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '18px', cursor: userId && onOpenProfile ? 'pointer' : 'default' }}
     >
-      {/* Десктоп (>=900px): центрированная читаемая колонка ~720px вместо растяжения
-          на всю ширину десктоп-оболочки; мобиль/Telegram — passthrough (issue #377, эпик #364). */}
-      <ResponsiveColumn maxWidth={720} style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-      <Header title="Профиль" />
+      <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--gradient-brand)', display: 'grid', placeItems: 'center', fontWeight: 800, color: 'var(--brand-foreground)', fontSize: '22px', flexShrink: 0 }}>
+        {initials}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '18px', fontWeight: 700 }}>
+          {name}
+          {username && (
+            <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '15px' }}> @{username}</span>
+          )}
+          {age && (
+            <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '15px' }}> · {age}&nbsp;лет</span>
+          )}
+        </div>
+        <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '3px' }}>
+          <span style={{ color: 'var(--brand-dark)', fontWeight: 700 }}>★ {rating.toFixed(1)}</span> · {tripCount}&nbsp;поездок
+        </div>
+      </div>
+    </Card>
+  );
 
-      {/* Карточка профиля */}
-      {loading ? (
-        <Card style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '18px' }}>
-          <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ height: '18px', width: '55%', borderRadius: '8px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite' }} />
-            <div style={{ height: '13px', width: '40%', borderRadius: '6px', background: 'var(--secondary)', animation: 'pulse 1.5s ease-in-out infinite', marginTop: '8px' }} />
-          </div>
-        </Card>
-      ) : !profile ? (
-        // Вне Telegram / 401 без засиженного профиля — честная карточка-баннер
-        // вместо выдуманных данных (#244). Меню навигации ниже остаётся видимым.
-        <Card style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '18px' }}>
-          <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--secondary)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-            <svg viewBox="0 0 24 24" style={{ width: '28px', height: '28px', fill: 'none', stroke: 'var(--muted-foreground)', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
-              <path d="M21 5 2 12l7 2 2 7 3-5 5 4z" />
-            </svg>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '16px', fontWeight: 700 }}>Откройте в Telegram</div>
-            <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '3px', lineHeight: 1.4 }}>
-              {needsTelegram
-                ? 'Профиль доступен после входа через Telegram. Откройте приложение в боте @Yaride_bot.'
-                : 'Не удалось загрузить профиль. Откройте приложение в боте @Yaride_bot.'}
-            </div>
-          </div>
-        </Card>
-      ) : (
-        <Card
-          role={userId && onOpenProfile ? 'button' : undefined}
-          tabIndex={userId && onOpenProfile ? 0 : undefined}
-          aria-label={userId && onOpenProfile ? 'Открыть мой публичный профиль' : undefined}
-          onClick={userId && onOpenProfile ? openSelf : undefined}
-          onKeyDown={userId && onOpenProfile ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSelf(); } } : undefined}
-          className={userId && onOpenProfile ? 'focus-ring pressable' : undefined}
-          style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '18px', cursor: userId && onOpenProfile ? 'pointer' : 'default' }}
-        >
-          <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--gradient-brand)', display: 'grid', placeItems: 'center', fontWeight: 800, color: 'var(--brand-foreground)', fontSize: '22px', flexShrink: 0 }}>
-            {initials}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '18px', fontWeight: 700 }}>
-              {name}
-              {username && (
-                <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '15px' }}> @{username}</span>
-              )}
-              {age && (
-                <span style={{ color: 'var(--muted-foreground)', fontWeight: 600, fontSize: '15px' }}> · {age}&nbsp;лет</span>
-              )}
-            </div>
-            <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '3px' }}>
-              <span style={{ color: 'var(--brand-dark)', fontWeight: 700 }}>★ {rating.toFixed(1)}</span> · {tripCount}&nbsp;поездок
-            </div>
-          </div>
-        </Card>
-      )}
-
+  // Секции (main-колонка десктоп-раскладки, issue #387): меню + вход по email +
+  // «Стать водителем»/выйти — тот же порядок и содержимое, что и раньше.
+  const sections = (
+    <>
       {/* Меню одной карточкой */}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <MenuRow
@@ -338,7 +327,33 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
           </Button>
         )}
       </div>
-      </ResponsiveColumn>
+    </>
+  );
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        overflow: 'auto',
+        padding: '6px 16px',
+        paddingBottom: FLOATING_NAV_SCROLL_CLEARANCE,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+      }}
+    >
+      <Header title="Профиль" />
+
+      {/* Десктоп (>=900px, issue #387, эпик #364): 2 колонки — identity-карточка
+          слева (липкая) + секции справа, через ResponsiveTwoColumn с asideSide='left'
+          (issue #383 расширен обратно-совместимо). Мобиль/Telegram — прежняя одна
+          колонка (identity сверху, секции ниже), passthrough внутри примитива. */}
+      <ResponsiveTwoColumn
+        asideSide="left"
+        style={{ flex: 1 }}
+        aside={identityCard}
+        main={sections}
+      />
 
       <ThemeModeSheet
         open={themeSheetOpen}
