@@ -1,3 +1,4 @@
+import { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Icon } from './Icons';
@@ -109,6 +110,171 @@ function FloatingNavBar({
   const current = ITEMS.findIndex(({ root }) => root === activeTab);
   const prefersReduced = useReducedMotion();
 
+  // --- Drag каретки (touch & hold): pointerdown в области навбара + удержание ≥250мс без
+  // отпускания активирует drag-режим — каретка прыгает под палец и следует за ним по X;
+  // отпускание раньше активирует обычный клик (поведение не меняется). Слотов три: 0 = колокол,
+  // 1 = Поездки, 2 = Профиль (индекс совпадает с `current + 1`, который использует transform-формула ниже).
+  const navElRef = useRef<HTMLElement | null>(null);
+  const caretRef = useRef<HTMLDivElement | null>(null);
+  const bellRef = useRef<HTMLButtonElement | null>(null);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragX, setDragX] = useState<number | null>(null);
+
+  const pointerIdRef = useRef<number | null>(null);
+  const holdTimerRef = useRef<number | null>(null);
+  const dragActiveRef = useRef(false);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const lastSlotRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false);
+
+  const getSlotElements = useCallback(
+    (): (HTMLButtonElement | null)[] => [bellRef.current, tabRefs.current[0] ?? null, tabRefs.current[1] ?? null],
+    []
+  );
+
+  const nearestSlot = useCallback(
+    (clientX: number): number => {
+      const slots = getSlotElements();
+      let best = 0;
+      let bestDist = Infinity;
+      slots.forEach((el, idx) => {
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const center = rect.left + rect.width / 2;
+        const dist = Math.abs(clientX - center);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = idx;
+        }
+      });
+      return best;
+    },
+    [getSlotElements]
+  );
+
+  const caretLeftForClientX = useCallback((clientX: number): number => {
+    const navEl = navElRef.current;
+    if (!navEl) return 6;
+    const navRect = navEl.getBoundingClientRect();
+    const caretWidth = caretRef.current?.offsetWidth ?? 0;
+    const min = 6;
+    const max = Math.max(min, navRect.width - 6 - caretWidth);
+    const raw = clientX - navRect.left - caretWidth / 2;
+    return Math.min(Math.max(raw, min), max);
+  }, []);
+
+  const navigateToSlot = useCallback(
+    (slot: number) => {
+      if (slot === 0) {
+        onNotificationsClick();
+      } else {
+        onNavigate(ITEMS[slot - 1].root);
+      }
+    },
+    [onNavigate, onNotificationsClick]
+  );
+
+  const clearHoldTimer = useCallback(() => {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  }, []);
+
+  const handleNavPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      if (!e.isPrimary) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      pointerIdRef.current = e.pointerId;
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      dragActiveRef.current = false;
+      clearHoldTimer();
+      holdTimerRef.current = window.setTimeout(() => {
+        holdTimerRef.current = null;
+        const pos = lastPointerRef.current;
+        const navEl = navElRef.current;
+        if (!pos || !navEl || pointerIdRef.current === null) return;
+        dragActiveRef.current = true;
+        try {
+          navEl.setPointerCapture(pointerIdRef.current);
+        } catch {
+          /* capture недоступен — drag продолжит работать через bubbling */
+        }
+        const slot = nearestSlot(pos.x);
+        lastSlotRef.current = slot;
+        setIsDragging(true);
+        setDragX(caretLeftForClientX(pos.x));
+      }, 250);
+    },
+    [caretLeftForClientX, clearHoldTimer, nearestSlot]
+  );
+
+  const handleNavPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      if (pointerIdRef.current !== e.pointerId) return;
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      if (!dragActiveRef.current) return;
+      const slot = nearestSlot(e.clientX);
+      if (slot !== lastSlotRef.current) {
+        lastSlotRef.current = slot;
+        hapticSelection();
+      }
+      setDragX(caretLeftForClientX(e.clientX));
+    },
+    [caretLeftForClientX, nearestSlot]
+  );
+
+  const endPointerSession = useCallback(
+    (e: React.PointerEvent<HTMLElement>, commit: boolean) => {
+      if (pointerIdRef.current !== e.pointerId) return;
+      clearHoldTimer();
+      const wasDragging = dragActiveRef.current;
+      if (wasDragging) {
+        const navEl = navElRef.current;
+        try {
+          navEl?.releasePointerCapture(e.pointerId);
+        } catch {
+          /* уже отпущен — не критично */
+        }
+        setIsDragging(false);
+        setDragX(null);
+        if (commit) {
+          const slot = lastSlotRef.current ?? nearestSlot(e.clientX);
+          suppressClickRef.current = true;
+          window.setTimeout(() => {
+            suppressClickRef.current = false;
+          }, 0);
+          hapticImpact('light');
+          navigateToSlot(slot);
+        }
+      }
+      dragActiveRef.current = false;
+      pointerIdRef.current = null;
+      lastPointerRef.current = null;
+      lastSlotRef.current = null;
+    },
+    [clearHoldTimer, navigateToSlot, nearestSlot]
+  );
+
+  const handleNavPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => endPointerSession(e, true),
+    [endPointerSession]
+  );
+
+  const handleNavPointerCancel = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => endPointerSession(e, false),
+    [endPointerSession]
+  );
+
+  const handleNavClickCapture = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    if (suppressClickRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, []);
+
   return (
     <div
       style={{
@@ -141,7 +307,13 @@ function FloatingNavBar({
       />
       <div style={{ width: '20rem', maxWidth: 'calc(100% - 2rem)' }}>
         <nav
+          ref={navElRef}
           aria-label="Основная навигация"
+          onPointerDown={handleNavPointerDown}
+          onPointerMove={handleNavPointerMove}
+          onPointerUp={handleNavPointerUp}
+          onPointerCancel={handleNavPointerCancel}
+          onClickCapture={handleNavClickCapture}
           style={{
             pointerEvents: 'auto',
             position: 'relative',
@@ -160,27 +332,34 @@ function FloatingNavBar({
             boxShadow: '0 14px 40px -16px rgba(0, 0, 0, .45), 0 2px 8px -4px rgba(0, 0, 0, .25)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
+            // Без этого долгое удержание на навбаре может запустить нативный page-scroll/zoom
+            // до того, как активируется drag-режим каретки (навбар сам не скроллится).
+            touchAction: 'none',
           }}
         >
-          {/* Скользящий индикатор brand-gradient — только для двух табов (Поездки/Профиль) */}
+          {/* Скользящий индикатор brand-gradient — только для двух табов (Поездки/Профиль).
+              При isDragging позиция идёт из dragX (px, clamped под палец), transition отключён;
+              иначе — как раньше, snap-transition к ближайшему слоту. */}
           <div
+            ref={caretRef}
             aria-hidden
             style={{
               pointerEvents: 'none',
               position: 'absolute',
               top: '6px',
               bottom: '6px',
-              left: '6px',
+              left: isDragging && dragX !== null ? `${dragX}px` : '6px',
               width: 'calc((100% - 0.75rem - 8px) / 3)',
               borderRadius: '999px',
               background: 'var(--gradient-brand)',
               boxShadow: '0 4px 14px -4px rgba(255, 210, 40, 0.55)',
-              transform: `translateX(calc(${current + 1} * (100% + 0.25rem)))`,
-              transition: prefersReduced ? 'none' : 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
+              transform: isDragging ? 'none' : `translateX(calc(${current + 1} * (100% + 0.25rem)))`,
+              transition: isDragging || prefersReduced ? 'none' : 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           />
           {/* Колокол уведомлений — слева, действие (не таб) */}
           <button
+            ref={bellRef}
             type="button"
             aria-label="Уведомления"
             aria-current={bellActive ? 'page' : undefined}
@@ -253,6 +432,9 @@ function FloatingNavBar({
             return (
               <button
                 key={root}
+                ref={(el) => {
+                  tabRefs.current[index] = el;
+                }}
                 type="button"
                 aria-label={label}
                 aria-current={active ? 'page' : undefined}
