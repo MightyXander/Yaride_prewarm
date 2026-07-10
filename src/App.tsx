@@ -12,7 +12,7 @@ import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { DESKTOP_BREAKPOINT, DESKTOP_MAX_PX, MOBILE_COLUMN_PX } from './lib/layout';
 import { useStartParam, hasStartParam } from './hooks/useStartParam';
-import { loadLastScreen, clearLastScreen } from './lib/lastScreen';
+import { loadLastScreen, clearLastScreen, clearLegacyLastScreen } from './lib/lastScreen';
 import { useTheme } from './hooks/useTheme';
 import { useCorridorTrips } from './hooks/useCorridorTrips';
 import { useSplashGate } from './hooks/useSplashGate';
@@ -64,16 +64,21 @@ function App() {
 
   const needsAuthGate = gateContext && !authed;
 
-  // Снимок sessionStorage строго на момент первого рендера (лениво, один раз):
+  // Снимок localStorage строго на момент первого рендера (лениво, один раз):
   // useNavigation ниже сам пишет в тот же ключ уже в первом эффекте после монтирования
   // (currentScreen === initialScreen), и если читать через loadLastScreen() внутри
   // ЭФФЕКТА (а не во время рендера), эффект useNavigation успевает отработать первым
   // (хук вызван раньше в теле компонента) и затирает сохранённый trip-details на
   // 'main' до того, как восстановление его увидит. Синхронный снимок в рендере
   // от этой гонки не зависит.
-  const [savedEntryAtMount] = useState(() => loadLastScreen());
+  // Заодно чистим протухший sessionStorage-ключ v1 (issue #392 → #402: перешли
+  // на localStorage) — один раз за время жизни модуля, до первого чтения нового ключа.
+  const [savedEntryAtMount] = useState(() => {
+    clearLegacyLastScreen();
+    return loadLastScreen();
+  });
 
-  // Восстановление последнего экрана (issue #392), приоритеты:
+  // Восстановление последнего экрана (issue #392, #402), приоритеты:
   // 1) needsAuthGate — гейт не обходим никогда, восстановление не читаем;
   // 2) deep-link (tgWebAppStartParam) — явное намерение сильнее восстановления,
   //    его обрабатывает useStartParam ниже и он в любом случае перезапишет
@@ -163,7 +168,7 @@ function App() {
   // (эффект перезапускается по needsAuthGate, пока гейт не снят — не восстанавливаем).
   // Ошибка загрузки (поездка удалена/404) — handleOpenTripById молча остаётся
   // на main (тостом предупредит пользователя), новый currentScreen ('main')
-  // тут же перезапишет протухший ключ в sessionStorage.
+  // тут же перезапишет протухший ключ в localStorage.
   const tripRestoreProcessed = useRef(false);
   useEffect(() => {
     if (needsAuthGate) return;
