@@ -26,7 +26,7 @@ const BackButton: React.FC<BackButtonProps> = ({ onClick, show, currentScreen })
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     // Показываем нативную BackButton только если Telegram API >= 6.1 (когда BackButton появился)
-    if (tg?.BackButton && tg.isVersionAtLeast('6.1')) {
+    if (tg?.BackButton && tg.isVersionAtLeast?.('6.1')) {
       if (show) {
         tg.BackButton.show();
         tg.BackButton.onClick(onClick);
