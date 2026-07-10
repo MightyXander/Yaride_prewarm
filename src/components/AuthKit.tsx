@@ -1,5 +1,4 @@
 import { useId, useState } from 'react';
-import { Icon } from './Icons';
 
 /**
  * AuthKit — общие строительные блоки экранов авторизации (gate / login / register).
@@ -341,37 +340,3 @@ export const ButtonSpinner: React.FC = () => (
   />
 );
 
-/* ------------------------------ Кнопки авторизации ------------------------------ */
-
-/** Кнопка «Войти через Telegram» — мягкая бренд-акцентная (token-driven, обе темы). */
-export const TelegramButton: React.FC<{ onClick: () => void; children?: React.ReactNode }> = ({
-  onClick,
-  children = 'Войти через Telegram',
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className="focus-ring pressable"
-    style={{
-      width: '100%',
-      height: '54px',
-      borderRadius: '16px',
-      // Бренд-тинт, выведенный из токенов — одинаково «жёлтый» и в свете, и в тьме
-      // (--accent в тёмной теме уходит в коричневый, поэтому считаем тинт от --brand).
-      background: 'color-mix(in srgb, var(--brand) 14%, var(--card))',
-      color: 'var(--foreground)',
-      border: '1px solid color-mix(in srgb, var(--brand) 32%, transparent)',
-      fontFamily: 'var(--font-sans)',
-      fontWeight: 700,
-      fontSize: '15px',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '10px',
-    }}
-  >
-    <Icon id="i-telegram" fill style={{ width: '20px', height: '20px' }} />
-    {children}
-  </button>
-);

@@ -1,13 +1,6 @@
 import { useState } from 'react';
 import Button from '../components/ui/Button';
-import {
-  BrandLogo,
-  AuthField,
-  PasswordField,
-  TelegramButton,
-  ButtonSpinner,
-  AuthError,
-} from '../components/AuthKit';
+import { BrandLogo, AuthField, PasswordField, ButtonSpinner, AuthError } from '../components/AuthKit';
 import { hapticImpact } from '../lib/haptics';
 import { ApiException } from '../lib/api';
 
@@ -18,13 +11,12 @@ import { ApiException } from '../lib/api';
  */
 interface LoginScreenProps {
   onSubmit: (email: string, password: string) => Promise<void>;
-  onTelegram: () => void;
   onRegister: () => void;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onSubmit, onTelegram, onRegister }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ onSubmit, onRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState<string | undefined>();
@@ -132,30 +124,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSubmit, onTelegram, onRegis
             'Войти'
           )}
         </Button>
-        <TelegramButton onClick={onTelegram} />
       </div>
-
-      {/* Восстановления по почте намеренно нет — только через Telegram. */}
-      <button
-        type="button"
-        onClick={onTelegram}
-        className="focus-ring"
-        style={{
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          fontFamily: 'var(--font-sans)',
-          fontSize: '13.5px',
-          color: 'var(--muted-foreground)',
-          textAlign: 'center',
-          textDecoration: 'underline',
-          textUnderlineOffset: '3px',
-          padding: '4px',
-          borderRadius: '8px',
-        }}
-      >
-        Не помните пароль? Войдите через Telegram
-      </button>
 
       <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--muted-foreground)', marginTop: 'auto', paddingTop: '6px' }}>
         Нет аккаунта?{' '}

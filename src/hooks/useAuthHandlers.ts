@@ -15,7 +15,7 @@ interface UseAuthHandlersArgs {
 }
 
 /**
- * Браузерная авторизация (#242): хендлеры login/register/telegram-заглушка/logout
+ * Браузерная авторизация (#242): хендлеры login/register/logout
  * + проверка серверной сессии (GET /api/auth/me) при старте. Состояние authed/meChecked
  * живёт в App.tsx (нужно ещё до useNavigation для расчёта initialScreen), сюда
  * вынесена только сама логика (issue #290).
@@ -49,12 +49,6 @@ export function useAuthHandlers({ gateContext, userRole, navigate, setAuthed, se
       marketingConsentVersion: payload.news ? POLICY_VERSION : undefined,
     });
     setAuthed(true);
-    afterAuth();
-  };
-
-  // «Войти через Telegram» из браузерного гейта — пока заглушка (привязка TG к
-  // браузерной карточке вне MVP, см. issue #242). Просто уводим со страницы гейта.
-  const handleAuthTelegram = () => {
     afterAuth();
   };
 
@@ -93,5 +87,5 @@ export function useAuthHandlers({ gateContext, userRole, navigate, setAuthed, se
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { handleAuthLogin, handleAuthRegister, handleAuthTelegram, handleLogout };
+  return { handleAuthLogin, handleAuthRegister, handleLogout };
 }

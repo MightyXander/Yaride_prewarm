@@ -1,18 +1,16 @@
 import Button from '../components/ui/Button';
-import { BrandLogo, TelegramButton } from '../components/AuthKit';
-import { hapticImpact } from '../lib/haptics';
+import { BrandLogo } from '../components/AuthKit';
 
 /**
  * AuthGateScreen — стартовый выбор для браузерных пользователей без Telegram.
  * Презентационный: все действия — через props-колбэки (без обращений к backend).
  */
 interface AuthGateScreenProps {
-  onTelegram: () => void;
   onLogin: () => void;
   onRegister: () => void;
 }
 
-const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onTelegram, onLogin, onRegister }) => {
+const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onLogin, onRegister }) => {
   return (
     <div
       style={{
@@ -40,28 +38,14 @@ const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onTelegram, onLogin, on
       </div>
 
       <div style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <TelegramButton
-          onClick={() => {
-            hapticImpact('medium');
-            onTelegram();
-          }}
-        />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '2px 0' }}>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-          <span style={{ fontSize: '13px', color: 'var(--muted-foreground)', fontWeight: 600 }}>или</span>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-        </div>
-
         <Button
-          variant="ghost"
+          variant="primary"
           onClick={onLogin}
           style={{
-            minHeight: '52px',
+            minHeight: '54px',
             borderRadius: '16px',
-            background: 'var(--card)',
-            border: '1.5px solid var(--field-border)',
-            fontWeight: 600,
+            fontSize: '16px',
+            fontWeight: 700,
           }}
         >
           Войти по email
