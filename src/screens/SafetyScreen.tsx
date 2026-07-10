@@ -5,13 +5,12 @@ import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { Slot } from '../components/ui/Skeleton';
+import PhoneField from '../components/PhoneField';
 import { saveMySafety, ApiException } from '../lib/api';
 import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
 import { fetchSafety, DEFAULT_SAFETY } from '../lib/screenFetchers';
 import type { GetMySafetyResponse } from '../types/api';
 import { showToast } from '../lib/toast';
-import { hapticNotify } from '../lib/haptics';
-import { isTelegramContext } from '../lib/auth';
 
 const sectionLabelStyle: React.CSSProperties = {
   fontSize: '12px',
@@ -311,50 +310,15 @@ const SafetyScreen: React.FC = () => {
         </Card>
       </div>
 
-      {/* Подтверждение телефона */}
+      {/* Подтверждение телефона (issue #389): встраиваем PhoneField — тот же
+          flashcall-флоу, что на публикации поездки и брони (issue #328).
+          Статус «сохранён»/«подтверждён» и «Изменить номер» рендерит сам
+          компонент, отдельный бэйдж здесь не нужен. */}
       <div>
-        <div style={sectionLabelStyle}>Телефон</div>
-        <Card style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <div
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '12px',
-              background: 'var(--secondary)',
-              display: 'grid',
-              placeItems: 'center',
-              color: 'var(--muted-foreground)',
-              flexShrink: 0,
-            }}
-          >
-            <Icon id="i-phone" style={{ width: '18px', height: '18px' }} />
-          </div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--muted-foreground)' }}>
-              Не подтверждён
-            </div>
-          </div>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              const message = 'Функция появится в следующих версиях';
-              // Скрипт telegram-web-app.js подключён в index.html всегда, поэтому
-              // window.Telegram.WebApp.showAlert существует и в обычном браузере,
-              // но там некому его показать (нет моста к клиенту Telegram) — кнопка
-              // молчала. isTelegramContext() (issue #371) отличает реальный
-              // Telegram-клиент от браузера по platform/initData.
-              if (isTelegramContext()) {
-                window.Telegram?.WebApp?.showAlert?.(message);
-              } else {
-                showToast(message);
-              }
-              hapticNotify('warning');
-            }}
-            style={{ minHeight: '40px', padding: '6px 14px', flexShrink: 0 }}
-          >
-            Подтвердить
-          </Button>
-        </Card>
+        <PhoneField
+          label="Телефон"
+          hint="Нужен для связи в поездке и для SOS-оповещения."
+        />
       </div>
 
       {/* Как работает SOS */}
