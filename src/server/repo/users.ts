@@ -389,6 +389,27 @@ export async function updateUserPhone(userId: number, phone: string): Promise<bo
   return (res.rowCount ?? 0) > 0;
 }
 
+/**
+ * Проверка занятости номера (issue #390): номер уже подтверждён (phone_verified
+ * = TRUE) у ДРУГОГО пользователя — привязать его к себе нельзя (флоу телефона
+ * блокирует ДО отправки flashcall). Самозаявленный неподтверждённый дубль не
+ * блокирует (иначе чужой ввод номера без верификации закрывает регистрацию
+ * настоящему владельцу). Номер ожидается уже нормализованным.
+ */
+export async function findVerifiedUserByPhone(
+  phone: string,
+  excludeUserId: number,
+): Promise<{ id: number } | null> {
+  await ensureReady();
+  const res = await getPool().query<{ id: number }>(
+    `SELECT id FROM users
+      WHERE phone = $1 AND phone_verified = TRUE AND id <> $2
+      LIMIT 1`,
+    [phone, excludeUserId],
+  );
+  return res.rows[0] ?? null;
+}
+
 export interface PublicUserProfile {
   id: number;
   name: string;
