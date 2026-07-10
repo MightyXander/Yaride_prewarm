@@ -45,7 +45,7 @@ const screenVariants = {
 // Экраны, где показываем плавающую навигацию (и резервируем под неё место).
 const NAV_VISIBLE_SCREENS: Screen[] = ['main', 'main-more', 'trip-details', 'profile', 'evening-main', 'user-profile', 'my-trips', 'my-cars', 'my-alerts', 'safety', 'passenger-request'];
 // BackButton скрываем на «главных» (списки поездок) и веб-флоу авторизации (без back-хрома).
-const NO_BACK_BUTTON_SCREENS: Screen[] = ['auth-gate', 'login', 'register', 'intro', 'main', 'main-more', 'evening-main'];
+const NO_BACK_BUTTON_SCREENS: Screen[] = ['auth-gate', 'intro', 'main', 'main-more', 'evening-main'];
 
 function App() {
   const { theme, themeMode, setThemeMode, toggleTheme } = useTheme();
