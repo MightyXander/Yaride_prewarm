@@ -23,7 +23,7 @@ import { useTripHandlers } from './hooks/useTripHandlers';
 import { useAlertHandlers } from './hooks/useAlertHandlers';
 import { useUserProfileNav } from './hooks/useUserProfileNav';
 import { loadRole, type UserRole } from './lib/role';
-import { shouldGateBrowserAuth } from './lib/auth';
+import { shouldGateBrowserAuth, isTelegramContext } from './lib/auth';
 import { showToast } from './lib/toast';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { prefetchScreenData } from './lib/screenDataCache';
@@ -46,6 +46,9 @@ const screenVariants = {
 const NAV_VISIBLE_SCREENS: Screen[] = ['main', 'main-more', 'trip-details', 'profile', 'evening-main', 'user-profile', 'my-trips', 'my-cars', 'my-alerts', 'safety', 'passenger-request'];
 // BackButton скрываем на «главных» (списки поездок) и веб-флоу авторизации (без back-хрома).
 const NO_BACK_BUTTON_SCREENS: Screen[] = ['auth-gate', 'intro', 'main', 'main-more', 'evening-main'];
+// Веб-флоу авторизации: в браузере back-хром не показываем (нет куда возвращаться),
+// а в Telegram нативную кнопку «назад» сохраняем (issue #412, после #408).
+const AUTH_SCREENS: Screen[] = ['login', 'register'];
 
 function App() {
   const { theme, themeMode, setThemeMode, toggleTheme } = useTheme();
@@ -215,7 +218,11 @@ function App() {
     return () => window.clearTimeout(timeoutId);
   }, []);
 
-  const showBackButton = !NO_BACK_BUTTON_SCREENS.includes(currentScreen);
+  // На auth-экранах (login/register) back показываем ТОЛЬКО в Telegram-контексте:
+  // в браузере fallback-кнопка не нужна, нативную Telegram-кнопку сохраняем (issue #412).
+  const showBackButton =
+    !NO_BACK_BUTTON_SCREENS.includes(currentScreen) &&
+    (!AUTH_SCREENS.includes(currentScreen) || isTelegramContext());
   const navVisible = NAV_VISIBLE_SCREENS.includes(currentScreen);
 
   // Контекст экрана: всё, что реестру (src/lib/screenRegistry.tsx) нужно, чтобы

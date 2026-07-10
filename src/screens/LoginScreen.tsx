@@ -62,6 +62,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSubmit, onRegister }) => {
     <div
       style={{
         flex: 1,
+        minHeight: 0,
         overflow: 'auto',
         padding: '18px 16px 24px',
         display: 'flex',
@@ -126,7 +127,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSubmit, onRegister }) => {
         </Button>
       </div>
 
-      <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--muted-foreground)', marginTop: 'auto', paddingTop: '6px' }}>
+      <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--muted-foreground)', paddingTop: '2px' }}>
         Нет аккаунта?{' '}
         <button
           type="button"
