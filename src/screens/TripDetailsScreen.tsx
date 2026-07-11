@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
@@ -17,13 +17,9 @@ import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { ResponsiveTwoColumn } from '../components/ui/ResponsiveTwoColumn';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { DESKTOP_BREAKPOINT } from '../lib/layout';
-import {
-  getTripParticipants,
-  getTripBookings,
-  cancelBookingByDriver,
-  confirmBookingByDriver,
-  ApiException,
-} from '../lib/api';
+import { cancelBookingByDriver, confirmBookingByDriver, ApiException } from '../lib/api';
+import { makeTripParticipantsFetcher, makeTripBookingsFetcher } from '../lib/screenFetchers';
+import { useScreenData } from '../hooks/useScreenData';
 import type { TripParticipant, BookingDetail } from '../types/api';
 import type { Trip } from '../types/navigation';
 
@@ -123,32 +119,23 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
   // Участники поездки («Кто едет») — для пассажира с активной бронью на чужую
   // поездку. Для своей поездки (isOwn) этот раздел заменяет секция «Брони»
   // (issue #339): там нужно управление (подтвердить/отклонить), а не просто список.
-  const canSeeParticipants = !trip.isOwn && trip.booked === true;
-  const [participants, setParticipants] = useState<TripParticipant[]>([]);
-  const [loadingParticipants, setLoadingParticipants] = useState(false);
-
-  useEffect(() => {
-    const tripId = Number(trip.id);
-    if (!canSeeParticipants || !Number.isFinite(tripId)) {
-      setParticipants([]);
-      return;
-    }
-    let cancelled = false;
-    setLoadingParticipants(true);
-    getTripParticipants(tripId)
-      .then((res) => {
-        if (!cancelled) setParticipants(res.participants);
-      })
-      .catch((err) => {
-        console.error('Ошибка загрузки участников поездки:', err);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingParticipants(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [trip.id, canSeeParticipants]);
+  // Данные — через useScreenData под ключом `trip-participants:{id}` (issue #414):
+  // фоновый прогрев кладёт их в кэш заранее, экран показывает мгновенно.
+  // Когда раздел не положен (не бронировал / своя поездка) — уходим на
+  // отдельный disabled-ключ с пустым фетчером: сетевой запрос не летит,
+  // условия показа не изменились.
+  const tripIdNum = Number(trip.id);
+  const canSeeParticipants = !trip.isOwn && trip.booked === true && Number.isFinite(tripIdNum);
+  const participantsFetcher = useMemo(
+    () => (canSeeParticipants ? makeTripParticipantsFetcher(tripIdNum) : async () => []),
+    [canSeeParticipants, tripIdNum],
+  );
+  const { data: participantsData, loading: participantsLoading } = useScreenData<TripParticipant[]>(
+    canSeeParticipants ? `trip-participants:${tripIdNum}` : 'trip-participants:disabled',
+    participantsFetcher,
+  );
+  const participants = (canSeeParticipants && participantsData) || [];
+  const loadingParticipants = canSeeParticipants && participantsLoading;
 
   const handleOpenParticipant = (userId: number) => {
     if (!onOpenProfile) return;
@@ -158,36 +145,27 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
 
   // Брони своей поездки (issue #339): водитель управляет ими прямо здесь —
   // подтвердить/отклонить. Переносит функциональность удалённого DriverBookingsScreen.
-  const [bookings, setBookings] = useState<BookingDetail[]>([]);
-  const [loadingBookings, setLoadingBookings] = useState(false);
+  // Кэш-ключ `trip-bookings:{id}` (issue #414) — греется фоновым прогревом.
+  const canSeeBookings = trip.isOwn && Number.isFinite(tripIdNum);
+  const bookingsFetcher = useMemo(
+    () => (canSeeBookings ? makeTripBookingsFetcher(tripIdNum) : async () => []),
+    [canSeeBookings, tripIdNum],
+  );
+  const {
+    data: bookingsData,
+    loading: bookingsLoading,
+    mutate: mutateBookings,
+  } = useScreenData<BookingDetail[]>(
+    canSeeBookings ? `trip-bookings:${tripIdNum}` : 'trip-bookings:disabled',
+    bookingsFetcher,
+  );
+  const bookings = (canSeeBookings && bookingsData) || [];
+  const loadingBookings = canSeeBookings && bookingsLoading;
   // Локальный (не персистится на бэке — см. BookingCard) признак подтверждённых
   // в этой сессии броней: прячет кнопку «Подтвердить», оставляя «Отклонить».
   const [confirmedIds, setConfirmedIds] = useState<Set<number>>(new Set());
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [decliningId, setDecliningId] = useState<number | null>(null);
-
-  useEffect(() => {
-    const tripId = Number(trip.id);
-    if (!trip.isOwn || !Number.isFinite(tripId)) {
-      setBookings([]);
-      return;
-    }
-    let cancelled = false;
-    setLoadingBookings(true);
-    getTripBookings(tripId)
-      .then((res) => {
-        if (!cancelled) setBookings(res.bookings);
-      })
-      .catch((err) => {
-        console.error('Ошибка загрузки броней поездки:', err);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingBookings(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [trip.id, trip.isOwn]);
 
   const handleConfirmBooking = async (bookingId: number) => {
     setConfirmingId(bookingId);
@@ -211,8 +189,8 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
     setDecliningId(bookingId);
     try {
       await cancelBookingByDriver(bookingId);
-      setBookings((prev) =>
-        prev.map((b) => (b.booking_id === bookingId ? { ...b, status: 'cancelled_by_driver' } : b)),
+      mutateBookings((prev) =>
+        (prev ?? []).map((b) => (b.booking_id === bookingId ? { ...b, status: 'cancelled_by_driver' } : b)),
       );
       showToast('Бронь отклонена');
     } catch (err) {
