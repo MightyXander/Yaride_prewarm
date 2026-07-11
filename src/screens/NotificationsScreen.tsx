@@ -95,9 +95,11 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ notif, index, reduc
   return (
     <motion.div
       // Карточка ЗАФИКСИРОВАНА по горизонтали (issue #422): свайп по ней переключает
-      // раздел карусели (жест ведёт обёртка App), карточка сама не ездит. Массовое
-      // удаление — кнопкой «Очистить»; exit-«улёт» сохранён для неё и layout-схлопывания.
-      layout
+      // раздел карусели (жест ведёт обёртка App), карточка сама не ездит. БЕЗ framer
+      // `layout`: scrub-слой каждый кадр меняет transform панели, а layout замерял бы
+      // экранную позицию карточки (с учётом трансформа предка) и догонял её пружиной —
+      // карточки «летали» бы за панелью с лагом. Схлопывание при удалении и так идёт
+      // нормальным потоком (сосед следует за анимацией height уходящей карточки).
       initial={{ opacity: reducedMotion ? 1 : 0, y: reducedMotion ? 0 : 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{
@@ -108,11 +110,10 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ notif, index, reduc
         transition: { duration: reducedMotion ? 0 : 0.22, ease: [0.4, 0, 1, 1] },
       }}
       transition={{
-        // layout — реакция на схлопывание соседей (без stagger-задержки, иначе
-        // реflow «отстаёт» от удаления пропорционально индексу элемента).
-        layout: { duration: reducedMotion ? 0 : 0.22, ease: [0.25, 0.1, 0.25, 1] },
-        // default — вход (opacity/y): stagger-задержка только на монтировании.
-        default: { duration: reducedMotion ? 0 : 0.18, delay: reducedMotion ? 0 : index * 0.045, ease: [0.25, 0.1, 0.25, 1] },
+        // Вход (opacity/y): stagger-задержка только на монтировании.
+        duration: reducedMotion ? 0 : 0.18,
+        delay: reducedMotion ? 0 : index * 0.045,
+        ease: [0.25, 0.1, 0.25, 1],
       }}
       style={{ overflow: 'hidden' }}
     >
