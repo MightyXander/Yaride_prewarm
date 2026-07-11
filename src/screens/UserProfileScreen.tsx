@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Header from '../components/Header';
@@ -8,7 +8,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
-import { getUserProfile, getUserReviews } from '../lib/api';
+import { makeUserProfileFetcher, makeUserReviewsFetcher } from '../lib/screenFetchers';
 import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
 import type { PublicUserProfile, UserReview } from '../types/api';
 
@@ -35,16 +35,11 @@ interface UserProfileScreenProps {
  * на уровне 2 авторы отзывов уже НЕ кликабельны. «Назад» снимает верхний профиль; на уровне 1 — выход на исходный экран.
  */
 const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ userId, depth, onOpenProfile }) => {
-  // Чужой профиль не префетчим (userId заранее неизвестен, issue #352) — но на
-  // повторный заход по тому же userId кэш всё равно даёт мгновенный контент.
-  const fetchProfile = useCallback(async () => {
-    const res = await getUserProfile(userId);
-    return res.profile;
-  }, [userId]);
-  const fetchReviews = useCallback(async () => {
-    const res = await getUserReviews(userId);
-    return res.reviews;
-  }, [userId]);
+  // Чужой профиль не префетчим на маунте профиля (userId заранее неизвестен,
+  // issue #352), но фоновый прогрев (issue #414) греет профили участников
+  // активных поездок под теми же ключами — фетчеры общие из screenFetchers.
+  const fetchProfile = useMemo(() => makeUserProfileFetcher(userId), [userId]);
+  const fetchReviews = useMemo(() => makeUserReviewsFetcher(userId), [userId]);
 
   const {
     data: profile,

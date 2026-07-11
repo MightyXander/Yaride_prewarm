@@ -26,8 +26,7 @@ import { loadRole, type UserRole } from './lib/role';
 import { shouldGateBrowserAuth, isTelegramContext } from './lib/auth';
 import { showToast } from './lib/toast';
 import { ProfileProvider } from './contexts/ProfileContext';
-import { prefetchScreenData } from './lib/screenDataCache';
-import { fetchNotifications } from './lib/screenFetchers';
+import { AppCacheWarmer } from './lib/appPrefetch';
 import { screenRegistry } from './lib/screenRegistry';
 import type { ScreenCtx } from './lib/screenRegistry';
 import type { Screen } from './types/navigation';
@@ -196,27 +195,9 @@ function App() {
     void handleOpenTripById(tripIdNum, 'main');
   }, [needsAuthGate, handleOpenTripById, savedEntryAtMount]);
 
-  // Idle-прогрев кэша уведомлений (issue #352): колокол доступен отовсюду
-  // (FloatingNav), поэтому греем один раз при старте приложения, а не при
-  // заходе на конкретный экран — requestIdleCallback не блокирует первый
-  // рендер; в браузерах без него (Safari) — fallback на setTimeout.
-  useEffect(() => {
-    const win = window as Window & {
-      requestIdleCallback?: (cb: () => void) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-    const warm = () => {
-      void prefetchScreenData('notifications', fetchNotifications);
-    };
-
-    if (win.requestIdleCallback) {
-      const id = win.requestIdleCallback(warm);
-      return () => win.cancelIdleCallback?.(id);
-    }
-
-    const timeoutId = window.setTimeout(warm, 2000);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
+  // Idle-прогрев кэшей ВСЕХ разделов (issue #414, включает прежний прогрев
+  // уведомлений из #352) — живёт в AppCacheWarmer внутри ProfileProvider
+  // (нужен profile.id из контекста), см. src/lib/appPrefetch.ts.
 
   // На auth-экранах (login/register) back показываем ТОЛЬКО в Telegram-контексте:
   // в браузере fallback-кнопка не нужна, нативную Telegram-кнопку сохраняем (issue #412).
@@ -308,6 +289,7 @@ function App() {
 
   return (
     <ProfileProvider>
+      <AppCacheWarmer />
       <div
         className={theme}
         style={{

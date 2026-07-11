@@ -6,8 +6,29 @@
  * иначе прогрев утащил бы весь чанк экрана в основной бандл и свёл на нет
  * code-splitting (см. src/lib/screenRegistry.tsx).
  */
-import { getMyTrips, getMyCars, getMyAlerts, getMySafety, getNotifications, ApiException } from './api';
-import type { UserTripItem, Car, MyAlertItem, GetMySafetyResponse, NotificationItem } from '../types/api';
+import {
+  getMyTrips,
+  getMyCars,
+  getMyAlerts,
+  getMySafety,
+  getNotifications,
+  getUserProfile,
+  getUserReviews,
+  getTripParticipants,
+  getTripBookings,
+  ApiException,
+} from './api';
+import type {
+  UserTripItem,
+  Car,
+  MyAlertItem,
+  GetMySafetyResponse,
+  NotificationItem,
+  PublicUserProfile,
+  UserReview,
+  TripParticipant,
+  BookingDetail,
+} from '../types/api';
 
 // ---- Мои поездки ------------------------------------------------------------
 
@@ -191,4 +212,43 @@ export async function fetchSafety(): Promise<GetMySafetyResponse> {
 export async function fetchNotifications(): Promise<NotificationItem[]> {
   const res = await getNotifications();
   return res.notifications;
+}
+
+// ---- Публичный профиль / отзывы ---------------------------------------------
+
+// Фабрики (а не готовые функции): userId заранее неизвестен. Используются и
+// экраном UserProfileScreen, и фоновым прогревом (issue #414) — ключи кэша
+// ДОЛЖНЫ оставаться ровно `user-profile:${userId}` / `user-reviews:${userId}`.
+
+export function makeUserProfileFetcher(userId: number): () => Promise<PublicUserProfile> {
+  return async () => {
+    const res = await getUserProfile(userId);
+    return res.profile;
+  };
+}
+
+export function makeUserReviewsFetcher(userId: number): () => Promise<UserReview[]> {
+  return async () => {
+    const res = await getUserReviews(userId);
+    return res.reviews;
+  };
+}
+
+// ---- Участники / брони поездки ----------------------------------------------
+
+// Ключи кэша: `trip-participants:${tripId}` / `trip-bookings:${tripId}`
+// (TripDetailsScreen + фоновый прогрев, issue #414).
+
+export function makeTripParticipantsFetcher(tripId: number): () => Promise<TripParticipant[]> {
+  return async () => {
+    const res = await getTripParticipants(tripId);
+    return res.participants;
+  };
+}
+
+export function makeTripBookingsFetcher(tripId: number): () => Promise<BookingDetail[]> {
+  return async () => {
+    const res = await getTripBookings(tripId);
+    return res.bookings;
+  };
 }
