@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import type { PanInfo } from 'framer-motion';
 import Card from '../components/ui/Card';
 import Header from '../components/Header';
 import { Icon } from '../components/Icons';
@@ -9,7 +8,7 @@ import { LoadErrorState, EmptyState } from '../components/ui/StateView';
 import { Appear } from '../components/Appear';
 import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
-import { markNotificationRead, deleteNotification, clearNotifications } from '../lib/api';
+import { markNotificationRead, clearNotifications } from '../lib/api';
 import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
 import { fetchNotifications } from '../lib/screenFetchers';
 import { hapticImpact } from '../lib/haptics';
@@ -21,10 +20,6 @@ interface NotificationsScreenProps {
   onNavigate: (type: NotificationType, refTripId?: number | null, refUserId?: number | null) => void;
 }
 
-/** Порог свайпа для удаления — доля ширины карточки (issue #337). */
-const SWIPE_DISTANCE_RATIO = 0.4;
-/** Порог свайпа для удаления — скорость отпускания (px/s). */
-const SWIPE_VELOCITY_THRESHOLD = 500;
 /** Дистанция «улёта» карточки за пределы экрана при удалении. */
 const EXIT_FLING_DISTANCE = 480;
 /** Задержка между исчезновением карточек при «Очистить» (stagger, ms). */
@@ -85,61 +80,29 @@ interface NotificationCardProps {
   index: number;
   reducedMotion: boolean;
   onClick: (notif: NotificationItem) => void;
-  onSwipeDelete: (notif: NotificationItem) => void;
 }
 
 /**
- * Одна карточка уведомления — motion.div с layout (плавное схлопывание высоты
- * при удалении соседей), drag="x" (свайп в обе стороны) и exit-анимацией
- * «улёта» в сторону свайпа (issue #337). Тап навигирует, но не после свайпа —
- * draggedRef подавляет «призрачный» клик, который браузер шлёт после drag-релиза.
+ * Одна карточка уведомления — motion.div с layout (плавное схлопывание высоты при
+ * удалении соседей), входной stagger-анимацией и exit-«улётом» (для «Очистить»).
+ * По горизонтали зафиксирована (issue #422): свайп по карточке переключает раздел
+ * карусели (жест ведёт обёртка App), сама карточка не ездит. Тап навигирует.
  */
-const NotificationCard: React.FC<NotificationCardProps> = ({ notif, index, reducedMotion, onClick, onSwipeDelete }) => {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const draggedRef = useRef(false);
-  // Направление «улёта» на exit: по умолчанию вправо (программное удаление
-  // без drag, напр. кнопкой «Очистить»); при свайпе перезаписывается направлением жеста.
-  const [exitX, setExitX] = useState(EXIT_FLING_DISTANCE);
-
+const NotificationCard: React.FC<NotificationCardProps> = ({ notif, index, reducedMotion, onClick }) => {
   const { icon, color } = getNotificationIcon(notif.type);
   const isUnread = !notif.read;
 
-  const handleDragEnd = (_event: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
-    const width = cardRef.current?.offsetWidth ?? 320;
-    const passedDistance = Math.abs(info.offset.x) > width * SWIPE_DISTANCE_RATIO;
-    const passedVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY_THRESHOLD;
-
-    if (passedDistance || passedVelocity) {
-      setExitX(info.offset.x >= 0 ? EXIT_FLING_DISTANCE : -EXIT_FLING_DISTANCE);
-      onSwipeDelete(notif);
-    }
-
-    // Сбрасываем чуть позже: браузер может послать синтетический click сразу
-    // после pointerup драга — не даём ему провалиться в навигацию.
-    window.setTimeout(() => {
-      draggedRef.current = false;
-    }, 80);
-  };
-
   return (
     <motion.div
-      ref={cardRef}
-      // Маркер для useTabSwipe (issue #415): жест раздела не стартует с карточки —
-      // здесь работает собственный drag-жест свайп-удаления (#337).
-      data-swipe-card
+      // Карточка ЗАФИКСИРОВАНА по горизонтали (issue #422): свайп по ней переключает
+      // раздел карусели (жест ведёт обёртка App), карточка сама не ездит. Массовое
+      // удаление — кнопкой «Очистить»; exit-«улёт» сохранён для неё и layout-схлопывания.
       layout
-      drag={reducedMotion ? false : 'x'}
-      dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={1}
-      onDragStart={() => {
-        draggedRef.current = true;
-      }}
-      onDragEnd={handleDragEnd}
       initial={{ opacity: reducedMotion ? 1 : 0, y: reducedMotion ? 0 : 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{
         opacity: 0,
-        x: reducedMotion ? 0 : exitX,
+        x: reducedMotion ? 0 : EXIT_FLING_DISTANCE,
         height: 0,
         marginBottom: 0,
         transition: { duration: reducedMotion ? 0 : 0.22, ease: [0.4, 0, 1, 1] },
@@ -157,10 +120,7 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ notif, index, reduc
         role="button"
         tabIndex={0}
         aria-label={`${notif.title}: ${notif.body}`}
-        onClick={() => {
-          if (draggedRef.current) return;
-          onClick(notif);
-        }}
+        onClick={() => onClick(notif)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
@@ -257,10 +217,10 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ notif, index, reduc
  *
  * Загрузка — скелетоны. Пусто — «Пока нет уведомлений».
  *
- * Свайп-удаление и «Очистить» (issue #337): любую карточку можно смахнуть влево/вправо
- * (оптимистичное удаление + DELETE /api/notifications/:id, откат при ошибке). Кнопка
- * «Очистить» внизу списка убирает карточки по очереди (stagger), затем шлёт
- * POST /api/notifications/clear; при ошибке список восстанавливается целиком.
+ * Удаление — кнопкой «Очистить» (issue #337): карточки убираются по очереди (stagger),
+ * затем POST /api/notifications/clear; при ошибке список восстанавливается целиком.
+ * Свайп по карточке не удаляет её, а переключает раздел карусели (issue #422): карточка
+ * зафиксирована по горизонтали, жест ведёт обёртка App.
  */
 const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate }) => {
   const {
@@ -296,30 +256,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
     onNavigate(notif.type, notif.ref_trip_id, notif.ref_user_id);
   };
 
-  // Свайп-удаление одной карточки (issue #337): оптимистично убираем из
-  // состояния (и кэша — issue #352), шлём DELETE; при ошибке возвращаем на
-  // место (по created_at) и тост.
-  const handleSwipeDelete = useCallback(
-    (notif: NotificationItem) => {
-      hapticImpact('light');
-      mutate((prev) => (prev ?? []).filter((n) => n.id !== notif.id));
-
-      void (async () => {
-        try {
-          await deleteNotification(notif.id);
-        } catch (err) {
-          console.error('Ошибка удаления уведомления:', err);
-          mutate((prev) => {
-            const next = [...(prev ?? []), notif];
-            next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-            return next;
-          });
-          showToast('Не удалось удалить уведомление. Попробуйте ещё раз.');
-        }
-      })();
-    },
-    [mutate],
-  );
 
   // Кнопка «Очистить» (issue #337): карточки исчезают по очереди (stagger),
   // затем один POST /notifications/clear. Ошибка — список восстанавливается целиком.
@@ -435,7 +371,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
                       index={index}
                       reducedMotion={reducedMotion}
                       onClick={(n) => void handleNotificationClick(n)}
-                      onSwipeDelete={handleSwipeDelete}
                     />
                   ))}
                 </AnimatePresence>
