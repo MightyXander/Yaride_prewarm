@@ -45,10 +45,25 @@ export const PARENT_SCREEN: Record<Screen, Screen> = {
 // Максимальная глубина стека истории «назад».
 const HISTORY_STACK_CAP = 20;
 
+// Разделы «карусели» (issue #415): порядок слева направо, как в навбаре (bell — notifications — main — profile).
+export type TabRoot = 'notifications' | 'main' | 'profile';
+const TAB_ORDER: TabRoot[] = ['notifications', 'main', 'profile'];
+// Какому разделу принадлежит экран (для вычисления направления карусели).
+const SCREEN_TAB: Partial<Record<Screen, TabRoot>> = {
+  notifications: 'notifications',
+  main: 'main',
+  'main-more': 'main',
+  'evening-main': 'main',
+  profile: 'profile',
+};
+
 export const useNavigation = (initialScreen: Screen = 'intro') => {
   // Направление последнего перехода: 1 — вперёд (navigate), -1 — назад (goBack).
   // Используется для направленных анимаций смены экрана.
   const [direction, setDirection] = useState<1 | -1>(1);
+  // Флаг «переход между разделами» (issue #415): true — полноэкранный карусельный
+  // слайд (switchTab), false — обычный микро-слайд (navigate/goBack и пр.).
+  const [isTabTransition, setIsTabTransition] = useState(false);
   const [navState, setNavState] = useState<NavigationState>({
     currentScreen: initialScreen,
     selectedTrip: null,
@@ -119,6 +134,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       const currentPosition = window.scrollY;
       saveScrollPosition(navState.currentScreen, currentPosition);
       setDirection(1);
+      setIsTabTransition(false);
 
       // В стек попадает то, куда должен вернуть «назад»: явный backTo, иначе
       // текущий экран (стандартный push истории).
@@ -146,6 +162,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       const currentPosition = window.scrollY;
       saveScrollPosition(navState.currentScreen, currentPosition);
       setDirection(1);
+      setIsTabTransition(false);
 
       historyStack.current = [];
 
@@ -165,6 +182,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       const currentPosition = window.scrollY;
       saveScrollPosition(navState.currentScreen, currentPosition);
       setDirection(1);
+      setIsTabTransition(false);
 
       pushHistory(navState.currentScreen);
 
@@ -186,6 +204,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     // Пустой стек (вход по deep-link) — фолбэк на статичную родительскую мапу.
     const previousScreen: Screen = poppedScreen ?? PARENT_SCREEN[currentScreen] ?? 'main';
     setDirection(-1);
+    setIsTabTransition(false);
 
     setNavState((prev) => ({
       ...prev,
@@ -198,6 +217,28 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       window.scrollTo(0, savedPosition);
     }, 0);
   }, [navState]);
+
+  // Переключение раздела «карусели» (issue #415): свайп по экрану или тап по табу
+  // навбара. Направление — по позиции целевого раздела относительно текущего
+  // в TAB_ORDER; переход помечается tab-флагом (полноэкранный слайд в App).
+  // navigate/resetTo вызываются первыми, их setDirection(1)/setIsTabTransition(false)
+  // перекрываются последующими сеттерами (React батчит, побеждает последняя запись).
+  const switchTab = useCallback(
+    (target: TabRoot) => {
+      const currentTab = SCREEN_TAB[navState.currentScreen] ?? 'main';
+      const dir = TAB_ORDER.indexOf(target) - TAB_ORDER.indexOf(currentTab);
+      if (target === 'notifications') {
+        navigate('notifications');
+      } else {
+        resetTo(target);
+      }
+      // Тот же раздел (напр. main-more → main) — обычный переход без карусели.
+      if (dir === 0) return;
+      setDirection(dir > 0 ? 1 : -1);
+      setIsTabTransition(true);
+    },
+    [navState.currentScreen, navigate, resetTo]
+  );
 
   // Restore scroll position when returning to a screen
   useEffect(() => {
@@ -251,9 +292,11 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
     ratingContext: navState.ratingContext,
     publishedTripId: navState.publishedTripId,
     direction,
+    isTabTransition,
     navigate,
     navigateToRateTrip,
     goBack,
     resetTo,
+    switchTab,
   };
 };
