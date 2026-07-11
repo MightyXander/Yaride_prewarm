@@ -10,6 +10,7 @@ import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/Floating
 import { DesktopSidebar } from './components/DesktopSidebar';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
+import { useTabSwipe } from './hooks/useTabSwipe';
 import { DESKTOP_BREAKPOINT, DESKTOP_MAX_PX, MOBILE_COLUMN_PX } from './lib/layout';
 import { useStartParam, hasStartParam } from './hooks/useStartParam';
 import { loadLastScreen, clearLastScreen, clearLegacyLastScreen } from './lib/lastScreen';
@@ -31,11 +32,15 @@ import { screenRegistry } from './lib/screenRegistry';
 import type { ScreenCtx } from './lib/screenRegistry';
 import type { Screen } from './types/navigation';
 
-// Направленный слайд + fade при смене экрана. direction: 1 — вперёд, -1 — назад.
+// Смена экрана: переходы между разделами карусели (tab=true, issue #415) — полноэкранный
+// направленный слайд без fade (старый уезжает, новый въезжает одновременно); прочие
+// переходы — прежний микро-слайд x:±28px + fade. dir: 1 — вперёд, -1 — назад.
 const screenVariants = {
-  enter: (dir: 1 | -1) => ({ x: dir * 28, opacity: 0 }),
+  enter: ({ dir, tab }: { dir: 1 | -1; tab: boolean }) =>
+    tab ? { x: `${dir * 100}%`, opacity: 1 } : { x: dir * 28, opacity: 0 },
   center: { x: 0, opacity: 1 },
-  exit: (dir: 1 | -1) => ({ x: dir * -28, opacity: 0 }),
+  exit: ({ dir, tab }: { dir: 1 | -1; tab: boolean }) =>
+    tab ? { x: `${dir * -100}%`, opacity: 1 } : { x: dir * -28, opacity: 0 },
   // При prefers-reduced-motion — только лёгкий fade, без сдвига.
   reducedInitial: { x: 0, opacity: 0 },
   reducedExit: { x: 0, opacity: 0 },
@@ -105,7 +110,7 @@ function App() {
         ? 'main'
         : 'intro';
 
-  const { currentScreen, selectedTrip, confirmKind, ratingContext, publishedTripId, direction, navigate, navigateToRateTrip, goBack, resetTo } =
+  const { currentScreen, selectedTrip, confirmKind, ratingContext, publishedTripId, direction, isTabTransition, navigate, navigateToRateTrip, goBack, resetTo, switchTab } =
     useNavigation(initialScreen);
   const prefersReducedMotion = useReducedMotion();
   // ≥900px — десктоп-раскладка (широкий контент + верхняя навигация); <900px и Telegram —
@@ -249,14 +254,18 @@ function App() {
     setBookingFocusUserId,
   };
 
+  // Свайп между разделами карусели (issue #415): touch-only pointer-жест на обёртке
+  // screenTransition; на flow/auth-экранах и на карточках уведомлений не активен.
+  const tabSwipeHandlers = useTabSwipe({ currentScreen, switchTab });
+
   // Смена экрана (AnimatePresence + направленный слайд) — общая для мобиля и десктопа,
   // различается только внешняя обвязка (сайдбар-строка vs мобильная колонка), поэтому
   // вынесена в переменную, а не задублирована в обеих ветках раскладки ниже.
   const screenTransition = (
-    <AnimatePresence mode="wait" initial={false} custom={direction}>
+    <AnimatePresence initial={false} custom={{ dir: direction, tab: isTabTransition }}>
       <motion.div
         key={currentScreen}
-        custom={direction}
+        custom={{ dir: direction, tab: isTabTransition }}
         variants={screenVariants}
         initial={prefersReducedMotion ? 'reducedInitial' : 'enter'}
         animate="center"
@@ -363,14 +372,14 @@ function App() {
               overflowX: 'clip',
             }}
           >
-            <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>{screenTransition}</div>
+            <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }} {...tabSwipeHandlers}>{screenTransition}</div>
           </div>
         )}
         {!isDesktop && (
           <FloatingNav
             currentScreen={currentScreen}
-            onNavigate={(root) => resetTo(root === 'profile' ? 'profile' : 'main')}
-            onNotificationsClick={() => navigate('notifications')}
+            onNavigate={(root) => switchTab(root === 'profile' ? 'profile' : 'main')}
+            onNotificationsClick={() => switchTab('notifications')}
           />
         )}
       </div>

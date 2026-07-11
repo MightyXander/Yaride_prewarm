@@ -124,6 +124,9 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ notif, index, reduc
   return (
     <motion.div
       ref={cardRef}
+      // Маркер для useTabSwipe (issue #415): жест раздела не стартует с карточки —
+      // здесь работает собственный drag-жест свайп-удаления (#337).
+      data-swipe-card
       layout
       drag={reducedMotion ? false : 'x'}
       dragConstraints={{ left: 0, right: 0 }}
