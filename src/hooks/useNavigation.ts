@@ -55,6 +55,14 @@ const SCREEN_TAB: Partial<Record<Screen, TabRoot>> = {
   'main-more': 'main',
   'evening-main': 'main',
   profile: 'profile',
+  // Подстраницы раздела «Профиль» (FloatingNav на них виден): тап по табу
+  // «Профиль» — тот же раздел (dir=0, обычный переход), по «Главной» —
+  // карусель влево, как с корня профиля. Без этого фолбэк 'main' давал
+  // обратное: свой раздел — карусель, чужой — микро-слайд.
+  'my-trips': 'profile',
+  'my-cars': 'profile',
+  'my-alerts': 'profile',
+  safety: 'profile',
 };
 
 export const useNavigation = (initialScreen: Screen = 'intro') => {
