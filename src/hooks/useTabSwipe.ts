@@ -45,6 +45,9 @@ interface UseTabSwipeArgs {
   onScrubMove: (to: TabRoot, progress: number) => void;
   /** Палец отпущен/жест отменён: commit — довести вперёд, иначе откат. */
   onScrubEnd: (info: { commit: boolean }) => void;
+  /** Реальный touch-жест начат (после гвардов): App fast-forward'ит идущую доводку,
+   *  чтобы быстрый второй свайп не съедался окном settle (issue #422). */
+  onGestureStart?: () => void;
 }
 
 /**
@@ -57,7 +60,7 @@ interface UseTabSwipeArgs {
  * не зовём вовсе, ранний выигрыш у скролла — по горизонтальной доминанте
  * (issue #420); если браузер забирает жест под скролл — pointercancel → откат.
  */
-export function useTabSwipe({ currentScreen, onScrubMove, onScrubEnd }: UseTabSwipeArgs) {
+export function useTabSwipe({ currentScreen, onScrubMove, onScrubEnd, onGestureStart }: UseTabSwipeArgs) {
   // Стартовая точка активного touch-жеста; null — жест не начат/сброшен.
   const startRef = useRef<{ x: number; y: number; pointerId: number; width: number } | null>(null);
   // Активный скраб этого жеста; null — доминанта ещё не подтверждена.
@@ -91,12 +94,13 @@ export function useTabSwipe({ currentScreen, onScrubMove, onScrubEnd }: UseTabSw
       // Жест начат на карточке уведомления — раздел не скрабим,
       // карточка обрабатывает собственный drag (свайп-удаление).
       if ((e.target as Element).closest('[data-swipe-card]')) return;
+      onGestureStart?.();
       resetGesture();
       const width = (e.currentTarget as HTMLElement).clientWidth || window.innerWidth;
       startRef.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId, width };
       samplesRef.current = [{ x: e.clientX, t: e.timeStamp }];
     },
-    [currentScreen, resetGesture]
+    [currentScreen, resetGesture, onGestureStart]
   );
 
   const onPointerMove = useCallback(
