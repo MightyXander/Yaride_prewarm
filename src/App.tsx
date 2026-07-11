@@ -84,8 +84,9 @@ const SCRUB_SETTLE_MS = 200;
 
 // Экраны, где показываем плавающую навигацию (и резервируем под неё место).
 const NAV_VISIBLE_SCREENS: Screen[] = ['main', 'main-more', 'trip-details', 'profile', 'evening-main', 'user-profile', 'my-trips', 'my-cars', 'my-alerts', 'safety', 'passenger-request'];
-// BackButton скрываем на «главных» (списки поездок) и веб-флоу авторизации (без back-хрома).
-const NO_BACK_BUTTON_SCREENS: Screen[] = ['auth-gate', 'intro', 'main', 'main-more', 'evening-main'];
+// BackButton скрываем на «главных» (списки поездок), корневых разделах карусели
+// (уведомления/профиль — достижимы табами, «назад» некуда) и веб-флоу авторизации.
+const NO_BACK_BUTTON_SCREENS: Screen[] = ['auth-gate', 'intro', 'main', 'main-more', 'evening-main', 'notifications', 'profile'];
 // Веб-флоу авторизации: в браузере back-хром не показываем (нет куда возвращаться),
 // а в Telegram нативную кнопку «назад» сохраняем (issue #412, после #408).
 const AUTH_SCREENS: Screen[] = ['login', 'register'];
@@ -309,6 +310,9 @@ function App() {
   // Каретку дотащили за пределы соседа (2 слота): после seam-commit соседа
   // доводим обычной каруселью до финальной цели.
   const pendingAfterSeamRef = useRef<TabRoot | null>(null);
+  // Была ли текущая доводка commit-ом (true) или откатом — нужно fastForwardSettle,
+  // чтобы новый жест мгновенно завершил её по правильному пути (issue #422).
+  const settleCommitRef = useRef(false);
 
   const currentTab: TabRoot = SCREEN_TAB[currentScreen] ?? 'main';
   const scrubEnabled = SWIPE_SCREENS.includes(currentScreen);
@@ -335,6 +339,7 @@ function App() {
         }
       };
       settlingRef.current = true;
+      settleCommitRef.current = commit;
       if (prefersReducedMotion) {
         setTabScrub({ ...scrub, progress: commit ? 1 : 0 });
         finish();
@@ -363,6 +368,34 @@ function App() {
     },
     [prefersReducedMotion, setTabScrub, switchTab]
   );
+
+  // Новый жест во время доводки: мгновенно завершаем её по уже проверенному пути
+  // (commit → seam-свап на progress=1; откат → снятие слоя), чтобы быстрый второй
+  // свайп с края (уведомления/профиль → центр → другой край) не съедался окном
+  // settle (issue #422). Реюз seam-механики; гонок с приходящим жестом нет — его
+  // первый квалифицирующий move приходит на кадры позже снятия блокировки.
+  const fastForwardSettle = useCallback(() => {
+    if (!settlingRef.current) return;
+    if (settleRafRef.current !== null) {
+      cancelAnimationFrame(settleRafRef.current);
+      settleRafRef.current = null;
+    }
+    const scrub = tabScrubRef.current;
+    if (!scrub) {
+      settlingRef.current = false;
+      scrubSourceRef.current = null;
+      return;
+    }
+    if (settleCommitRef.current) {
+      setTabScrub({ ...scrub, progress: 1 });
+      setSeamNav(true);
+      switchTab(scrub.to);
+    } else {
+      settlingRef.current = false;
+      setTabScrub(null);
+      scrubSourceRef.current = null;
+    }
+  }, [setTabScrub, switchTab]);
 
   // Seam-завершение: currentScreen дошёл до целевого раздела — новый keyed-экран
   // уже отрендерен на x:0 под слоем; двойной rAF (кадр на композицию) и слой долой.
@@ -431,6 +464,7 @@ function App() {
     currentScreen,
     onScrubMove: handleSwipeScrubMove,
     onScrubEnd: handleSwipeScrubEnd,
+    onGestureStart: fastForwardSettle,
   });
 
   // Источник «drag каретки» (FloatingNav): дробная позиция каретки в слотах
