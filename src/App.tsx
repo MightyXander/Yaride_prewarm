@@ -61,17 +61,6 @@ const screenVariants = {
     seam ? { x: 0, opacity: 0, transition: { duration: 0 } } : { x: 0, opacity: 0 },
 };
 
-// Живой скраб карусели (issue #422): единая модель прогресса между соседними
-// разделами. Источники (один активный за раз): палец по экрану (useTabSwipe)
-// и drag каретки навбара (FloatingNav onCaretScrub). fromScreen фиксируется на
-// старте жеста — scrub-слой не перерисовывается при seam-переключении currentScreen.
-interface TabScrub {
-  from: TabRoot;
-  fromScreen: Screen;
-  to: TabRoot;
-  progress: number;
-}
-
 // Корневой экран раздела — его рендерит scrub-слой как preview соседа.
 const TAB_ROOT_SCREEN: Record<TabRoot, Screen> = {
   notifications: 'notifications',
@@ -291,142 +280,107 @@ function App() {
     setBookingFocusUserId,
   };
 
-  // --- Живой скраб карусели (issue #422) ---
-  // tabScrub — активная модель прогресса (null — обычный режим); ref-зеркало для
-  // rAF-доводки и обработчиков без пересоздания. seamNav — флаг «переход уже
-  // совершён скрабом»: variants дают enter/exit без анимации (seamless-commit).
-  const [tabScrub, setTabScrubState] = useState<TabScrub | null>(null);
-  const tabScrubRef = useRef<TabScrub | null>(null);
-  const setTabScrub = useCallback((v: TabScrub | null) => {
-    tabScrubRef.current = v;
-    setTabScrubState(v);
+  // --- Живой скраб карусели: СКВОЗНОЙ непрерывный offset (issue #422, паритет с
+  // Android PageController). scrubOffset — абсолютная дробная позиция в разделах
+  // (0 — уведомления, 1 — главная, 2 — профиль); null — обычный режим (keyed-экран).
+  // Один непрерывный offset тянут оба источника (палец по экрану / drag каретки) и
+  // его же получает каретка навбара. Прерывание доводки новым жестом — продолжение
+  // от текущего offset: без коммит-снапа и скачков, цепочки (край→центр→другой край)
+  // бесшовны в обе стороны.
+  const [scrubOffset, setScrubOffsetState] = useState<number | null>(null);
+  const scrubOffsetRef = useRef<number | null>(null);
+  const setScrubOffset = useCallback((v: number | null) => {
+    scrubOffsetRef.current = v;
+    setScrubOffsetState(v);
   }, []);
+  // seamNav: keyed-экран целевого раздела монтируется мгновенно (variants seam) —
+  // strip уже показал его на месте, иначе повторный слайд при завершении.
   const [seamNav, setSeamNav] = useState(false);
-  // Один активный источник скраба за раз: палец по экрану ИЛИ drag каретки.
+  // Экран, с которого начат скраб (может быть под-экраном раздела, напр. main-more):
+  // strip рендерит его на слоте своего раздела, соседи — корневые экраны.
+  const scrubOriginScreenRef = useRef<Screen>(currentScreen);
+  // Активный источник за раз: палец по экрану ИЛИ drag каретки.
   const scrubSourceRef = useRef<'swipe' | 'caret' | null>(null);
-  // Идёт доводка commit/отката — новые скраб-события игнорируются до её конца.
-  const settlingRef = useRef(false);
+  // Новый swipe-жест начат (pointerdown) — handoff доводки делает первый move.
+  const swipeGestureNewRef = useRef(false);
+  // Базовый offset жеста (offset на первый move + пройденная за активацию доля).
+  const baseOffsetRef = useRef(0);
   const settleRafRef = useRef<number | null>(null);
-  // Каретку дотащили за пределы соседа (2 слота): после seam-commit соседа
-  // доводим обычной каруселью до финальной цели.
-  const pendingAfterSeamRef = useRef<TabRoot | null>(null);
-  // Была ли текущая доводка commit-ом (true) или откатом — нужно fastForwardSettle,
-  // чтобы новый жест мгновенно завершил её по правильному пути (issue #422).
-  const settleCommitRef = useRef(false);
 
   const currentTab: TabRoot = SCREEN_TAB[currentScreen] ?? 'main';
+  const currentSlot = TAB_ORDER.indexOf(currentTab);
   const scrubEnabled = SWIPE_SCREENS.includes(currentScreen);
 
-  // Доводка после отпускания: короткий ease-out-tween прогресса → 1 (commit)
-  // или → 0 (откат). Никаких spring — позиция детерминирована. Commit: seam-флаг +
-  // switchTab; слой снимается эффектом ниже, когда currentScreen переключился.
-  const settleScrub = useCallback(
-    (commit: boolean) => {
-      const scrub = tabScrubRef.current;
-      if (!scrub) {
-        scrubSourceRef.current = null;
+  // Завершение доводки: сменить РАЗДЕЛ (seam-мгновенно) и снять strip. Смена только
+  // при смене tab — откат/доводка внутри своего раздела экран не меняет (под-экран
+  // main-more при откате остаётся собой).
+  const finishSettle = useCallback(
+    (target: number) => {
+      const tab = TAB_ORDER[target];
+      if (tab && tab !== (SCREEN_TAB[currentScreen] ?? 'main')) {
+        setSeamNav(true);
+        switchTab(tab);
+      }
+      setScrubOffset(null);
+      scrubSourceRef.current = null;
+    },
+    [currentScreen, setScrubOffset, switchTab]
+  );
+
+  // Доводка offset → target: ease-out-cubic; длительность масштабируется от пути
+  // (≥ SCRUB_SETTLE_MS; при D ≥ dist(px) пик ≤ 3px/мс — без кадров |Δx| > 50px).
+  const settleTo = useCallback(
+    (target: number) => {
+      if (settleRafRef.current !== null) {
+        cancelAnimationFrame(settleRafRef.current);
+        settleRafRef.current = null;
+      }
+      const from = scrubOffsetRef.current ?? target;
+      if (Math.abs(target - from) < 1e-4 || prefersReducedMotion) {
+        setScrubOffset(target);
+        finishSettle(target);
         return;
       }
-      const finish = () => {
-        if (commit) {
-          setSeamNav(true);
-          switchTab(scrub.to);
-          // settlingRef снимет эффект seam-завершения (слой ещё поверх).
-        } else {
-          settlingRef.current = false;
-          setTabScrub(null);
-          scrubSourceRef.current = null;
-        }
-      };
-      settlingRef.current = true;
-      settleCommitRef.current = commit;
-      if (prefersReducedMotion) {
-        setTabScrub({ ...scrub, progress: commit ? 1 : 0 });
-        finish();
-        return;
-      }
-      const fromP = scrub.progress;
-      const toP = commit ? 1 : 0;
-      // Длительность масштабируется от остатка пути: пик скорости ease-out-cubic —
-      // 3·dist/D; при D ≥ dist(px) это ≤ 3px/мс → ни одного кадра с |Δx| > 50px
-      // на 60fps даже при commit с прогресса 0.3 (DoD #422).
-      const distPx = Math.abs(toP - fromP) * window.innerWidth;
-      const duration = Math.max(SCRUB_SETTLE_MS, distPx);
       const t0 = performance.now();
+      const duration = Math.max(SCRUB_SETTLE_MS, Math.abs(target - from) * window.innerWidth);
       const step = (now: number) => {
         const k = Math.min((now - t0) / duration, 1);
         const eased = 1 - (1 - k) ** 3;
-        setTabScrub({ ...scrub, progress: fromP + (toP - fromP) * eased });
+        setScrubOffset(from + (target - from) * eased);
         if (k < 1) {
           settleRafRef.current = requestAnimationFrame(step);
           return;
         }
         settleRafRef.current = null;
-        finish();
+        finishSettle(target);
       };
       settleRafRef.current = requestAnimationFrame(step);
     },
-    [prefersReducedMotion, setTabScrub, switchTab]
+    [finishSettle, prefersReducedMotion, setScrubOffset]
   );
 
-  // Новый жест во время доводки: завершаем её СИНХРОННО и сразу снимаем блокировку,
-  // чтобы быстрый второй флик с края (уведомления/профиль → центр → другой край) не
-  // съедался окном settle (issue #422). Раньше блокировку снимал seam-эффект через
-  // 2-3 кадра — быстрый флик целиком в них укладывался и терялся. discrete
-  // pointer-события → React флашит switchTab до следующего move, поэтому первый
-  // квалифицирующий move приходит уже на currentScreen == целевой раздел (скрабит
-  // дальше), а не повторяет предыдущий переход.
-  const fastForwardSettle = useCallback(() => {
-    if (!settlingRef.current) return;
-    if (settleRafRef.current !== null) {
-      cancelAnimationFrame(settleRafRef.current);
-      settleRafRef.current = null;
-    }
-    const scrub = tabScrubRef.current;
-    if (scrub && settleCommitRef.current) {
-      // Коммит: keyed-экран целевого раздела встаёт мгновенно (seam — без слайда).
-      setSeamNav(true);
-      switchTab(scrub.to);
-      const pending = pendingAfterSeamRef.current;
-      pendingAfterSeamRef.current = null;
-      if (pending) switchTab(pending);
-    }
-    setTabScrub(null);
-    settlingRef.current = false;
-    scrubSourceRef.current = null;
-  }, [setTabScrub, switchTab]);
-
-  // Seam-завершение: currentScreen дошёл до целевого раздела — новый keyed-экран
-  // уже отрендерен на x:0 под слоем; двойной rAF (кадр на композицию) и слой долой.
-  useEffect(() => {
-    if (!seamNav) return;
-    const scrub = tabScrubRef.current;
-    if (!scrub) {
-      setSeamNav(false);
-      settlingRef.current = false;
-      scrubSourceRef.current = null;
-      return;
-    }
-    if ((SCREEN_TAB[currentScreen] ?? null) !== scrub.to) return;
-    let raf2: number | null = null;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        setTabScrub(null);
-        setSeamNav(false);
-        settlingRef.current = false;
+  // Выбор цели по отпусканию пальца: ближайший раздел, но флик (скорость сверх
+  // порога) перекидывает на следующий в сторону скорости даже при малом пути (DoD #422).
+  const settleFromRelease = useCallback(
+    (velocityOffsetPerMs: number, cancelled: boolean) => {
+      const off = scrubOffsetRef.current;
+      if (off === null) {
         scrubSourceRef.current = null;
-        const pending = pendingAfterSeamRef.current;
-        pendingAfterSeamRef.current = null;
-        if (pending) switchTab(pending);
-      });
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      if (raf2 !== null) cancelAnimationFrame(raf2);
-    };
-  }, [seamNav, currentScreen, setTabScrub, switchTab]);
+        return;
+      }
+      let target = Math.round(off);
+      if (!cancelled) {
+        const commitV = 0.5 / window.innerWidth; // 0.5 px/мс — порог флика
+        if (Math.abs(velocityOffsetPerMs) > commitV) {
+          target = velocityOffsetPerMs > 0 ? Math.ceil(off - 1e-3) : Math.floor(off + 1e-3);
+        }
+      }
+      settleTo(Math.min(2, Math.max(0, target)));
+    },
+    [settleTo]
+  );
 
-  // На размонтировании гасим rAF-доводку.
+  // Останов rAF-доводки на размонтировании.
   useEffect(
     () => () => {
       if (settleRafRef.current !== null) cancelAnimationFrame(settleRafRef.current);
@@ -434,141 +388,135 @@ function App() {
     []
   );
 
-  // Источник «палец по экрану» (useTabSwipe): позиция напрямую от пальца, без spring.
+  // seamNav гасим через кадр после мгновенного enter целевого экрана — чтобы
+  // последующие tap-переходы снова анимировались обычным слайдом.
+  useEffect(() => {
+    if (!seamNav) return;
+    const r = requestAnimationFrame(() => setSeamNav(false));
+    return () => cancelAnimationFrame(r);
+  }, [seamNav]);
+
+  // Источник «палец по экрану» (useTabSwipe). onGestureStart лишь метит новый жест;
+  // handoff (перехват доводки + базовый offset) делает первый активированный move —
+  // тап идущую доводку не срывает.
+  const handleSwipeGestureStart = useCallback(() => {
+    if (scrubSourceRef.current === 'caret') return;
+    swipeGestureNewRef.current = true;
+  }, []);
   const handleSwipeScrubMove = useCallback(
-    (to: TabRoot, progress: number) => {
-      if (settlingRef.current || scrubSourceRef.current === 'caret') return;
-      scrubSourceRef.current = 'swipe';
-      const prev = tabScrubRef.current;
-      setTabScrub({
-        from: SCREEN_TAB[currentScreen] ?? 'main',
-        fromScreen: prev?.fromScreen ?? currentScreen,
-        to,
-        progress,
-      });
+    (dxFraction: number) => {
+      if (scrubSourceRef.current === 'caret') return;
+      if (swipeGestureNewRef.current) {
+        swipeGestureNewRef.current = false;
+        if (settleRafRef.current !== null) {
+          cancelAnimationFrame(settleRafRef.current);
+          settleRafRef.current = null;
+        }
+        const cur = scrubOffsetRef.current;
+        if (cur === null) scrubOriginScreenRef.current = currentScreen;
+        // base так, что offset на этот первый move == текущий (без скачка активации).
+        baseOffsetRef.current = (cur ?? currentSlot) + dxFraction;
+        scrubSourceRef.current = 'swipe';
+      }
+      setScrubOffset(Math.min(2, Math.max(0, baseOffsetRef.current - dxFraction)));
     },
-    [currentScreen, setTabScrub]
+    [currentScreen, currentSlot, setScrubOffset]
   );
   const handleSwipeScrubEnd = useCallback(
-    ({ commit }: { commit: boolean }) => {
-      if (settlingRef.current || scrubSourceRef.current !== 'swipe') return;
-      settleScrub(commit);
+    ({ velocityFraction, cancelled }: { velocityFraction: number; cancelled: boolean }) => {
+      if (scrubSourceRef.current !== 'swipe') return;
+      // offset = base − dxFraction ⇒ d(offset)/dt = −velocityFraction.
+      settleFromRelease(-velocityFraction, cancelled);
     },
-    [settleScrub]
+    [settleFromRelease]
   );
 
   // Свайп между разделами карусели: touch-only pointer-жест на обёртке
   // screenTransition; на flow/auth-экранах и на карточках уведомлений не активен.
   const tabSwipeHandlers = useTabSwipe({
     currentScreen,
+    onGestureStart: handleSwipeGestureStart,
     onScrubMove: handleSwipeScrubMove,
     onScrubEnd: handleSwipeScrubEnd,
-    onGestureStart: fastForwardSettle,
   });
 
-  // Источник «drag каретки» (FloatingNav): дробная позиция каретки в слотах
-  // (0 — колокол, 1 — Поездки, 2 — Профиль) → tabScrub к соседу по направлению.
-  const currentSlot = TAB_ORDER.indexOf(currentTab);
+  // Источник «drag каретки» (FloatingNav): абсолютная дробная позиция в слотах
+  // (0 — колокол, 1 — Поездки, 2 — Профиль) прямо в offset.
   const lastCaretFractionRef = useRef(currentSlot);
   const handleCaretScrub = useCallback(
     (fraction: number) => {
-      if (settlingRef.current || scrubSourceRef.current === 'swipe') return;
-      scrubSourceRef.current = 'caret';
-      lastCaretFractionRef.current = fraction;
-      const delta = fraction - currentSlot;
-      const to = TAB_ORDER[currentSlot + (delta > 0 ? 1 : -1)];
-      if (!to || Math.abs(delta) < 0.001) {
-        setTabScrub(null);
-        return;
+      if (scrubSourceRef.current === 'swipe') return;
+      if (scrubSourceRef.current !== 'caret') {
+        if (settleRafRef.current !== null) {
+          cancelAnimationFrame(settleRafRef.current);
+          settleRafRef.current = null;
+        }
+        if (scrubOffsetRef.current === null) scrubOriginScreenRef.current = currentScreen;
+        scrubSourceRef.current = 'caret';
       }
-      setTabScrub({
-        from: currentTab,
-        fromScreen: tabScrubRef.current?.fromScreen ?? currentScreen,
-        to,
-        progress: Math.min(Math.abs(delta), 1),
-      });
+      lastCaretFractionRef.current = fraction;
+      setScrubOffset(Math.min(2, Math.max(0, fraction)));
     },
-    [currentScreen, currentSlot, currentTab, setTabScrub]
+    [currentScreen, setScrubOffset]
   );
   const handleCaretScrubEnd = useCallback(
     (cancelled: boolean) => {
-      if (settlingRef.current || scrubSourceRef.current !== 'caret') return;
-      const scrub = tabScrubRef.current;
-      const nearest = Math.round(Math.min(2, Math.max(0, lastCaretFractionRef.current)));
-      if (!scrub) {
+      if (scrubSourceRef.current !== 'caret') return;
+      if (scrubOffsetRef.current === null) {
         scrubSourceRef.current = null;
-        // Каретку отпустили на текущем слоте — прежнее поведение release-а:
-        // навигация к слоту (main-more → main и т.п.), обычная карусель.
-        if (!cancelled) {
-          const target = TAB_ORDER[nearest] ?? currentTab;
-          switchTab(target);
-        }
         return;
       }
-      if (cancelled || nearest === currentSlot) {
-        settleScrub(false);
-        return;
-      }
-      const nearestTab = TAB_ORDER[nearest];
-      // Дотащили за соседа (2 слота, напр. колокол → Профиль): commit соседа
-      // seamless-ом, остаток — обычной каруселью после снятия слоя.
-      if (nearestTab && nearestTab !== scrub.to) pendingAfterSeamRef.current = nearestTab;
-      settleScrub(true);
+      const target = cancelled ? currentSlot : Math.round(Math.min(2, Math.max(0, lastCaretFractionRef.current)));
+      settleTo(target);
     },
-    [currentSlot, currentTab, settleScrub, switchTab]
+    [currentSlot, settleTo]
   );
 
-  // Каретка ↔ скраб: дробная позиция каретки в слотах. Не-null и во время доводки
-  // после отпускания — каретка доезжает тем же tween-ом, без промежуточного отката
-  // к settled-слоту. FloatingNav в drag игнорирует scrubOffset (dragX главнее).
-  const scrubOffset =
-    tabScrub !== null
-      ? TAB_ORDER.indexOf(tabScrub.from) +
-        (TAB_ORDER.indexOf(tabScrub.to) - TAB_ORDER.indexOf(tabScrub.from)) * tabScrub.progress
-      : null;
+  // Каретка ↔ скраб: FloatingNav получает тот же непрерывный offset (слот == индекс
+  // раздела); в собственном drag каретки FloatingNav игнорирует scrubOffset (dragX главнее).
 
-  // Scrub-слой (issue #422): ПОВЕРХ обычного дерева карусели, без AnimatePresence —
-  // текущий экран уезжает на ±progress·100%, сосед въезжает с ∓(1−progress)·100%.
-  // Обычный keyed-экран под слоем скрыт (visibility), НЕ размонтирован.
-  // Сосед — чистый preview через тот же screenRegistry (его маунт-фетчи дедупят кэши #414).
-  const scrubLayer = tabScrub
-    ? (() => {
-        const sign = TAB_ORDER.indexOf(tabScrub.to) > TAB_ORDER.indexOf(tabScrub.from) ? 1 : -1;
-        const toScreen = TAB_ROOT_SCREEN[tabScrub.to];
-        // Панель слоя: та же геометрия и нижний отступ (место под навбар), что
-        // у keyed-экрана карусели; позиция — напрямую transform-ом от прогресса.
-        const paneStyle = (screen: Screen, translatePct: number): CSSProperties => ({
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'absolute',
-          inset: 0,
-          paddingBottom:
-            NAV_VISIBLE_SCREENS.includes(screen) && !isDesktop
-              ? FLOATING_NAV_CONTENT_PADDING
-              : 'env(safe-area-inset-bottom)',
-          transform: `translateX(${translatePct}%)`,
-          background: 'var(--background)',
-        });
-        return (
-          <div aria-hidden style={{ position: 'absolute', inset: 0, zIndex: 5, overflow: 'hidden', pointerEvents: 'none' }}>
-            <div style={paneStyle(tabScrub.fromScreen, -sign * tabScrub.progress * 100)}>
-              <ErrorBoundary resetKey={tabScrub.fromScreen}>
-                <Suspense fallback={<ScreenSkeleton />}>
-                  {screenRegistry[tabScrub.fromScreen]?.(screenCtx)}
-                </Suspense>
-              </ErrorBoundary>
+  // Strip живого скраба (issue #422): ПОВЕРХ карусели, без AnimatePresence — до двух
+  // соседних экранов, каждый на translateX (i − offset)·100%. Keyed-экран под strip
+  // скрыт (visibility), НЕ размонтирован. Панель раздела-origin рендерит фактический
+  // экран старта (в т.ч. под-экран), соседи — корневые (их маунт-фетчи дедупят кэши #414).
+  const scrubLayer =
+    scrubOffset != null
+      ? (() => {
+          const origin = scrubOriginScreenRef.current ?? currentScreen;
+          const originIdx = TAB_ORDER.indexOf(SCREEN_TAB[origin] ?? 'main');
+          const lo = Math.max(0, Math.floor(scrubOffset));
+          const hi = Math.min(2, Math.ceil(scrubOffset));
+          const indices = lo === hi ? [lo] : [lo, hi];
+          const paneStyle = (screen: Screen, translatePct: number): CSSProperties => ({
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'absolute',
+            inset: 0,
+            paddingBottom:
+              NAV_VISIBLE_SCREENS.includes(screen) && !isDesktop
+                ? FLOATING_NAV_CONTENT_PADDING
+                : 'env(safe-area-inset-bottom)',
+            transform: `translateX(${translatePct}%)`,
+            background: 'var(--background)',
+          });
+          return (
+            <div aria-hidden style={{ position: 'absolute', inset: 0, zIndex: 5, overflow: 'hidden', pointerEvents: 'none' }}>
+              {indices.map((i) => {
+                const screen = i === originIdx ? origin : TAB_ROOT_SCREEN[TAB_ORDER[i]];
+                return (
+                  <div key={i} style={paneStyle(screen, (i - scrubOffset) * 100)}>
+                    <ErrorBoundary resetKey={screen}>
+                      <Suspense fallback={<ScreenSkeleton />}>
+                        {screenRegistry[screen]?.(screenCtx)}
+                      </Suspense>
+                    </ErrorBoundary>
+                  </div>
+                );
+              })}
             </div>
-            <div style={paneStyle(toScreen, sign * (1 - tabScrub.progress) * 100)}>
-              <ErrorBoundary resetKey={toScreen}>
-                <Suspense fallback={<ScreenSkeleton />}>
-                  {screenRegistry[toScreen]?.(screenCtx)}
-                </Suspense>
-              </ErrorBoundary>
-            </div>
-          </div>
-        );
-      })()
-    : null;
+          );
+        })()
+      : null;
 
   // Смена экрана (AnimatePresence + направленный слайд) — общая для мобиля и десктопа,
   // различается только внешняя обвязка (сайдбар-строка vs мобильная колонка), поэтому
@@ -599,7 +547,7 @@ function App() {
             navVisible && !isDesktop ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
           // Во время скраба keyed-экран скрыт (слой поверх показывает его копию
           // в позиции пальца), но НЕ размонтирован — состояние живо.
-          visibility: tabScrub ? 'hidden' : undefined,
+          visibility: scrubOffset != null ? 'hidden' : undefined,
         }}
       >
         <ErrorBoundary resetKey={currentScreen}>
