@@ -94,16 +94,29 @@ interface FloatingNavProps {
   currentScreen: Screen;
   onNavigate: (root: NavTabRoot) => void;
   onNotificationsClick: () => void;
+  /** Живой скраб карусели (issue #422): дробная позиция каретки в слотах
+   * (0 — колокол, 1 — Поездки, 2 — Профиль); null — settled-поведение (#421). */
+  scrubOffset?: number | null;
+  /** Drag каретки скрабит экраны: репорт дробной позиции в слотах на каждый move. */
+  onCaretScrub?: (slotFraction: number) => void;
+  /** Каретка отпущена (cancelled — жест отменён/сорван): App решает commit/откат. */
+  onCaretScrubEnd?: (cancelled: boolean) => void;
 }
 
 function FloatingNavBar({
   activeTab,
   onNavigate,
   onNotificationsClick,
+  scrubOffset = null,
+  onCaretScrub,
+  onCaretScrubEnd,
 }: {
   activeTab: NavTabRoot | 'notifications';
   onNavigate: (root: NavTabRoot) => void;
   onNotificationsClick: () => void;
+  scrubOffset?: number | null;
+  onCaretScrub?: (slotFraction: number) => void;
+  onCaretScrubEnd?: (cancelled: boolean) => void;
 }) {
   // На экране уведомлений активна подсветка колокола → pill уезжает в первую ячейку (current = -1).
   const bellActive = activeTab === 'notifications';
@@ -121,6 +134,9 @@ function FloatingNavBar({
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragX, setDragX] = useState<number | null>(null);
+  // Ближайший слот в drag — state-зеркало lastSlotRef: подпись «следует за пальцем»
+  // (labelSlot ниже) требует ререндера при смене слота (issue #422).
+  const [dragSlot, setDragSlot] = useState<number | null>(null);
 
   const pointerIdRef = useRef<number | null>(null);
   const holdTimerRef = useRef<number | null>(null);
@@ -165,6 +181,29 @@ function FloatingNavBar({
     return Math.min(Math.max(raw, min), max);
   }, []);
 
+  // Непрерывная позиция пальца в слотах (0..2): линейная интерполяция между
+  // центрами слот-кнопок; за крайними центрами — зажим (края не зациклены).
+  // Питает onCaretScrub (скраб экранов) и labelSlot (подпись под кареткой).
+  const slotFractionForClientX = useCallback(
+    (clientX: number): number => {
+      const centers: number[] = [];
+      for (const el of getSlotElements()) {
+        if (!el) return lastSlotRef.current ?? 0;
+        const rect = el.getBoundingClientRect();
+        centers.push(rect.left + rect.width / 2);
+      }
+      if (clientX <= centers[0]) return 0;
+      if (clientX >= centers[centers.length - 1]) return centers.length - 1;
+      for (let i = 0; i < centers.length - 1; i++) {
+        if (clientX <= centers[i + 1]) {
+          return i + (clientX - centers[i]) / (centers[i + 1] - centers[i]);
+        }
+      }
+      return centers.length - 1;
+    },
+    [getSlotElements]
+  );
+
   const navigateToSlot = useCallback(
     (slot: number) => {
       if (slot === 0) {
@@ -188,11 +227,14 @@ function FloatingNavBar({
   // в drag-позиции без transition, и переходы её больше не двигают.
   const resetDragState = useCallback(() => {
     clearHoldTimer();
+    // Активный drag срывается без pointerup (blur/скрытие вкладки) — откат скраба.
+    if (dragActiveRef.current) onCaretScrubEnd?.(true);
     dragActiveRef.current = false;
     lastSlotRef.current = null;
     setIsDragging(false);
     setDragX(null);
-  }, [clearHoldTimer]);
+    setDragSlot(null);
+  }, [clearHoldTimer, onCaretScrubEnd]);
 
   // Страховка: браузер увёл фокус/вкладку посреди drag — pointerup уже не придёт.
   useEffect(() => {
@@ -236,9 +278,12 @@ function FloatingNavBar({
         lastSlotRef.current = slot;
         setIsDragging(true);
         setDragX(caretLeftForClientX(pos.x));
+        setDragSlot(slot);
+        // Скраб экранов стартует вместе с drag-режимом (issue #422).
+        onCaretScrub?.(slotFractionForClientX(pos.x));
       }, 250);
     },
-    [caretLeftForClientX, clearHoldTimer, isDragging, nearestSlot, resetDragState]
+    [caretLeftForClientX, clearHoldTimer, isDragging, nearestSlot, onCaretScrub, resetDragState, slotFractionForClientX]
   );
 
   const handleNavPointerMove = useCallback(
@@ -249,11 +294,13 @@ function FloatingNavBar({
       const slot = nearestSlot(e.clientX);
       if (slot !== lastSlotRef.current) {
         lastSlotRef.current = slot;
+        setDragSlot(slot);
         hapticSelection();
       }
       setDragX(caretLeftForClientX(e.clientX));
+      onCaretScrub?.(slotFractionForClientX(e.clientX));
     },
-    [caretLeftForClientX, nearestSlot]
+    [caretLeftForClientX, nearestSlot, onCaretScrub, slotFractionForClientX]
   );
 
   const endPointerSession = useCallback(
@@ -270,7 +317,17 @@ function FloatingNavBar({
         }
         setIsDragging(false);
         setDragX(null);
-        if (commit) {
+        setDragSlot(null);
+        if (onCaretScrubEnd) {
+          // Live-scrub (issue #422): решение commit/откат принимает App по
+          // последней дробной позиции; сам слот здесь не навигируем.
+          suppressClickRef.current = true;
+          window.setTimeout(() => {
+            suppressClickRef.current = false;
+          }, 0);
+          if (commit) hapticImpact('light');
+          onCaretScrubEnd(!commit);
+        } else if (commit) {
           const slot = lastSlotRef.current ?? nearestSlot(e.clientX);
           suppressClickRef.current = true;
           window.setTimeout(() => {
@@ -285,7 +342,7 @@ function FloatingNavBar({
       lastPointerRef.current = null;
       lastSlotRef.current = null;
     },
-    [clearHoldTimer, navigateToSlot, nearestSlot]
+    [clearHoldTimer, navigateToSlot, nearestSlot, onCaretScrubEnd]
   );
 
   const handleNavPointerUp = useCallback(
@@ -304,6 +361,16 @@ function FloatingNavBar({
       e.stopPropagation();
     }
   }, []);
+
+  // Слот с раскрытой подписью (issue #422): в drag/скрабе «фокус следует за
+  // пальцем» — подпись только у слота под кареткой; settled — у активного, как раньше.
+  const settledSlot = bellActive ? 0 : current + 1;
+  const labelSlot =
+    isDragging && dragSlot !== null
+      ? dragSlot
+      : scrubOffset != null
+        ? Math.round(Math.min(2, Math.max(0, scrubOffset)))
+        : settledSlot;
 
   return (
     <div
@@ -388,8 +455,15 @@ function FloatingNavBar({
               transform:
                 isDragging && dragX !== null
                   ? `translateX(${dragX - 6}px)`
-                  : `translateX(calc(${current + 1} * (100% + 0.25rem)))`,
-              transition: isDragging || prefersReduced ? 'none' : 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
+                  : scrubOffset != null
+                    // Скраб карусели (issue #422): интерполированная позиция в слотах,
+                    // синхронно с прогрессом экрана; без transition (позиция от пальца/tween).
+                    ? `translateX(calc(${Math.min(2, Math.max(0, scrubOffset))} * (100% + 0.25rem)))`
+                    : `translateX(calc(${current + 1} * (100% + 0.25rem)))`,
+              transition:
+                isDragging || scrubOffset != null || prefersReduced
+                  ? 'none'
+                  : 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           />
           {/* Колокол уведомлений — слева, действие (не таб) */}
@@ -439,7 +513,7 @@ function FloatingNavBar({
                 }}
               />
               <AnimatePresence initial={false} mode="wait">
-                {bellActive ? (
+                {labelSlot === 0 ? (
                   <motion.span
                     key="label"
                     initial={{ opacity: 0, width: 0, marginLeft: 0 }}
@@ -516,7 +590,7 @@ function FloatingNavBar({
                     }}
                   />
                   <AnimatePresence initial={false} mode="wait">
-                    {active ? (
+                    {labelSlot === index + 1 ? (
                       <motion.span
                         key="label"
                         initial={{ opacity: 0, width: 0, marginLeft: 0 }}
@@ -552,14 +626,21 @@ export function isNavVisibleForScreen(screen: Screen): boolean {
   return !HIDDEN_ON.includes(screen) && !!SCREEN_TO_TAB[screen];
 }
 
-export function FloatingNav({ currentScreen, onNavigate, onNotificationsClick }: FloatingNavProps) {
+export function FloatingNav({ currentScreen, onNavigate, onNotificationsClick, scrubOffset, onCaretScrub, onCaretScrubEnd }: FloatingNavProps) {
   if (!isNavVisibleForScreen(currentScreen)) return null;
   const activeTab = SCREEN_TO_TAB[currentScreen];
   if (!activeTab) return null;
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <FloatingNavBar activeTab={activeTab} onNavigate={onNavigate} onNotificationsClick={onNotificationsClick} />,
+    <FloatingNavBar
+      activeTab={activeTab}
+      onNavigate={onNavigate}
+      onNotificationsClick={onNotificationsClick}
+      scrubOffset={scrubOffset}
+      onCaretScrub={onCaretScrub}
+      onCaretScrubEnd={onCaretScrubEnd}
+    />,
     document.body
   );
 }
