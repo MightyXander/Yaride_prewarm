@@ -372,7 +372,10 @@ function App() {
               overflowX: 'clip',
             }}
           >
-            <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }} {...tabSwipeHandlers}>{screenTransition}</div>
+            {/* touchAction: 'pan-y' — иначе браузер начинает нативный горизонтальный пан
+                и шлёт pointercancel до pointerup, сбрасывая tab-свайп (issue #415).
+                Вертикальный скролл сохраняется; drag-удаление карточек имеет свой pan-y. */}
+            <div style={{ position: 'relative', flex: 1, overflow: 'hidden', touchAction: 'pan-y' }} {...tabSwipeHandlers}>{screenTransition}</div>
           </div>
         )}
         {!isDesktop && (
