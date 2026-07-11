@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, startTransition } from 'react';
 import type { Screen, Trip, ConfirmKind, NavigationState, RatingContext } from '../types/navigation';
 import { saveLastScreen, touchLastScreen, resolvePersistedEntry } from '../lib/lastScreen';
 
@@ -231,19 +231,25 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
   // в TAB_ORDER; переход помечается tab-флагом (полноэкранный слайд в App).
   // navigate/resetTo вызываются первыми, их setDirection(1)/setIsTabTransition(false)
   // перекрываются последующими сеттерами (React батчит, побеждает последняя запись).
+  // startTransition (issue #420, дефект C): маунт целевого экрана + AnimatePresence
+  // обоих полноэкранных деревьев — long task 55-95мс; без транзишена он блокирует
+  // первые кадры CSS-анимации каретки (фриз 63-109мс, INP тапа 216мс). Обёртка
+  // делает этот рендер прерываемым — клик/каретка получают кадр раньше.
   const switchTab = useCallback(
     (target: TabRoot) => {
       const currentTab = SCREEN_TAB[navState.currentScreen] ?? 'main';
       const dir = TAB_ORDER.indexOf(target) - TAB_ORDER.indexOf(currentTab);
-      if (target === 'notifications') {
-        navigate('notifications');
-      } else {
-        resetTo(target);
-      }
-      // Тот же раздел (напр. main-more → main) — обычный переход без карусели.
-      if (dir === 0) return;
-      setDirection(dir > 0 ? 1 : -1);
-      setIsTabTransition(true);
+      startTransition(() => {
+        if (target === 'notifications') {
+          navigate('notifications');
+        } else {
+          resetTo(target);
+        }
+        // Тот же раздел (напр. main-more → main) — обычный переход без карусели.
+        if (dir === 0) return;
+        setDirection(dir > 0 ? 1 : -1);
+        setIsTabTransition(true);
+      });
     },
     [navState.currentScreen, navigate, resetTo]
   );

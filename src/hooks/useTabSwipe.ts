@@ -37,12 +37,30 @@ interface UseTabSwipeArgs {
  * Свайп, начатый на карточке уведомления ([data-swipe-card]), не стартует —
  * карточка обрабатывает свой drag-жест удаления (#337).
  * Вертикальный скролл не перехватываем: preventDefault не зовём вовсе,
- * решение принимается по горизонтальной доминанте на отпускании пальца;
+ * решение принимается по горизонтальной доминанте прямо в pointermove
+ * (issue #420): как только |dx| ≥ 60px и доминанта подтверждена — переключаем
+ * раздел сразу, не дожидаясь отпускания пальца; жест после срабатывания
+ * считается потреблённым до конца сессии (одно срабатывание за жест);
  * если браузер забирает жест под скролл — придёт pointercancel и жест сброшен.
  */
 export function useTabSwipe({ currentScreen, switchTab }: UseTabSwipeArgs) {
-  // Стартовая точка активного touch-жеста; null — жест не начат/сброшен.
+  // Стартовая точка активного touch-жеста; null — жест не начат/сброшен/потреблён.
   const startRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+
+  // Общая проверка порога и вычисление цели; null — порог не пересечён или край карусели.
+  const resolveTarget = useCallback(
+    (dx: number, dy: number): TabRoot | null => {
+      // Порог дистанции + горизонтальная доминанта — иначе это тап или скролл.
+      if (Math.abs(dx) < SWIPE_DISTANCE_PX || Math.abs(dx) <= HORIZONTAL_DOMINANCE * Math.abs(dy)) return null;
+      const currentTab = SCREEN_TAB[currentScreen];
+      if (!currentTab) return null;
+      // Свайп влево (dx < 0) — раздел справа (индекс +1), вправо — слева (−1).
+      const targetIndex = TAB_ORDER.indexOf(currentTab) + (dx < 0 ? 1 : -1);
+      // Края карусели не зациклены: за пределами порядка — ничего.
+      return TAB_ORDER[targetIndex] ?? null;
+    },
+    [currentScreen]
+  );
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -56,27 +74,33 @@ export function useTabSwipe({ currentScreen, switchTab }: UseTabSwipeArgs) {
     [currentScreen]
   );
 
+  // Срабатывание порога в движении (issue #420): переключаем раздел, не дожидаясь
+  // pointerup — палец-коснулся→реакция падает с ~570мс. startRef обнуляется —
+  // guard одноразового срабатывания за жест (pointerup этого жеста уже no-op).
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const start = startRef.current;
+      if (!start || start.pointerId !== e.pointerId) return;
+      const target = resolveTarget(e.clientX - start.x, e.clientY - start.y);
+      if (!target) return;
+      startRef.current = null;
+      switchTab(target);
+    },
+    [resolveTarget, switchTab]
+  );
+
+  // Страховка: порог пересечён ровно на отпускании (движение закончилось до 60px,
+  // последний move не пришёл в порог) — прежнее поведение как fallback.
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
       const start = startRef.current;
       startRef.current = null;
       if (!start || start.pointerId !== e.pointerId) return;
-
-      const dx = e.clientX - start.x;
-      const dy = e.clientY - start.y;
-      // Порог дистанции + горизонтальная доминанта — иначе это тап или скролл.
-      if (Math.abs(dx) < SWIPE_DISTANCE_PX || Math.abs(dx) <= HORIZONTAL_DOMINANCE * Math.abs(dy)) return;
-
-      const currentTab = SCREEN_TAB[currentScreen];
-      if (!currentTab) return;
-      // Свайп влево (dx < 0) — раздел справа (индекс +1), вправо — слева (−1).
-      const targetIndex = TAB_ORDER.indexOf(currentTab) + (dx < 0 ? 1 : -1);
-      const target = TAB_ORDER[targetIndex];
-      // Края карусели не зациклены: за пределами порядка — ничего.
+      const target = resolveTarget(e.clientX - start.x, e.clientY - start.y);
       if (!target) return;
       switchTab(target);
     },
-    [currentScreen, switchTab]
+    [resolveTarget, switchTab]
   );
 
   // Браузер забрал жест (напр. под вертикальный скролл) — сбрасываем.
@@ -84,5 +108,5 @@ export function useTabSwipe({ currentScreen, switchTab }: UseTabSwipeArgs) {
     startRef.current = null;
   }, []);
 
-  return { onPointerDown, onPointerUp, onPointerCancel };
+  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel };
 }
