@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Icon } from './Icons';
@@ -183,10 +183,40 @@ function FloatingNavBar({
     }
   }, []);
 
+  // Полный сброс drag-состояния (issue #420, дефект B): осиротевший drag —
+  // pointerup/pointercancel не был доставлен — иначе оставляет каретку навечно
+  // в drag-позиции без transition, и переходы её больше не двигают.
+  const resetDragState = useCallback(() => {
+    clearHoldTimer();
+    dragActiveRef.current = false;
+    lastSlotRef.current = null;
+    setIsDragging(false);
+    setDragX(null);
+  }, [clearHoldTimer]);
+
+  // Страховка: браузер увёл фокус/вкладку посреди drag — pointerup уже не придёт.
+  useEffect(() => {
+    const onBlur = () => resetDragState();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') resetDragState();
+    };
+    window.addEventListener('blur', onBlur);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('blur', onBlur);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [resetDragState]);
+
   const handleNavPointerDown = useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
       if (!e.isPrimary) return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
+      // Осиротевший drag от предыдущего пойнтера (up/cancel не доставлен) —
+      // полный сброс ДО начала новой сессии, иначе isDragging/dragX залипают.
+      if (dragActiveRef.current || isDragging) {
+        resetDragState();
+      }
       pointerIdRef.current = e.pointerId;
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
       dragActiveRef.current = false;
@@ -208,7 +238,7 @@ function FloatingNavBar({
         setDragX(caretLeftForClientX(pos.x));
       }, 250);
     },
-    [caretLeftForClientX, clearHoldTimer, nearestSlot]
+    [caretLeftForClientX, clearHoldTimer, isDragging, nearestSlot, resetDragState]
   );
 
   const handleNavPointerMove = useCallback(
@@ -338,8 +368,10 @@ function FloatingNavBar({
           }}
         >
           {/* Скользящий индикатор brand-gradient — только для двух табов (Поездки/Профиль).
-              При isDragging позиция идёт из dragX (px, clamped под палец), transition отключён;
-              иначе — как раньше, snap-transition к ближайшему слоту. */}
+              Единая система координат (issue #420, дефект A): left ВСЕГДА 6px, позиция —
+              только transform-ом. В drag transform = translateX(dragX − 6px) без transition;
+              при отпускании transition возвращается и transform анимируется px→calc-слот
+              (никогда от 'none' — иначе телепорт каретки к левому краю). */}
           <div
             ref={caretRef}
             aria-hidden
@@ -348,12 +380,15 @@ function FloatingNavBar({
               position: 'absolute',
               top: '6px',
               bottom: '6px',
-              left: isDragging && dragX !== null ? `${dragX}px` : '6px',
+              left: '6px',
               width: 'calc((100% - 0.75rem - 8px) / 3)',
               borderRadius: '999px',
               background: 'var(--gradient-brand)',
               boxShadow: '0 4px 14px -4px rgba(255, 210, 40, 0.55)',
-              transform: isDragging ? 'none' : `translateX(calc(${current + 1} * (100% + 0.25rem)))`,
+              transform:
+                isDragging && dragX !== null
+                  ? `translateX(${dragX - 6}px)`
+                  : `translateX(calc(${current + 1} * (100% + 0.25rem)))`,
               transition: isDragging || prefersReduced ? 'none' : 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           />
