@@ -369,11 +369,13 @@ function App() {
     [prefersReducedMotion, setTabScrub, switchTab]
   );
 
-  // Новый жест во время доводки: мгновенно завершаем её по уже проверенному пути
-  // (commit → seam-свап на progress=1; откат → снятие слоя), чтобы быстрый второй
-  // свайп с края (уведомления/профиль → центр → другой край) не съедался окном
-  // settle (issue #422). Реюз seam-механики; гонок с приходящим жестом нет — его
-  // первый квалифицирующий move приходит на кадры позже снятия блокировки.
+  // Новый жест во время доводки: завершаем её СИНХРОННО и сразу снимаем блокировку,
+  // чтобы быстрый второй флик с края (уведомления/профиль → центр → другой край) не
+  // съедался окном settle (issue #422). Раньше блокировку снимал seam-эффект через
+  // 2-3 кадра — быстрый флик целиком в них укладывался и терялся. discrete
+  // pointer-события → React флашит switchTab до следующего move, поэтому первый
+  // квалифицирующий move приходит уже на currentScreen == целевой раздел (скрабит
+  // дальше), а не повторяет предыдущий переход.
   const fastForwardSettle = useCallback(() => {
     if (!settlingRef.current) return;
     if (settleRafRef.current !== null) {
@@ -381,20 +383,17 @@ function App() {
       settleRafRef.current = null;
     }
     const scrub = tabScrubRef.current;
-    if (!scrub) {
-      settlingRef.current = false;
-      scrubSourceRef.current = null;
-      return;
-    }
-    if (settleCommitRef.current) {
-      setTabScrub({ ...scrub, progress: 1 });
+    if (scrub && settleCommitRef.current) {
+      // Коммит: keyed-экран целевого раздела встаёт мгновенно (seam — без слайда).
       setSeamNav(true);
       switchTab(scrub.to);
-    } else {
-      settlingRef.current = false;
-      setTabScrub(null);
-      scrubSourceRef.current = null;
+      const pending = pendingAfterSeamRef.current;
+      pendingAfterSeamRef.current = null;
+      if (pending) switchTab(pending);
     }
+    setTabScrub(null);
+    settlingRef.current = false;
+    scrubSourceRef.current = null;
   }, [setTabScrub, switchTab]);
 
   // Seam-завершение: currentScreen дошёл до целевого раздела — новый keyed-экран
