@@ -314,6 +314,11 @@ function App() {
   // Завершение доводки: сменить РАЗДЕЛ (seam-мгновенно) и снять strip. Смена только
   // при смене tab — откат/доводка внутри своего раздела экран не меняет (под-экран
   // main-more при откате остаётся собой).
+  // scrubOffset здесь НЕ гасим (issue #432): switchTab меняет currentScreen внутри
+  // startTransition — ОТЛОЖЕННЫЙ коммит, а ургентный setScrubOffset(null) при ещё
+  // старом current заставлял FloatingNav отрисовать каретку в старый слот с transition
+  // 0.32s (отскок назад), после чего отложенный коммит вёл её вперёд. Оставляем offset
+  // «приколотым» к target; гасит его эффект ниже, когда current догонит target.
   const finishSettle = useCallback(
     (target: number) => {
       const tab = TAB_ORDER[target];
@@ -321,11 +326,22 @@ function App() {
         setSeamNav(true);
         switchTab(tab);
       }
-      setScrubOffset(null);
       scrubSourceRef.current = null;
     },
-    [currentScreen, setScrubOffset, switchTab]
+    [currentScreen, switchTab]
   );
+
+  // Сброс «приколотого» scrubOffset (issue #432): гасим в null ТОЛЬКО когда жест уже
+  // завершён (scrubSourceRef == null — не рвём активный drag/свайп) и current догнал
+  // target (currentSlot == round(scrubOffset)). Тогда каретка уже стоит на целевом
+  // слоте: переход offset→keyed нулевой, отскока нет. В pinned-окне scrubOffset != null
+  // ⇒ FloatingNav держит transition 'none' — каретка назад не анимируется.
+  useEffect(() => {
+    if (scrubSourceRef.current !== null) return;
+    if (scrubOffset != null && currentSlot === Math.round(scrubOffset)) {
+      setScrubOffset(null);
+    }
+  }, [scrubOffset, currentSlot, setScrubOffset]);
 
   // Доводка offset → target: ease-out-cubic; длительность масштабируется от пути
   // (≥ SCRUB_SETTLE_MS; при D ≥ dist(px) пик ≤ 3px/мс — без кадров |Δx| > 50px).
