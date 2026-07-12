@@ -264,6 +264,8 @@ function FloatingNavBar({
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
       // Активация drag: сразу по горизонтальному движению сверх порога (без hold).
       if (!dragActiveRef.current) {
+        // reduced-motion (issue #430): drag каретки выключен — работает только клик.
+        if (prefersReduced) return;
         const start = startPointerRef.current;
         if (!start) return;
         const dx = e.clientX - start.x;
@@ -294,7 +296,7 @@ function FloatingNavBar({
       setDragFraction(frac);
       onCaretScrub?.(frac);
     },
-    [bellActive, current, onCaretScrub, slotFractionForClientX]
+    [bellActive, current, onCaretScrub, prefersReduced, slotFractionForClientX]
   );
 
   const endPointerSession = useCallback(
