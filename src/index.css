@@ -224,6 +224,14 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Подавляем нативный overscroll браузера (rubber-band + свайп-навигация
+   back/forward): горизонтальный/вертикальный жест на документе больше не
+   «отскакивает» и не уводит в историю (#435). */
+html,
+body {
+  overscroll-behavior: none;
+}
+
 /* То же для внутренних скролл-контейнеров экранов (flex:1; overflow:auto):
    при раскрытии контента их скроллбар иначе отъедал ширину и «сужал» экран.
    touch-action: pan-y (issue #415): тач стартует внутри этого скроллера, и без
@@ -233,6 +241,8 @@ html {
 [style*="overflow: auto"] {
   scrollbar-gutter: stable;
   touch-action: pan-y;
+  /* overscroll внутреннего скроллера не протекает в rubber-band документа (#435) */
+  overscroll-behavior: none;
 }
 
 /* Анимированная градиентная рамка Hero (бренд-тона). Эффект: бликовый conic-
