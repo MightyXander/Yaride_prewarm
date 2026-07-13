@@ -279,7 +279,11 @@ function FloatingNavBar({
         }
         // Дельта-модель (без скачка под палец): каретка стартует со своего слота и
         // едет на дельту дробной позиции пальца от точки нажатия (issue #422).
-        dragBaseFracRef.current = bellActive ? 0 : current + 1;
+        // Если drag активируется во время pinned-доводки (issue #437, scrubOffset
+        // приколот к target, а currentTab/current ещё старый — startTransition не
+        // догнал), стартуем от текущей ВИЗУАЛЬНОЙ позиции (scrubOffset), иначе
+        // каретка телепортируется на устаревший current+1.
+        dragBaseFracRef.current = scrubOffset != null ? scrubOffset : bellActive ? 0 : current + 1;
         dragStartFracRef.current = slotFractionForClientX(start.x);
         setIsDragging(true);
       }
@@ -296,7 +300,7 @@ function FloatingNavBar({
       setDragFraction(frac);
       onCaretScrub?.(frac);
     },
-    [bellActive, current, onCaretScrub, prefersReduced, slotFractionForClientX]
+    [bellActive, current, onCaretScrub, prefersReduced, scrubOffset, slotFractionForClientX]
   );
 
   const endPointerSession = useCallback(

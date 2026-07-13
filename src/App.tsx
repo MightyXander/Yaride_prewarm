@@ -306,6 +306,20 @@ function App() {
   // Базовый offset жеста (offset на первый move + пройденная за активацию доля).
   const baseOffsetRef = useRef(0);
   const settleRafRef = useRef<number | null>(null);
+  // Pinned-доводка (issue #437): target-слот, к которому приколот scrubOffset,
+  // пока ждём отложенный (startTransition) переход currentScreen на новый tab.
+  // null — pinned-режима нет.
+  const pinnedTargetRef = useRef<number | null>(null);
+  // Watchdog pinned-режима: страховка на случай, если currentScreen не догонит
+  // target (см. clearPinned/watchdog ниже).
+  const pinnedWatchdogRef = useRef<number | null>(null);
+  const clearPinned = useCallback(() => {
+    pinnedTargetRef.current = null;
+    if (pinnedWatchdogRef.current !== null) {
+      window.clearTimeout(pinnedWatchdogRef.current);
+      pinnedWatchdogRef.current = null;
+    }
+  }, []);
 
   const currentTab: TabRoot = SCREEN_TAB[currentScreen] ?? 'main';
   const currentSlot = TAB_ORDER.indexOf(currentTab);
@@ -314,18 +328,50 @@ function App() {
   // Завершение доводки: сменить РАЗДЕЛ (seam-мгновенно) и снять strip. Смена только
   // при смене tab — откат/доводка внутри своего раздела экран не меняет (под-экран
   // main-more при откате остаётся собой).
+  //
+  // issue #437: при смене tab scrubOffset НЕ гасится синхронно — switchTab меняет
+  // currentScreen отложенно (startTransition в useNavigation), а finishSettle
+  // синхронен. Между ними один кадр scrubOffset===null при старом currentScreen
+  // включал transition в FloatingNav → каретка отскакивала к старой позиции и
+  // затем ехала вперёд второй раз («пружина»). Вместо гашения — приколываем
+  // offset к target (визуально каретка уже на месте) и ждём, пока currentScreen
+  // догонит (эффект ниже снимает pin). Если tab не меняется (dir===0, switchTab
+  // не вызывается) — currentScreen никогда не обновится, поэтому в этой ветке
+  // scrubOffset гасим сразу же, иначе каретка залипнет навсегда.
   const finishSettle = useCallback(
     (target: number) => {
       const tab = TAB_ORDER[target];
       if (tab && tab !== (SCREEN_TAB[currentScreen] ?? 'main')) {
         setSeamNav(true);
         switchTab(tab);
+        setScrubOffset(target);
+        pinnedTargetRef.current = target;
+        if (pinnedWatchdogRef.current !== null) window.clearTimeout(pinnedWatchdogRef.current);
+        // Страховка: если за 400мс currentScreen так и не догнал target (напр.
+        // switchTab схлопнулся в dir===0 по иной причине) — не оставлять каретку
+        // приколотой навечно, лучше редкий доводочный скачок.
+        pinnedWatchdogRef.current = window.setTimeout(() => {
+          pinnedWatchdogRef.current = null;
+          pinnedTargetRef.current = null;
+          setScrubOffset(null);
+        }, 400);
+      } else {
+        setScrubOffset(null);
       }
-      setScrubOffset(null);
       scrubSourceRef.current = null;
     },
     [currentScreen, setScrubOffset, switchTab]
   );
+
+  // Снятие pin: currentScreen реально догнал pinned target — можно вернуть
+  // scrubOffset в null (settled-режим), каретка не сдвинется (позиция та же).
+  useEffect(() => {
+    if (pinnedTargetRef.current === null) return;
+    if (currentSlot === pinnedTargetRef.current) {
+      clearPinned();
+      setScrubOffset(null);
+    }
+  }, [currentSlot, clearPinned, setScrubOffset]);
 
   // Доводка offset → target: ease-out-cubic; длительность масштабируется от пути
   // (≥ SCRUB_SETTLE_MS; при D ≥ dist(px) пик ≤ 3px/мс — без кадров |Δx| > 50px).
@@ -380,10 +426,11 @@ function App() {
     [settleTo]
   );
 
-  // Останов rAF-доводки на размонтировании.
+  // Останов rAF-доводки и watchdog pinned-режима на размонтировании.
   useEffect(
     () => () => {
       if (settleRafRef.current !== null) cancelAnimationFrame(settleRafRef.current);
+      if (pinnedWatchdogRef.current !== null) window.clearTimeout(pinnedWatchdogRef.current);
     },
     []
   );
@@ -412,6 +459,9 @@ function App() {
           cancelAnimationFrame(settleRafRef.current);
           settleRafRef.current = null;
         }
+        // Новый swipe перехватывает pinned-доводку (issue #437) — снимаем pin/watchdog,
+        // иначе watchdog позже насильно сбросит scrubOffset посреди уже нового жеста.
+        clearPinned();
         const cur = scrubOffsetRef.current;
         if (cur === null) scrubOriginScreenRef.current = currentScreen;
         // base так, что offset на этот первый move == текущий (без скачка активации).
@@ -420,7 +470,7 @@ function App() {
       }
       setScrubOffset(Math.min(2, Math.max(0, baseOffsetRef.current - dxFraction)));
     },
-    [currentScreen, currentSlot, setScrubOffset]
+    [currentScreen, currentSlot, clearPinned, setScrubOffset]
   );
   const handleSwipeScrubEnd = useCallback(
     ({ velocityFraction, cancelled }: { velocityFraction: number; cancelled: boolean }) => {
@@ -451,13 +501,18 @@ function App() {
           cancelAnimationFrame(settleRafRef.current);
           settleRafRef.current = null;
         }
+        // Новый drag каретки перехватывает pinned-доводку (issue #437): снимаем
+        // pin/watchdog — иначе watchdog позже насильно сбросит scrubOffset
+        // посреди уже нового жеста. FloatingNav сам стартует drag от текущей
+        // визуальной позиции (scrubOffset), скачка нет.
         if (scrubOffsetRef.current === null) scrubOriginScreenRef.current = currentScreen;
+        clearPinned();
         scrubSourceRef.current = 'caret';
       }
       lastCaretFractionRef.current = fraction;
       setScrubOffset(Math.min(2, Math.max(0, fraction)));
     },
-    [currentScreen, setScrubOffset]
+    [currentScreen, clearPinned, setScrubOffset]
   );
   const handleCaretScrubEnd = useCallback(
     (cancelled: boolean) => {
