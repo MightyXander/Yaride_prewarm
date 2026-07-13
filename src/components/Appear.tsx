@@ -52,9 +52,15 @@ export const Appear: React.FC<AppearProps> = ({
   const duration = prefersReducedMotion || instant ? 0 : 0.21; // 210ms
   const exitDuration = prefersReducedMotion || instant ? 0 : 0.15; // exit короче enter
 
+  // `initial={false}` (а не только duration: 0) — компонент монтируется сразу в
+  // конечном состоянии "visible", без единого кадра со значениями "hidden"
+  // (issue #438): при remount мимо тёплого кэша duration:0 всё равно проигрывал
+  // бы hidden→visible за 1 кадр, что на медленных устройствах может читаться
+  // как микро-мигание. `instant` используют экраны, где ремаунт не должен быть
+  // заметен вообще (напр. NotificationsScreen при свайпе между разделами).
   const content = (
     <motion.div
-      initial="hidden"
+      initial={prefersReducedMotion || instant ? false : 'hidden'}
       animate="visible"
       exit="exit"
       variants={appearVariants}
