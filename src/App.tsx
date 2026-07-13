@@ -363,15 +363,41 @@ function App() {
     [currentScreen, setScrubOffset, switchTab]
   );
 
-  // Снятие pin: currentScreen реально догнал pinned target — можно вернуть
-  // scrubOffset в null (settled-режим), каретка не сдвинется (позиция та же).
+  // Снятие pin. Инвариант: pinned-состояние живёт РОВНО пока идёт доводка того
+  // жеста, который его завёл, — т.е. пока ожидается приход currentScreen именно на
+  // pinnedTarget. Два пути снятия:
+  //  1) currentScreen догнал pinned target — штатно возвращаем scrubOffset в null
+  //     (settled-режим), каретка не сдвинется (позиция та же);
+  //  2) currentScreen уехал КУДА-ТО ЕЩЁ (тап по табу/колоколу, goBack, навигация из
+  //     экрана — всё мимо жеста): pin устарел, его target больше никогда не наступит.
+  //     Держать scrubOffset прикопленным к нему нельзя — scrubLayer до срабатывания
+  //     watchdog (400мс) показывал бы поверх реального экрана чужой прикопленный.
+  // Оба пути ведут к одному действию (снять pin + вернуть scrubOffset в null), поэтому
+  // ветки не различаются: любое ИЗМЕНЕНИЕ currentSlot при активном pin означает, что
+  // ожидание завершено — либо целью, либо чужой навигацией.
   useEffect(() => {
     if (pinnedTargetRef.current === null) return;
-    if (currentSlot === pinnedTargetRef.current) {
-      clearPinned();
-      setScrubOffset(null);
-    }
+    clearPinned();
+    setScrubOffset(null);
   }, [currentSlot, clearPinned, setScrubOffset]);
+
+  // Прямая навигация по табам (тап по табу/колоколу навбара) — вне жеста. Если сейчас
+  // идёт pinned-доводка ЧУЖОГО (предыдущего) жеста и её цель не совпадает с целью тапа,
+  // pin устарел прямо в момент тапа: снимаем его синхронно, не дожидаясь, пока
+  // startTransition доведёт currentScreen (иначе до 400мс виден не тот экран). Тап в ту
+  // же цель, что и pin, — доводка продолжается, pin остаётся валиден (гасить его значило
+  // бы вернуть «пружину» каретки из issue #437).
+  const navigateToTab = useCallback(
+    (tab: TabRoot) => {
+      const target = TAB_ORDER.indexOf(tab);
+      if (pinnedTargetRef.current !== null && pinnedTargetRef.current !== target) {
+        clearPinned();
+        setScrubOffset(null);
+      }
+      switchTab(tab);
+    },
+    [clearPinned, setScrubOffset, switchTab]
+  );
 
   // Доводка offset → target: ease-out-cubic; длительность масштабируется от пути
   // (≥ SCRUB_SETTLE_MS; при D ≥ dist(px) пик ≤ 3px/мс — без кадров |Δx| > 50px).
@@ -702,8 +728,8 @@ function App() {
         {!isDesktop && (
           <FloatingNav
             currentScreen={currentScreen}
-            onNavigate={(root) => switchTab(root === 'profile' ? 'profile' : 'main')}
-            onNotificationsClick={() => switchTab('notifications')}
+            onNavigate={(root) => navigateToTab(root === 'profile' ? 'profile' : 'main')}
+            onNotificationsClick={() => navigateToTab('notifications')}
             scrubOffset={scrubOffset}
             onCaretScrub={scrubEnabled ? handleCaretScrub : undefined}
             onCaretScrubEnd={scrubEnabled ? handleCaretScrubEnd : undefined}

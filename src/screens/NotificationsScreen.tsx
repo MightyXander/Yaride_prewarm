@@ -33,6 +33,14 @@ const PULL_THRESHOLD = 64;
 const PULL_MAX = 96;
 /** Pull-to-refresh: коэффициент сопротивления — тянуть приходится дальше, чем визуальный ход. */
 const PULL_RESISTANCE = 0.5;
+/** Pull-to-refresh: путь (px), после которого жест вообще разрешается в вертикаль/горизонталь.
+ * Симметрично SCRUB_ACTIVATION_PX в useTabSwipe (10px) — раньше pull решал уже на 8px и
+ * успевал «выиграть» диагональ у карусельного свайпа. */
+const PULL_ACTIVATION_PX = 10;
+/** Pull-to-refresh: требуемая вертикальная доминанта |dy| > 1.5·|dx| — зеркало
+ * HORIZONTAL_DOMINANCE в useTabSwipe. Диагональ не активирует НИ pull, НИ tab-свайп,
+ * пока жест не разрешился однозначно в одну из осей. */
+const PULL_VERTICAL_DOMINANCE = 1.5;
 
 /** Иконка + цвет по типу уведомления (вынесено из компонента — не требует пропсов). */
 function getNotificationIcon(type: NotificationType): { icon: string; color: string } {
@@ -270,14 +278,24 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
   const [cameFromWarmCache] = useState(() => !loading && data != null);
 
   // Pull-to-refresh (issue #438, развилка №4): жест сверху вниз только от
-  // scrollTop === 0, вертикальная доминанта — чтобы не конфликтовать с
-  // горизонтальным свайпом разделов карусели (useTabSwipe, App.tsx), который
-  // слушает Pointer Events на родителе и сам требует горизонтальной доминанты.
+  // scrollTop === 0 и только при ЯВНОЙ вертикальной доминанте (|dy| > 1.5·|dx| на
+  // пути ≥ 10px) — зеркало порогов useTabSwipe (App.tsx слушает Pointer Events на
+  // родителе). Без симметрии порогов диагональный жест активировал бы ОБА
+  // распознавателя разом (pull решал на 8px по dy > |dx|): список тянулся бы вниз
+  // и одновременно скрабилась карусель, а отпускание слало лишний refetch.
   // preventDefault нужен только на самом жесте — React вешает onTouchMove как
   // passive, поэтому слушатель нативный (эффект ниже), не JSX-проп.
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pullY, setPullY] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  // Зеркало pullY для чтения из нативных обработчиков: решение «сработал ли порог»
+  // принимается в touchend ДО setState — побочные эффекты (refetch/setRefreshing)
+  // не должны жить внутри апдейтера setPullY (в StrictMode он вызывается дважды).
+  const pullYRef = useRef(0);
+  const setPull = useCallback((v: number) => {
+    pullYRef.current = v;
+    setPullY(v);
+  }, []);
   const pullGestureRef = useRef<{ startX: number; startY: number; deciding: boolean; active: boolean } | null>(null);
 
   useEffect(() => {
@@ -302,10 +320,16 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
       const dy = t.clientY - g.startY;
 
       if (g.deciding) {
-        // Ждём достаточного смещения, чтобы понять направление жеста.
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        // Жест ещё не разрешился в ось — pull НЕ активируем (и ничего не преventDefault'им).
+        // Горизонталь однозначно выиграла — жест целиком отдаём карусельному tab-свайпу.
+        if (Math.abs(dx) >= PULL_ACTIVATION_PX && Math.abs(dx) > PULL_VERTICAL_DOMINANCE * Math.abs(dy)) {
+          pullGestureRef.current = null;
+          return;
+        }
+        // Вертикаль ещё не выиграла с запасом (диагональ/малый путь) — продолжаем ждать.
+        if (Math.abs(dy) < PULL_ACTIVATION_PX || Math.abs(dy) <= PULL_VERTICAL_DOMINANCE * Math.abs(dx)) return;
         g.deciding = false;
-        g.active = dy > 0 && Math.abs(dy) > Math.abs(dx) && el.scrollTop === 0;
+        g.active = dy > 0 && el.scrollTop === 0;
         if (!g.active) {
           pullGestureRef.current = null;
           return;
@@ -316,38 +340,37 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
       if (el.scrollTop > 0) {
         // Успел проскроллиться до распознавания — отдаём жест обычному скроллу.
         pullGestureRef.current = null;
-        setPullY(0);
+        setPull(0);
         return;
       }
 
       e.preventDefault();
-      setPullY(Math.min(PULL_MAX, dy * PULL_RESISTANCE));
+      setPull(Math.min(PULL_MAX, dy * PULL_RESISTANCE));
     };
 
     const onTouchEnd = () => {
       const g = pullGestureRef.current;
       pullGestureRef.current = null;
       if (!g?.active) {
-        setPullY(0);
+        setPull(0);
         return;
       }
-      setPullY((current) => {
-        if (current >= PULL_THRESHOLD) {
-          setRefreshing(true);
-          // Форс-рефетч через refetch(true) («тихий» для стейта loading) —
-          // сознательное отклонение от буквального «(не silent)» в тексте
-          // issue #438: refetch(false) выставил бы loading=true и переключил бы
-          // ветку AnimatePresence (list → null/skeleton → list), что для этой же
-          // задачи является тем самым remount+replay entrance, которого шаг 4 DoD
-          // явно требует избежать («обновление данных ≠ перемонтирование»).
-          // Пользователю обратная связь даёт сам pull-индикатор (спиннер), не общий скелетон.
-          void refetch(true).finally(() => {
-            setRefreshing(false);
-            setPullY(0);
-          });
-          return 0;
-        }
-        return 0;
+      // Решение принимаем по ref ДО setState: побочные эффекты (setRefreshing/refetch)
+      // внутри апдейтера setPullY нарушали бы чистоту апдейтера и дублировались в StrictMode.
+      const shouldRefresh = pullYRef.current >= PULL_THRESHOLD;
+      setPull(0);
+      if (!shouldRefresh) return;
+      setRefreshing(true);
+      // Форс-рефетч через refetch(true) («тихий» для стейта loading) —
+      // сознательное отклонение от буквального «(не silent)» в тексте
+      // issue #438: refetch(false) выставил бы loading=true и переключил бы
+      // ветку AnimatePresence (list → null/skeleton → list), что для этой же
+      // задачи является тем самым remount+replay entrance, которого шаг 4 DoD
+      // явно требует избежать («обновление данных ≠ перемонтирование»).
+      // Пользователю обратная связь даёт сам pull-индикатор (спиннер), не общий скелетон.
+      void refetch(true).finally(() => {
+        setRefreshing(false);
+        setPull(0);
       });
     };
 
@@ -362,7 +385,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
       el.removeEventListener('touchend', onTouchEnd);
       el.removeEventListener('touchcancel', onTouchEnd);
     };
-  }, [refreshing, refetch]);
+  }, [refreshing, refetch, setPull]);
 
   const handleNotificationClick = async (notif: NotificationItem) => {
     window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
@@ -495,14 +518,17 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onNavigate })
               </Appear>
             ) : null
           ) : error ? (
-            <Appear key="error">
+            <Appear key="error" instant={cameFromWarmCache}>
               <LoadErrorState
                 subtitle="Не удалось загрузить уведомления. Проверь соединение и попробуй ещё раз."
                 onRetry={() => { void refetch(); }}
               />
             </Appear>
           ) : showEmpty ? (
-            <Appear key="empty">
+            // instant при тёплом кэше (issue #438) — та же причина, что у ветки list:
+            // двойной remount карусели на каждый свайп иначе заново проигрывает
+            // entrance пустого состояния (мигание у пользователя без уведомлений).
+            <Appear key="empty" instant={cameFromWarmCache}>
               <EmptyState
                 icon={
                   <svg viewBox="0 0 24 24" style={{ width: '32px', height: '32px', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} aria-hidden="true">
