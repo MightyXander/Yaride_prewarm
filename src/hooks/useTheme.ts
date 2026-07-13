@@ -75,6 +75,11 @@ export function useTheme() {
     if (isTelegramContext() && tg) {
       tg.ready();
       tg.expand();
+      // Отключаем нативный жест-распознаватель Telegram-хоста (свайп-вниз-закрыть),
+      // который иначе перехватывает touch-поток поверх WebView и рвёт drag по
+      // навбару в pointercancel (issue #439). Bot API 7.7+ — на старых клиентах
+      // метода нет, поэтому только optional call, без исключения в консоли.
+      tg.disableVerticalSwipes?.();
       const handleThemeChange = () => {
         if (readStoredMode() === 'system') setTheme(tg.colorScheme);
       };

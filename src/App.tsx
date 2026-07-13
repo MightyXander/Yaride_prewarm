@@ -547,7 +547,15 @@ function App() {
         scrubSourceRef.current = null;
         return;
       }
-      const target = cancelled ? currentSlot : Math.round(Math.min(2, Math.max(0, lastCaretFractionRef.current)));
+      // Cancelled-жест (Telegram отобрал pointer, см. issue #439) доводим ВПЕРЁД —
+      // до ближайшего слота от последней известной дробной позиции, та же семантика,
+      // что в settleFromRelease (App.tsx:443), а не откатываем к currentSlot. Фолбэк
+      // на currentSlot — только если позиция и правда неизвестна (не finite).
+      const knownFraction = Number.isFinite(lastCaretFractionRef.current);
+      const target =
+        cancelled && !knownFraction
+          ? currentSlot
+          : Math.round(Math.min(2, Math.max(0, lastCaretFractionRef.current)));
       settleTo(target);
     },
     [currentSlot, settleTo]

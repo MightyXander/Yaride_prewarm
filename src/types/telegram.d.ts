@@ -7,6 +7,10 @@ declare global {
         expand: () => void;
         colorScheme: 'light' | 'dark';
         isVersionAtLeast: (version: string) => boolean;
+        // Bot API 7.7+ — на старых клиентах метода нет, вызывать только через
+        // optional call (tg.disableVerticalSwipes?.()), см. issue #439.
+        disableVerticalSwipes?: () => void;
+        isVerticalSwipesEnabled?: boolean;
         initData?: string;
         initDataUnsafe?: {
           user?: {
