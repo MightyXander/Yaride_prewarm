@@ -28,6 +28,7 @@ const RegisterScreen = lazy(() => import('../screens/RegisterScreen'));
 import type { AsyncState } from '../hooks/useAsync';
 import type { ThemeMode } from '../hooks/useTheme';
 import { formatSubtitle } from './date';
+import { dayWord } from './dateLocal';
 import type { UserRole } from './role';
 import type { RegisterPayload } from '../screens/RegisterScreen';
 import type { BookingResult, NotificationType } from '../types/api';
@@ -137,6 +138,11 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
         ctx.mainDirection === 'morning'
           ? formatSubtitle('утро 7:30–8:40', false, new Date(`${ctx.selectedDate}T00:00:00`))
           : formatSubtitle('вечер 17:00–18:30', false, new Date(`${ctx.selectedDate}T00:00:00`))
+      }
+      heroKicker={
+        ctx.mainDirection === 'morning'
+          ? `${dayWord(ctx.selectedDate)} по маршруту`
+          : `${dayWord(ctx.selectedDate)} домой`
       }
       loading={
         ctx.mainDirection === 'morning'
@@ -277,7 +283,7 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       trips={ctx.eveningTrips}
       title="Центр → Брагино"
       subtitle={formatSubtitle('вечер 17:30–19:00')}
-      heroKicker="Сегодня домой"
+      heroKicker={`${dayWord(ctx.selectedDate)} домой`}
       loading={ctx.eveningTripsState.status === 'loading'}
       error={ctx.eveningTripsState.status === 'error' ? ctx.eveningTripsState.error : undefined}
       onRetry={ctx.eveningTripsState.retry}
