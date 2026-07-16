@@ -138,6 +138,9 @@ export async function getTrips(params: GetTripsRequest = {}): Promise<GetTripsRe
   if (params.date !== undefined) {
     query.set('date', params.date);
   }
+  if (params.intent !== undefined) {
+    query.set('intent', params.intent);
+  }
 
   const qs = query.toString();
   return apiFetch<GetTripsResponse>(`/trips${qs ? `?${qs}` : ''}`);

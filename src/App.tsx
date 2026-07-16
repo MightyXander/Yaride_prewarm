@@ -188,7 +188,7 @@ function App() {
     eveningFirstLoading,
     morningFirstError,
     eveningFirstError,
-  } = useCorridorTrips(currentScreen, selectedDate);
+  } = useCorridorTrips(currentScreen, selectedDate, mainDirection);
 
   const { splashVisible, splashHiding, setSplashVisible } = useSplashGate({
     meChecked,

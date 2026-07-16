@@ -14,7 +14,7 @@ export interface UseAsyncOptions {
  * Хук для управления асинхронными операциями с состояниями loading/success/error.
  */
 export function useAsync<T>(
-  asyncFn: () => Promise<T>,
+  asyncFn: (silent: boolean) => Promise<T>,
   deps: React.DependencyList = [],
   options: UseAsyncOptions = { immediate: true }
 ): AsyncState<T> & { retry: () => void; refetch: () => void } {
@@ -25,7 +25,7 @@ export function useAsync<T>(
   const run = useCallback(async (silent: boolean) => {
     if (!silent) setState({ status: 'loading' });
     try {
-      const data = await asyncFn();
+      const data = await asyncFn(silent);
       setState({ status: 'success', data });
     } catch (err) {
       setState({ status: 'error', error: err instanceof Error ? err : new Error(String(err)) });

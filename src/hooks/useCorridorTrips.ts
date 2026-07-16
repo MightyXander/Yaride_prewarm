@@ -15,7 +15,11 @@ const CORRIDOR_SCREENS: Screen[] = ['main', 'main-more', 'evening-main'];
  * Списки живут на уровне App (не размонтируются при навигации между экранами) —
  * поэтому после публикации/брони/отмены их нужно освежать явно. Вынесено из App.tsx (#290).
  */
-export function useCorridorTrips(currentScreen: Screen, selectedDate: string) {
+export function useCorridorTrips(
+  currentScreen: Screen,
+  selectedDate: string,
+  mainDirection: 'morning' | 'evening',
+) {
   // Загрузка точек маршрута для определения ID Брагино и Центра
   const routePointsState = useAsync(() => getRoutePoints(), []);
 
@@ -28,21 +32,27 @@ export function useCorridorTrips(currentScreen: Screen, selectedDate: string) {
     : undefined;
 
   // Загрузка поездок Брагино → Центр (morning/«в центр») за выбранную дату.
+  // intent:'user' (issue #446) — ТОЛЬКО когда это направление видимое
+  // (=== mainDirection) и это НЕ тихий фоновый рефетч (silent): маунт, смена
+  // даты или смена направления. Второе (фоновое) направление и все silent-пути
+  // (фокус/поллинг/вход через refetchCorridor) идут без флага и метрику не раздувают.
   const morningTripsState = useAsync(
-    () => {
+    (silent) => {
       if (!braginoId || !centrId) return Promise.resolve([]);
-      return getTrips({ corridor: `${braginoId}-${centrId}`, date: selectedDate }).then((res) => res.trips.map(mapTripListItemToTrip));
+      const intent = !silent && mainDirection === 'morning' ? ('user' as const) : undefined;
+      return getTrips({ corridor: `${braginoId}-${centrId}`, date: selectedDate, intent }).then((res) => res.trips.map(mapTripListItemToTrip));
     },
-    [braginoId, centrId, selectedDate]
+    [braginoId, centrId, selectedDate, mainDirection]
   );
 
   // Загрузка поездок Центр → Брагино (evening/«из центра») за выбранную дату.
   const eveningTripsState = useAsync(
-    () => {
+    (silent) => {
       if (!braginoId || !centrId) return Promise.resolve([]);
-      return getTrips({ corridor: `${centrId}-${braginoId}`, date: selectedDate }).then((res) => res.trips.map(mapTripListItemToTrip));
+      const intent = !silent && mainDirection === 'evening' ? ('user' as const) : undefined;
+      return getTrips({ corridor: `${centrId}-${braginoId}`, date: selectedDate, intent }).then((res) => res.trips.map(mapTripListItemToTrip));
     },
-    [braginoId, centrId, selectedDate]
+    [braginoId, centrId, selectedDate, mainDirection]
   );
 
   // Stale-while-revalidate (issue #443): держим last-good списки в ref и отдаём их

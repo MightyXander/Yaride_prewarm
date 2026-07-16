@@ -425,16 +425,21 @@ export async function handleListTrips(req: ApiRequest): Promise<ApiResponse> {
   // Метрики ликвидности (CEO Council): захват события поиска (zero-result
   // считается на агрегате по props.result_count === 0). Fire-and-forget —
   // logEvent никогда не бросает и не блокирует ответ.
-  const searchCorridor =
-    params.startPointId !== undefined && params.endPointId !== undefined
-      ? `${params.startPointId}-${params.endPointId}`
-      : null;
-  void logEvent({
-    type: 'search',
-    userId: params.currentUserId ?? null,
-    corridor: searchCorridor,
-    props: { result_count: trips.length },
-  });
+  // issue #446: пишем `search` ТОЛЬКО на реальный пользовательский поиск
+  // (?intent=user). Фон/поллинг/прогрев/невидимое направление идут без флага и
+  // метрику «поиски» не раздувают.
+  if (req.query.intent === 'user') {
+    const searchCorridor =
+      params.startPointId !== undefined && params.endPointId !== undefined
+        ? `${params.startPointId}-${params.endPointId}`
+        : null;
+    void logEvent({
+      type: 'search',
+      userId: params.currentUserId ?? null,
+      corridor: searchCorridor,
+      props: { result_count: trips.length },
+    });
+  }
 
   return { status: 200, body: { trips } };
 }
