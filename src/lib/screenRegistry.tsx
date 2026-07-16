@@ -74,6 +74,10 @@ export interface ScreenCtx {
   eveningTrips: Trip[];
   morningTripsState: AsyncState<Trip[]> & { retry: () => void };
   eveningTripsState: AsyncState<Trip[]> & { retry: () => void };
+  morningFirstLoading: boolean;
+  eveningFirstLoading: boolean;
+  morningFirstError: boolean;
+  eveningFirstError: boolean;
 
   requestDirection: 'morning' | 'evening';
   setRequestDirection: Dispatch<SetStateAction<'morning' | 'evening'>>;
@@ -146,15 +150,15 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       }
       loading={
         ctx.mainDirection === 'morning'
-          ? ctx.morningTripsState.status === 'loading'
-          : ctx.eveningTripsState.status === 'loading'
+          ? ctx.morningFirstLoading
+          : ctx.eveningFirstLoading
       }
       error={
         ctx.mainDirection === 'morning'
-          ? ctx.morningTripsState.status === 'error'
+          ? ctx.morningFirstError && ctx.morningTripsState.status === 'error'
             ? ctx.morningTripsState.error
             : undefined
-          : ctx.eveningTripsState.status === 'error'
+          : ctx.eveningFirstError && ctx.eveningTripsState.status === 'error'
             ? ctx.eveningTripsState.error
             : undefined
       }
@@ -284,8 +288,8 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       title="Центр → Брагино"
       subtitle={formatSubtitle('вечер 17:30–19:00')}
       heroKicker={`${dayWord(ctx.selectedDate)} домой`}
-      loading={ctx.eveningTripsState.status === 'loading'}
-      error={ctx.eveningTripsState.status === 'error' ? ctx.eveningTripsState.error : undefined}
+      loading={ctx.eveningFirstLoading}
+      error={ctx.eveningFirstError && ctx.eveningTripsState.status === 'error' ? ctx.eveningTripsState.error : undefined}
       onRetry={ctx.eveningTripsState.retry}
       onTripClick={(trip) => ctx.navigate('trip-details', trip)}
       onPublish={() => ctx.navigate('evening-publish')}

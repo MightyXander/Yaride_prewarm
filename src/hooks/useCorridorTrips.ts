@@ -3,7 +3,7 @@ import { useAsync } from './useAsync';
 import { useRefetchOnFocus, usePollingRefetch } from './useRefetchOnFocus';
 import { getRoutePoints, getTrips } from '../lib/api';
 import { mapTripListItemToTrip } from '../lib/mappers';
-import type { Screen } from '../types/navigation';
+import type { Screen, Trip } from '../types/navigation';
 
 // Экраны-коридоры (списки поездок) — где обновление списка имеет смысл.
 const CORRIDOR_SCREENS: Screen[] = ['main', 'main-more', 'evening-main'];
@@ -45,8 +45,40 @@ export function useCorridorTrips(currentScreen: Screen, selectedDate: string) {
     [braginoId, centrId, selectedDate]
   );
 
-  const morningTrips = morningTripsState.status === 'success' ? morningTripsState.data : [];
-  const eveningTrips = eveningTripsState.status === 'success' ? eveningTripsState.data : [];
+  // Stale-while-revalidate (issue #443): держим last-good списки в ref и отдаём их
+  // во время рефетча (в т.ч. при смене даты/направления, когда useAsync уходит в
+  // 'loading' и роняет data). Скелетон — только пока накопленных данных ещё нет.
+  const lastMorning = useRef<Trip[] | null>(null);
+  const lastEvening = useRef<Trip[] | null>(null);
+  // Пишем last-good ТОЛЬКО для реальных ответов коридора. До загрузки точек
+  // маршрута asyncFn отдаёт placeholder [] (id ещё не известны) — он НЕ данные,
+  // иначе первая загрузка потеряла бы скелетон (firstLoading увидел бы ref !== null).
+  // Реальным считаем success, чей запрос стартовал с известными id: флаг pending
+  // ставим, когда статус уходит в 'loading' при hasCorridor. Обновление в эффекте
+  // идемпотентно и безопасно к двойному рендеру StrictMode — в отличие от записи
+  // ref во время рендера (там второй проход StrictMode перезаписал бы placeholder).
+  const hasCorridor = braginoId !== undefined && centrId !== undefined;
+  const morningData = morningTripsState.status === 'success' ? morningTripsState.data : null;
+  const eveningData = eveningTripsState.status === 'success' ? eveningTripsState.data : null;
+  const morningRealPending = useRef(false);
+  const eveningRealPending = useRef(false);
+  useEffect(() => {
+    if (hasCorridor && morningTripsState.status === 'loading') morningRealPending.current = true;
+    if (morningData !== null && morningRealPending.current) lastMorning.current = morningData;
+  }, [hasCorridor, morningTripsState.status, morningData]);
+  useEffect(() => {
+    if (hasCorridor && eveningTripsState.status === 'loading') eveningRealPending.current = true;
+    if (eveningData !== null && eveningRealPending.current) lastEvening.current = eveningData;
+  }, [hasCorridor, eveningTripsState.status, eveningData]);
+
+  const morningTrips = morningData ?? lastMorning.current ?? [];
+  const eveningTrips = eveningData ?? lastEvening.current ?? [];
+
+  // Скелетон/экран ошибки — только на самой первой загрузке (ещё нет stale).
+  const morningFirstLoading = morningTripsState.status === 'loading' && lastMorning.current === null;
+  const eveningFirstLoading = eveningTripsState.status === 'loading' && lastEvening.current === null;
+  const morningFirstError = morningTripsState.status === 'error' && lastMorning.current === null;
+  const eveningFirstError = eveningTripsState.status === 'error' && lastEvening.current === null;
 
   const refetchCorridor = useCallback(() => {
     // Тихий рефетч (refetch): без скелета поверх уже показанного списка.
@@ -75,5 +107,15 @@ export function useCorridorTrips(currentScreen: Screen, selectedDate: string) {
   // 3) Лёгкий периодический рефетч, пока открыт коридор (≈30с, пауза при скрытой вкладке).
   usePollingRefetch(refetchCorridor, 30_000, onCorridorScreen);
 
-  return { routePointsState, morningTripsState, eveningTripsState, morningTrips, eveningTrips };
+  return {
+    routePointsState,
+    morningTripsState,
+    eveningTripsState,
+    morningTrips,
+    eveningTrips,
+    morningFirstLoading,
+    eveningFirstLoading,
+    morningFirstError,
+    eveningFirstError,
+  };
 }

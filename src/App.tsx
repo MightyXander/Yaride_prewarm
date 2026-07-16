@@ -178,8 +178,17 @@ function App() {
   // должен увидеть тост «Поездка не найдена», а не молча оказаться на MainScreen.
   useStartParam(navigate, showToast, !needsAuthGate);
 
-  const { routePointsState, morningTripsState, eveningTripsState, morningTrips, eveningTrips } =
-    useCorridorTrips(currentScreen, selectedDate);
+  const {
+    routePointsState,
+    morningTripsState,
+    eveningTripsState,
+    morningTrips,
+    eveningTrips,
+    morningFirstLoading,
+    eveningFirstLoading,
+    morningFirstError,
+    eveningFirstError,
+  } = useCorridorTrips(currentScreen, selectedDate);
 
   const { splashVisible, splashHiding, setSplashVisible } = useSplashGate({
     meChecked,
@@ -270,6 +279,10 @@ function App() {
     eveningTrips,
     morningTripsState,
     eveningTripsState,
+    morningFirstLoading,
+    eveningFirstLoading,
+    morningFirstError,
+    eveningFirstError,
     requestDirection,
     setRequestDirection,
     currentBooking,
