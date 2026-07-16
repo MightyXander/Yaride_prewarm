@@ -13,8 +13,8 @@ interface TopbarProps {
 const DATE_CHIP_STYLE: React.CSSProperties = {
   height: '40px',
   minWidth: 'auto',
-  padding: '0 12px',
-  fontSize: '14px',
+  padding: '0 6px',
+  fontSize: '13px',
   borderRadius: '12px',
 };
 
@@ -35,7 +35,7 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle, selectedDate, onSelect
         <div
           style={{
             fontWeight: 800,
-            fontSize: '19px',
+            fontSize: '17px',
             letterSpacing: '-0.01em',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
