@@ -1,9 +1,26 @@
+import Chip from './ui/Chip';
+import { localDateStr } from '../lib/dateLocal';
+
 interface TopbarProps {
   title: string;
   subtitle?: string;
+  /** Выбранная дата поиска ('YYYY-MM-DD'); включает переключатель Сегодня/Завтра. */
+  selectedDate?: string;
+  onSelectDate?: (date: string) => void;
 }
 
-const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
+// Компактный стиль Chip для шапки: не переполнять узкий экран (360px).
+const DATE_CHIP_STYLE: React.CSSProperties = {
+  height: '40px',
+  minWidth: 'auto',
+  padding: '0 12px',
+  fontSize: '14px',
+  borderRadius: '12px',
+};
+
+const Topbar: React.FC<TopbarProps> = ({ title, subtitle, selectedDate, onSelectDate }) => {
+  const today = localDateStr();
+  const tomorrow = localDateStr(new Date(Date.now() + 86_400_000));
   return (
     <div
       style={{
@@ -14,12 +31,15 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
         gap: '8px',
       }}
     >
-      <div style={{ minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
             fontWeight: 800,
             fontSize: '19px',
             letterSpacing: '-0.01em',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}
         >
           {title}
@@ -36,6 +56,22 @@ const Topbar: React.FC<TopbarProps> = ({ title, subtitle }) => {
           </div>
         )}
       </div>
+      {onSelectDate && (
+        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <Chip
+            label="Сегодня"
+            selected={selectedDate === today}
+            onClick={() => onSelectDate(today)}
+            style={DATE_CHIP_STYLE}
+          />
+          <Chip
+            label="Завтра"
+            selected={selectedDate === tomorrow}
+            onClick={() => onSelectDate(tomorrow)}
+            style={DATE_CHIP_STYLE}
+          />
+        </div>
+      )}
     </div>
   );
 };

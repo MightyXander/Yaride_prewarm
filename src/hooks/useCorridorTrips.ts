@@ -15,7 +15,7 @@ const CORRIDOR_SCREENS: Screen[] = ['main', 'main-more', 'evening-main'];
  * Списки живут на уровне App (не размонтируются при навигации между экранами) —
  * поэтому после публикации/брони/отмены их нужно освежать явно. Вынесено из App.tsx (#290).
  */
-export function useCorridorTrips(currentScreen: Screen) {
+export function useCorridorTrips(currentScreen: Screen, selectedDate: string) {
   // Загрузка точек маршрута для определения ID Брагино и Центра
   const routePointsState = useAsync(() => getRoutePoints(), []);
 
@@ -27,22 +27,22 @@ export function useCorridorTrips(currentScreen: Screen) {
     ? routePointsState.data.points.find((p) => p.title.includes('Центр'))?.id
     : undefined;
 
-  // Загрузка поездок Брагино → Центр (morning/«в центр»)
+  // Загрузка поездок Брагино → Центр (morning/«в центр») за выбранную дату.
   const morningTripsState = useAsync(
     () => {
       if (!braginoId || !centrId) return Promise.resolve([]);
-      return getTrips({ corridor: `${braginoId}-${centrId}` }).then((res) => res.trips.map(mapTripListItemToTrip));
+      return getTrips({ corridor: `${braginoId}-${centrId}`, date: selectedDate }).then((res) => res.trips.map(mapTripListItemToTrip));
     },
-    [braginoId, centrId]
+    [braginoId, centrId, selectedDate]
   );
 
-  // Загрузка поездок Центр → Брагино (evening/«из центра»)
+  // Загрузка поездок Центр → Брагино (evening/«из центра») за выбранную дату.
   const eveningTripsState = useAsync(
     () => {
       if (!braginoId || !centrId) return Promise.resolve([]);
-      return getTrips({ corridor: `${centrId}-${braginoId}` }).then((res) => res.trips.map(mapTripListItemToTrip));
+      return getTrips({ corridor: `${centrId}-${braginoId}`, date: selectedDate }).then((res) => res.trips.map(mapTripListItemToTrip));
     },
-    [braginoId, centrId]
+    [braginoId, centrId, selectedDate]
   );
 
   const morningTrips = morningTripsState.status === 'success' ? morningTripsState.data : [];

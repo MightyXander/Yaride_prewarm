@@ -17,6 +17,7 @@ import { useStartParam, hasStartParam } from './hooks/useStartParam';
 import { loadLastScreen, clearLastScreen, clearLegacyLastScreen } from './lib/lastScreen';
 import { useTheme } from './hooks/useTheme';
 import { useCorridorTrips } from './hooks/useCorridorTrips';
+import { localDateStr } from './lib/dateLocal';
 import { useSplashGate } from './hooks/useSplashGate';
 import { useAuthHandlers } from './hooks/useAuthHandlers';
 import { useRoleHandlers } from './hooks/useRoleHandlers';
@@ -152,6 +153,8 @@ function App() {
 
   // Направление поездки на главном экране (morning/evening)
   const [mainDirection, setMainDirection] = useState<'morning' | 'evening'>('morning');
+  // Дата поиска поездок на главном экране (issue #441): 'YYYY-MM-DD', по умолчанию сегодня.
+  const [selectedDate, setSelectedDate] = useState<string>(() => localDateStr());
   // Направление для заявки пассажира (передаётся при открытии формы)
   const [requestDirection, setRequestDirection] = useState<'morning' | 'evening'>('morning');
   // Пассажир, чью бронь подсветить блюр-сценкой в TripDetailsScreen при заходе
@@ -176,7 +179,7 @@ function App() {
   useStartParam(navigate, showToast, !needsAuthGate);
 
   const { routePointsState, morningTripsState, eveningTripsState, morningTrips, eveningTrips } =
-    useCorridorTrips(currentScreen);
+    useCorridorTrips(currentScreen, selectedDate);
 
   const { splashVisible, splashHiding, setSplashVisible } = useSplashGate({
     meChecked,
@@ -261,6 +264,8 @@ function App() {
     userRole,
     mainDirection,
     setMainDirection,
+    selectedDate,
+    setSelectedDate,
     morningTrips,
     eveningTrips,
     morningTripsState,
