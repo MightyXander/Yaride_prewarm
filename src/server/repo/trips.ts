@@ -31,6 +31,7 @@ export interface TripListItem {
   driver_rating_count: number;
   driver_trips_count: number;
   driver_license_status: string;
+  driver_sex: string;
   is_own: boolean;
   already_booked: boolean;
   car_model: string | null;
@@ -100,6 +101,7 @@ function buildTripListSelect(currentUserId?: number): string {
     u.rating_count AS driver_rating_count,
     u.trips_driver_count AS driver_trips_count,
     u.license_status AS driver_license_status,
+    u.sex AS driver_sex,
     t.car_model,
     t.car_color,
     -- Госномер в фиде НЕ раскрываем: «доверенный контур» — номер виден только
@@ -235,6 +237,7 @@ export async function getTripCard(tripId: number, currentUserId?: number): Promi
       u.rating_count AS driver_rating_count,
       u.trips_driver_count AS driver_trips_count,
       u.license_status AS driver_license_status,
+      u.sex AS driver_sex,
       u.created_at AS driver_created_at,
       u.tg_user_id AS driver_tg_user_id,
       ${isOwnExpr},

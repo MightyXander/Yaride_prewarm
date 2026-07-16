@@ -341,6 +341,7 @@ function publicUser(u: WebUserRecord): Record<string, unknown> {
     username: u.username,
     first_name: u.first_name,
     last_name: u.last_name,
+    sex: u.sex,
   };
 }
 
@@ -373,6 +374,7 @@ export async function handleRegister(req: ApiRequest): Promise<ApiResponse> {
   const username = asString(body.username).trim();
   const firstName = asString(body.firstName).trim();
   const lastName = asString(body.lastName).trim();
+  const sex = asString(body.sex).trim();
   const pdnConsent = body.pdnConsent === true;
   const pdnConsentVersion = asString(body.pdnConsentVersion).trim();
   const marketingConsent = body.marketingConsent === true;
@@ -399,6 +401,9 @@ export async function handleRegister(req: ApiRequest): Promise<ApiResponse> {
   if (pdnConsentVersion === '') {
     return err(400, 'Не указана версия политики обработки ПДн', { field: 'pdnConsentVersion' });
   }
+  if (sex !== 'male' && sex !== 'female') {
+    return err(400, 'Укажите пол', { field: 'sex' });
+  }
 
   // Cheap-win: проверяем занятость email/username ДО scrypt — не жжём CPU/RAM на
   // заведомо конфликтных регистрациях. Гонку добивает уникальный индекс + catch 23505
@@ -421,6 +426,7 @@ export async function handleRegister(req: ApiRequest): Promise<ApiResponse> {
       passwordHash,
       firstName,
       lastName,
+      sex,
       pdnConsentVersion,
       marketingConsent,
       marketingConsentVersion,
@@ -504,6 +510,7 @@ export async function handleLogin(req: ApiRequest): Promise<ApiResponse> {
         username: user.username,
         first_name: user.first_name,
         last_name: user.last_name,
+        sex: user.sex,
       }),
     },
     cookies: [sessionSetCookie(token, cookieSecure(req))],

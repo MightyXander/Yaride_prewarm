@@ -19,6 +19,7 @@ export interface WebUserRecord {
   username: string | null;
   first_name: string | null;
   last_name: string | null;
+  sex: 'male' | 'female' | 'unknown';
 }
 
 /** Конфликт уникальности при регистрации (машинно-различимый код для 409). */
@@ -38,6 +39,8 @@ export interface CreateWebUserParams {
   passwordHash: string;
   firstName: string;
   lastName: string;
+  /** Пол (issue #447): только male/female при веб-регистрации. */
+  sex: 'male' | 'female';
   pdnConsentVersion: string;
   marketingConsent: boolean;
   marketingConsentVersion?: string | null;
@@ -117,11 +120,11 @@ export async function createWebUser(params: CreateWebUserParams): Promise<WebUse
 
     try {
       const ins = await client.query<WebUserRecord>(
-        `INSERT INTO users(name, email, username, password_hash, first_name, last_name,
+        `INSERT INTO users(name, email, username, password_hash, first_name, last_name, sex,
                            pdn_consent_at, pdn_consent_version,
                            marketing_consent_at, marketing_consent_version)
-         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, $7, $8, $9)
-         RETURNING id, name, email, username, first_name, last_name`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10)
+         RETURNING id, name, email, username, first_name, last_name, sex`,
         [
           name,
           email,
@@ -129,6 +132,7 @@ export async function createWebUser(params: CreateWebUserParams): Promise<WebUse
           params.passwordHash,
           firstName,
           lastName,
+          params.sex,
           params.pdnConsentVersion,
           marketingAt,
           marketingVer,
@@ -165,7 +169,7 @@ export async function findUserByEmail(
 ): Promise<(WebUserRecord & { password_hash: string }) | null> {
   await ensureReady();
   const res = await getPool().query<WebUserRecord & { password_hash: string | null }>(
-    `SELECT id, name, email, username, first_name, last_name, password_hash
+    `SELECT id, name, email, username, first_name, last_name, sex, password_hash
      FROM users
      WHERE lower(email) = lower($1) AND password_hash IS NOT NULL
      LIMIT 1`,
@@ -320,6 +324,7 @@ export interface UserProfile {
   name: string;
   username: string | null;
   age: number | null;
+  sex: 'male' | 'female' | 'unknown';
   rating_avg: number;
   rating_count: number;
   trips_driver_count: number;
@@ -340,12 +345,36 @@ export async function getUserProfile(tgUserId: number): Promise<UserProfile | nu
 export async function getUserProfileById(internalId: number): Promise<UserProfile | null> {
   await ensureReady();
   const res = await getPool().query<UserProfile>(
-    `SELECT id, tg_user_id, name, username, age, rating_avg, rating_count,
+    `SELECT id, tg_user_id, name, username, age, sex, rating_avg, rating_count,
             trips_driver_count, trips_passenger_count, license_status
      FROM users WHERE id = $1`,
     [internalId],
   );
   return res.rows[0] ?? null;
+}
+
+/** Пол пользователя по внутреннему id (issue #447). Дефолт 'unknown', если строки нет. */
+export async function getUserSex(userId: number): Promise<'male' | 'female' | 'unknown'> {
+  await ensureReady();
+  const res = await getPool().query<{ sex: 'male' | 'female' | 'unknown' }>(
+    'SELECT sex FROM users WHERE id = $1',
+    [userId],
+  );
+  return res.rows[0]?.sex ?? 'unknown';
+}
+
+/**
+ * Сохранить пол пользователя (issue #447): пишется в users.sex.
+ * Значение валидируется вызывающим (male/female/unknown). Возвращает false, если
+ * пользователь не найден.
+ */
+export async function updateUserSex(
+  userId: number,
+  sex: 'male' | 'female' | 'unknown',
+): Promise<boolean> {
+  await ensureReady();
+  const res = await getPool().query('UPDATE users SET sex = $2 WHERE id = $1', [userId, sex]);
+  return (res.rowCount ?? 0) > 0;
 }
 
 /**

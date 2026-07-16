@@ -8,6 +8,9 @@ export type TripStatus = 'open' | 'cancelled' | 'completed';
 export type BookingStatus = 'active' | 'cancelled_by_passenger' | 'cancelled_by_driver';
 export type TripStatusFilter = 'upcoming' | 'past';
 
+/** Пол пользователя (issue #447). 'unknown' — не задан (TG-юзеры, старые строки). */
+export type Sex = 'male' | 'female' | 'unknown';
+
 // GET /api/trips
 export interface TripListItem {
   id: number;
@@ -30,6 +33,7 @@ export interface TripListItem {
   driver_rating_count: number;
   driver_trips_count: number;
   driver_license_status: string;
+  driver_sex: Sex;
   is_own: boolean;
   already_booked: boolean;
   car_model: string | null;
@@ -177,6 +181,7 @@ export interface UserProfile {
   /** Ник пользователя на площадке (@username). null — не задан (TG без ника, конфликт ника). */
   username?: string | null;
   age: number | null;
+  sex: Sex;
   rating_avg: number;
   rating_count: number;
   trips_driver_count: number;
@@ -257,6 +262,8 @@ export interface GetMySafetyResponse {
   womenOnly: boolean;
   /** null — контакт не задан. */
   trustedContact: TrustedContact | null;
+  /** Пол пользователя (issue #447): 'unknown' — не задан (TG-юзер). Хранится в users.sex. */
+  sex: Sex;
 }
 
 export interface SaveMySafetyRequest {
@@ -265,6 +272,8 @@ export interface SaveMySafetyRequest {
   womenOnly: boolean;
   /** null — удалить сохранённый контакт. Телефон валидируется как РФ-номер (400 invalid_phone). */
   trustedContact: { name: string; phone: string } | null;
+  /** Пол пользователя (issue #447). 'unknown' допустим (пол ещё не выбран). Пишется в users.sex. */
+  sex: Sex;
 }
 
 export type SaveMySafetyResponse = GetMySafetyResponse;
@@ -568,6 +577,7 @@ export interface AuthUser {
   username: string | null;
   first_name: string | null;
   last_name: string | null;
+  sex: Sex;
 }
 
 export interface RegisterRequest {
@@ -580,6 +590,8 @@ export interface RegisterRequest {
   pdnConsentVersion: string;
   marketingConsent: boolean;
   marketingConsentVersion?: string;
+  /** Пол (issue #447): обязателен при веб-регистрации, только male/female. */
+  sex: 'male' | 'female';
 }
 
 export interface LoginRequest {

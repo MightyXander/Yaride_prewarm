@@ -6,6 +6,7 @@ import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { Slot } from '../components/ui/Skeleton';
 import PhoneField from '../components/PhoneField';
+import GenderSelect from '../components/ui/GenderSelect';
 import { saveMySafety, ApiException } from '../lib/api';
 import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
 import { fetchSafety, DEFAULT_SAFETY } from '../lib/screenFetchers';
@@ -94,6 +95,7 @@ const SafetyScreen: React.FC = () => {
   const autoShare = safety?.autoShare ?? DEFAULT_SAFETY.autoShare;
   const womenOnly = safety?.womenOnly ?? DEFAULT_SAFETY.womenOnly;
   const trustedContact = safety?.trustedContact ?? DEFAULT_SAFETY.trustedContact;
+  const sex = safety?.sex ?? DEFAULT_SAFETY.sex;
 
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactName, setContactName] = useState('');
@@ -105,7 +107,7 @@ const SafetyScreen: React.FC = () => {
     field: 'sosEnabled' | 'autoShare' | 'womenOnly',
     value: boolean,
   ) => {
-    const prev = { sosEnabled, autoShare, womenOnly, trustedContact };
+    const prev = { sosEnabled, autoShare, womenOnly, trustedContact, sex };
     const next = { ...prev, [field]: value };
     mutate(next);
     try {
@@ -114,6 +116,19 @@ const SafetyScreen: React.FC = () => {
     } catch {
       mutate(prev);
       showToast('Не удалось сохранить настройку');
+    }
+  };
+
+  /** Смена пола (issue #447): оптимистично + PUT полного состояния; ошибка — откат + toast. */
+  const persistSex = async (next: 'male' | 'female') => {
+    const prev = { sosEnabled, autoShare, womenOnly, trustedContact, sex };
+    mutate({ ...prev, sex: next });
+    try {
+      const result = await saveMySafety({ ...prev, sex: next });
+      mutate(result);
+    } catch {
+      mutate(prev);
+      showToast('Не удалось сохранить пол');
     }
   };
 
@@ -137,6 +152,7 @@ const SafetyScreen: React.FC = () => {
         autoShare,
         womenOnly,
         trustedContact: { name, phone },
+        sex,
       });
       mutate(result);
       setShowContactForm(false);
@@ -154,7 +170,7 @@ const SafetyScreen: React.FC = () => {
   const handleRemoveContact = async () => {
     setSavingContact(true);
     try {
-      const result = await saveMySafety({ sosEnabled, autoShare, womenOnly, trustedContact: null });
+      const result = await saveMySafety({ sosEnabled, autoShare, womenOnly, trustedContact: null, sex });
       mutate(result);
       setShowContactForm(false);
       setContactName('');
@@ -178,6 +194,24 @@ const SafetyScreen: React.FC = () => {
       }}
     >
       <Header title="Безопасность" />
+
+      {/* Пол (issue #447): первый блок — это условие женского режима, а не «личные
+          данные»; стоит над тумблерами. Оптимистичный апдейт как persistToggle. */}
+      <div>
+        <div style={sectionLabelStyle}>Пол</div>
+        <Card style={{ padding: '14px 16px' }}>
+          <GenderSelect
+            value={sex}
+            onChange={persistSex}
+            label={null}
+            hint={
+              sex === 'unknown'
+                ? 'Укажите пол, чтобы включить женские поездки.'
+                : 'Влияет на режим женских поездок.'
+            }
+          />
+        </Card>
+      </div>
 
       {/* Переключатели безопасности — Slot-кроссфейд лечит «дефолты→реальные»
           мигание (issue #352): маска показывается только если загрузка длится

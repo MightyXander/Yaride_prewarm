@@ -27,8 +27,8 @@
  *   GET  /api/me/phone               { phone, verified, verificationEnabled } (issue #328)
  *   POST /api/me/phone/send-code     { phone } — сохранить номер + выслать код (issue #328)
  *   POST /api/me/phone/verify-code   { code } — подтвердить код (issue #328)
- *   GET  /api/me/safety              настройки безопасности + доверенный контакт (issue #344)
- *   PUT  /api/me/safety              { sosEnabled, autoShare, womenOnly, trustedContact } — сохранить целиком (issue #344)
+ *   GET  /api/me/safety              настройки безопасности + доверенный контакт + пол (issue #344/#447)
+ *   PUT  /api/me/safety              { sosEnabled, autoShare, womenOnly, trustedContact, sex } — сохранить целиком (issue #344/#447)
  *
  * Валидация входа — ручная (zod в deps нет). Telegram initData проверяется через
  * verifyInitData (HMAC по BOT_TOKEN; без токена — dev-bypass с пометкой).
@@ -70,6 +70,8 @@ import {
   type SafetySettings,
   upsertPushToken,
   getUserProfileById,
+  getUserSex,
+  updateUserSex,
   getUserTripsById,
   createBookingById,
   listCarsByDriverId,
@@ -818,6 +820,7 @@ export async function handleGetMyProfile(req: ApiRequest): Promise<ApiResponse> 
         name: profile.name,
         username: profile.username ?? null,
         age: profile.age,
+        sex: profile.sex,
         rating_avg: profile.rating_avg,
         rating_count: profile.rating_count,
         trips_driver_count: profile.trips_driver_count,
@@ -904,7 +907,8 @@ export async function handleGetMySafety(req: ApiRequest): Promise<ApiResponse> {
   }
 
   const settings = await getSafetySettings(userId);
-  return { status: 200, body: settings };
+  const sex = await getUserSex(userId);
+  return { status: 200, body: { ...settings, sex } };
 }
 
 /**
@@ -940,7 +944,14 @@ export async function handleSaveMySafety(req: ApiRequest): Promise<ApiResponse> 
 
   const settings: SafetySettings = { sosEnabled, autoShare, womenOnly, trustedContact };
   await saveSafetySettings(userId, settings);
-  return { status: 200, body: settings };
+  // Пол (issue #447) хранится в users.sex, не в safety_settings: пишем отдельно,
+  // если клиент прислал валидное значение, и всегда возвращаем актуальный пол.
+  const rawSex = typeof body.sex === 'string' ? body.sex : '';
+  if (rawSex === 'male' || rawSex === 'female' || rawSex === 'unknown') {
+    await updateUserSex(userId, rawSex);
+  }
+  const sex = await getUserSex(userId);
+  return { status: 200, body: { ...settings, sex } };
 }
 
 // ============================================================================

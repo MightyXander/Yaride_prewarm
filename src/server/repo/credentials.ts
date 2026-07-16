@@ -121,7 +121,7 @@ export async function addUserCredentials(
         `UPDATE users
             SET email = $1, username = $2, password_hash = $3
           WHERE id = $4 AND password_hash IS NULL
-        RETURNING id, name, email, username, first_name, last_name`,
+        RETURNING id, name, email, username, first_name, last_name, sex`,
         [email, username, params.passwordHash, params.userId],
       );
       const updated = upd.rows[0];

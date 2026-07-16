@@ -195,6 +195,7 @@ export const DEFAULT_SAFETY: GetMySafetyResponse = {
   autoShare: false,
   womenOnly: true,
   trustedContact: null,
+  sex: 'unknown',
 };
 
 export async function fetchSafety(): Promise<GetMySafetyResponse> {

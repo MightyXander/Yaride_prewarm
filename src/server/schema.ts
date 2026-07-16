@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 18;
+export const CURRENT_SCHEMA_VERSION = 19;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -31,6 +31,10 @@ const BOOTSTRAP_SQL = `
     trips_passenger_count INTEGER NOT NULL DEFAULT 0,
     license_status TEXT NOT NULL DEFAULT 'none'
       CHECK (license_status IN ('none', 'pending', 'verified', 'rejected')),
+    -- Пол пользователя (issue #447, фундамент женских поездок). 'unknown' —
+    -- дефолт для Telegram-юзеров и старых строк; веб-регистрация требует male/female.
+    sex TEXT NOT NULL DEFAULT 'unknown'
+      CHECK (sex IN ('male', 'female', 'unknown')),
     -- Браузерная авторизация (issue #242): email/пароль + согласия 152-ФЗ.
     email TEXT,
     password_hash TEXT,
@@ -347,6 +351,9 @@ const BOOTSTRAP_SQL = `
  * v17→v18: привязка Telegram из профиля (issue #401) — новая таблица
  *        telegram_link_tokens (одноразовые deep-link токены /start link_...).
  *        Аддитивно, никаких существующих таблиц не трогает.
+ * v18→v19: пол пользователя (issue #447, фундамент женских поездок) —
+ *        users.sex TEXT NOT NULL DEFAULT 'unknown' CHECK IN (male/female/unknown).
+ *        Аддитивно: колонка с дефолтом, существующие строки получают 'unknown'.
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -701,6 +708,15 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
 
       CREATE UNIQUE INDEX IF NOT EXISTS uq_telegram_link_tokens_hash ON telegram_link_tokens(token_hash);
       CREATE INDEX IF NOT EXISTS idx_telegram_link_tokens_user ON telegram_link_tokens(user_id, created_at);
+    `);
+    return;
+  }
+  if (fromV === 18 && toV === 19) {
+    // Пол пользователя (issue #447). Идемпотентно (ADD COLUMN IF NOT EXISTS);
+    // NOT NULL DEFAULT 'unknown' безопасно бэкфилит существующие строки.
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT 'unknown'
+        CHECK (sex IN ('male', 'female', 'unknown'));
     `);
     return;
   }
