@@ -41,6 +41,12 @@ export interface GetTripsRequest {
   corridor?: string;
   window?: TimeSlot;
   date?: string;
+  /**
+   * Флаг реального пользовательского поиска (issue #446): сервер пишет событие
+   * `search` только при `intent=user`. Фон/поллинг/прогрев/невидимое направление
+   * запрашивают без флага и в метрику «поиски» не попадают.
+   */
+  intent?: 'user';
 }
 
 export interface GetTripsResponse {
