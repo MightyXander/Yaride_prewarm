@@ -36,7 +36,7 @@ const WomenRideEmptyState: React.FC<WomenRideEmptyStateProps> = ({ onToggleDirec
     >
       <Icon id="i-shield" style={{ width: '28px', height: '28px' }} />
     </div>
-    <div>
+    <div style={{ maxWidth: '34ch' }}>
       <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)' }}>
         По вашему маршруту женских поездок сейчас нет
       </div>
@@ -46,7 +46,6 @@ const WomenRideEmptyState: React.FC<WomenRideEmptyStateProps> = ({ onToggleDirec
           color: 'var(--muted-foreground)',
           lineHeight: 1.5,
           marginTop: '6px',
-          maxWidth: '34ch',
         }}
       >
         Можно уехать с мужчинами — SOS и «Поделиться с близкими» доступны в любой поездке.
