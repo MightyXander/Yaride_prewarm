@@ -10,6 +10,7 @@ import PhoneLink from '../components/PhoneLink';
 import { showToast } from '../lib/toast';
 import { hapticNotify } from '../lib/haptics';
 import { shareToTelegram, buildTripDeepLink } from '../lib/share';
+import SafetyShareSheet, { type SafetyShareRow } from '../components/SafetyShareSheet';
 import { Appear } from '../components/Appear';
 import BookingCard from '../components/BookingCard';
 import BookingSpotlight from '../components/BookingSpotlight';
@@ -18,9 +19,9 @@ import { ResponsiveTwoColumn } from '../components/ui/ResponsiveTwoColumn';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { DESKTOP_BREAKPOINT } from '../lib/layout';
 import { cancelBookingByDriver, confirmBookingByDriver, ApiException } from '../lib/api';
-import { makeTripParticipantsFetcher, makeTripBookingsFetcher } from '../lib/screenFetchers';
+import { makeTripParticipantsFetcher, makeTripBookingsFetcher, fetchSafety, DEFAULT_SAFETY } from '../lib/screenFetchers';
 import { useScreenData } from '../hooks/useScreenData';
-import type { TripParticipant, BookingDetail } from '../types/api';
+import type { TripParticipant, BookingDetail, GetMySafetyResponse } from '../types/api';
 import type { Trip } from '../types/navigation';
 
 interface TripDetailsScreenProps {
@@ -33,6 +34,8 @@ interface TripDetailsScreenProps {
   bookingFocusUserId?: number | null;
   /** Сбросить фокус после того, как сценка сыграна/пропущена/снята тапом. */
   onClearBookingFocus?: () => void;
+  /** Открыть экран «Безопасность» (блок «Доверенный контакт») из safety-share/SOS. */
+  onOpenSafety?: () => void;
 }
 
 // Бэйдж госномера — общий контейнер для реального номера и цензуры.
@@ -94,6 +97,28 @@ const CensoredPlate: React.FC = () => {
   );
 };
 
+/**
+ * Надёжный набор экстренного номера из Telegram-WebView (issue #450, Фича 3).
+ * Прямое присваивание window.location.href='tel:' часто игнорируется webview'ом,
+ * поэтому основной способ — программный клик по временному <a href="tel:112">
+ * (webview принимает такой «доверенный» пользовательский переход); location.href
+ * оставлен гарантированным фолбэком, если создание/клик по элементу упали.
+ */
+function dialEmergency(): void {
+  const href = 'tel:112';
+  try {
+    const a = document.createElement('a');
+    a.href = href;
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch {
+    window.location.href = href;
+  }
+}
+
 const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
   trip,
   onBook,
@@ -101,6 +126,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
   onCancelTrip,
   bookingFocusUserId,
   onClearBookingFocus,
+  onOpenSafety,
 }) => {
   // Десктоп (>=900px, issue #383, эпик #364): 2 колонки — контент + липкий aside с
   // действиями/сводкой мест, через ResponsiveTwoColumn. Мобиль/Telegram — одна колонка,
@@ -115,6 +141,9 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
   // Двухшаговый arm/confirm для SOS (перенесено из удалённого InTripScreen,
   // issue #361): страхует от случайного вызова 112 при обычном тапе.
   const [sosArmed, setSosArmed] = useState(false);
+  // Safety-share (issue #450, Фича 4): нижний лист с полной инфой о поездке для
+  // доверенного контакта. Открывается по кнопке «Поделиться с близкими».
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
 
   // Участники поездки («Кто едет») — для пассажира с активной бронью на чужую
   // поездку. Для своей поездки (isOwn) этот раздел заменяет секция «Брони»
@@ -270,6 +299,67 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
     trip.status === 'cancelled' ||
     (departedAt ? departedAt.getTime() < Date.now() : false);
 
+  // Safety-share (Фича 4) + ветка SOS «нет контакта» (Фича 3.2) читают доверенный
+  // контакт из safety-настроек. Тянем его только когда действия поездки вообще
+  // показываются (актуальный свой/забронированный рейс) — иначе disabled-ключ без
+  // сетевого запроса (тот же приём, что participants/bookings выше).
+  const canShareSafety = !isPast && (trip.isOwn || trip.booked);
+  const safetyFetcher = useMemo(
+    () => (canShareSafety ? fetchSafety : async () => DEFAULT_SAFETY),
+    [canShareSafety],
+  );
+  const { data: safetyData } = useScreenData<GetMySafetyResponse>(
+    canShareSafety ? 'safety' : 'safety:disabled',
+    safetyFetcher,
+  );
+  const trustedContact = (canShareSafety && safetyData?.trustedContact) || null;
+
+  // Полная сводка поездки для safety-share: строки для sheet + единый текст для
+  // копирования/шеринга (дизайн 4.3). Поля с фолбэками, как в handleShareTrip.
+  const safetyShare = useMemo(() => {
+    const from = trip.route?.from || `Брагино, ${trip.address}`;
+    const to = trip.route?.to || 'Центр, пл. Волкова';
+    let when = trip.time;
+    if (trip.tripDate) {
+      const day = new Date(`${trip.tripDate}T00:00:00`);
+      if (!Number.isNaN(day.getTime())) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((day.getTime() - today.getTime()) / 86400000);
+        const dayLabel =
+          diffDays === 0
+            ? 'сегодня'
+            : diffDays === 1
+              ? 'завтра'
+              : day.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+        when = `${dayLabel}, ${trip.time}`;
+      }
+    }
+    const driverLine = `${trip.driver.name}, рейтинг ${trip.driver.rating.toFixed(1)}`;
+    const carValue = [trip.car, trip.carColor].filter(Boolean).join(', ');
+    const url = buildTripDeepLink(Number(trip.id));
+
+    const rows: SafetyShareRow[] = [
+      { label: 'Маршрут', value: `${from} → ${to}` },
+      { label: 'Когда', value: when },
+      { label: 'Водитель', value: driverLine },
+    ];
+    if (carValue) rows.push({ label: 'Авто', value: carValue });
+    if (trip.plate) rows.push({ label: 'Номер', value: trip.plate, tabular: true });
+
+    const carTextParts = [trip.car, trip.carColor, trip.plate].filter(Boolean).join(', ');
+    const lines = [
+      'Еду в Yaride. Присмотри за мной.',
+      `Маршрут: ${from} → ${to}`,
+      `Когда: ${when}`,
+      `Водитель: ${driverLine}`,
+    ];
+    if (carTextParts) lines.push(`Авто: ${carTextParts}`);
+    lines.push(`Поездка: ${url}`);
+
+    return { rows, text: lines.join('\n'), url };
+  }, [trip]);
+
   const handleBook = () => {
     if (trip.isOwn) {
       showToast('Нельзя забронировать свою поездку');
@@ -287,8 +377,8 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
     onCancelTrip?.();
   };
 
-  // «Поделиться» (issue #361): та же Telegram-шеринг-петля, что и share.ts для
-  // заявок пассажира (buildAlertDeepLink), только на конкретную поездку.
+  // «Позвать попутчиков» (виральный инвайт, issue #361): та же Telegram-шеринг-петля,
+  // что и share.ts для заявок пассажира, только на конкретную поездку.
   const handleShareTrip = () => {
     hapticNotify('success');
     const from = trip.route?.from || `Брагино, ${trip.address}`;
@@ -299,12 +389,12 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
     );
   };
 
-  // SOS с двухшаговым arm/confirm (перенесено из InTripScreen): 1-й тап — предупреждение
-  // с haptic 'warning', 2-й тап — реальный звонок 112 с haptic 'error'.
+  // SOS с двухшаговым arm/confirm (issue #361/#449): 1-й тап — предупреждение с
+  // haptic 'warning', 2-й тап — реальный, надёжный в Telegram-WebView набор 112.
   const handleSosClick = () => {
     if (sosArmed) {
       hapticNotify('error');
-      window.location.href = 'tel:112';
+      dialEmergency();
       setSosArmed(false);
       return;
     }
@@ -373,22 +463,30 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
           </Button>
         </>
       )}
-      {/* Поделиться + SOS (issue #361, перенесено из удалённого InTripScreen) —
-          только на актуальном (не прошедшем) своём/забронированном рейсе: на
-          чужом непросмотренном/незабронированном и на прошедшем рейсе шеринг
-          и SOS бессмысленны. */}
+      {/* Шеринг (виральный + safety) + SOS (issue #361/#449/#450) — только на
+          актуальном (не прошедшем) своём/забронированном рейсе: на чужом
+          непросмотренном/незабронированном и на прошедшем шеринг и SOS
+          бессмысленны. */}
       {!isPast && (trip.isOwn || trip.booked) && (
         <>
           <Button variant="ghost" icon="i-share" onClick={handleShareTrip} style={{ minHeight: '44px' }}>
-            Поделиться
+            Позвать попутчиков
+          </Button>
+          <Button
+            variant="secondary"
+            icon="i-shield"
+            onClick={() => setShareSheetOpen(true)}
+            style={{ minHeight: '48px' }}
+          >
+            Поделиться с близкими
           </Button>
           <button
             type="button"
             className="focus-ring pressable"
-            aria-label={sosArmed ? 'Подтвердить вызов помощи' : 'Кнопка SOS — вызвать помощь'}
+            aria-label={sosArmed ? 'Подтвердите вызов помощи — нажмите ещё раз' : 'Кнопка SOS — вызвать помощь'}
             onClick={handleSosClick}
             style={{
-              minHeight: '60px',
+              minHeight: '64px',
               padding: '12px 16px',
               borderRadius: '18px',
               display: 'flex',
@@ -401,16 +499,21 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
               border: 'none',
               background: 'var(--gradient-danger)',
               color: 'var(--danger-foreground)',
-              boxShadow: 'var(--shadow-danger)',
+              // armed — пульс-обводка через box-shadow (без reflow, поверх тени danger).
+              boxShadow: sosArmed
+                ? 'var(--shadow-danger), 0 0 0 3px color-mix(in srgb, var(--danger) 45%, transparent)'
+                : 'var(--shadow-danger)',
+              animation: sosArmed && !prefersReducedMotion ? 'pulse 1.4s ease-in-out infinite' : undefined,
               cursor: 'pointer',
               fontFamily: 'var(--font-sans)',
             }}
           >
             <Icon id="i-sos" style={{ width: '22px', height: '22px', strokeWidth: 2.2 }} />
-            {sosArmed ? 'Нажми ещё раз — вызвать 112' : 'SOS — вызвать помощь'}
+            {sosArmed ? 'Нажмите ещё раз — звоним 112' : 'SOS — вызвать помощь'}
           </button>
           {sosArmed && (
             <div
+              aria-live="assertive"
               style={{
                 fontSize: '12px',
                 color: 'var(--muted-foreground)',
@@ -418,7 +521,31 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
                 lineHeight: 1.4,
               }}
             >
-              Позвоним 112 и отправим геопозицию доверенному контакту.{' '}
+              {trustedContact
+                ? 'Позвоним 112 и отправим геопозицию доверенному контакту. '
+                : 'Позвоним 112. Добавьте доверенный контакт, чтобы отправлять ему геопозицию. '}
+              {!trustedContact && onOpenSafety && (
+                <>
+                  <button
+                    type="button"
+                    className="focus-ring"
+                    onClick={onOpenSafety}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--foreground)',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      padding: '2px 4px',
+                      fontFamily: 'var(--font-sans)',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    Добавить контакт
+                  </button>{' '}
+                </>
+              )}
               <button
                 type="button"
                 className="focus-ring"
@@ -853,6 +980,18 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
       )}
           </>
         }
+      />
+      <SafetyShareSheet
+        open={shareSheetOpen}
+        onClose={() => setShareSheetOpen(false)}
+        rows={safetyShare.rows}
+        text={safetyShare.text}
+        url={safetyShare.url}
+        trustedContact={trustedContact}
+        onAddContact={() => {
+          setShareSheetOpen(false);
+          onOpenSafety?.();
+        }}
       />
     </div>
   );

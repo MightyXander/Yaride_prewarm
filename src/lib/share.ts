@@ -44,3 +44,54 @@ export function shareToTelegram(text: string, url: string): void {
   // без блокирующих alert/confirm.
   window.open(shareUrl, '_blank', 'noopener,noreferrer');
 }
+
+/**
+ * Системный шеринг (Web Share API). На устройствах с navigator.share открывает
+ * нативный лист «поделиться»; вне поддержки или при программной ошибке — фолбэк
+ * на Telegram-шит (shareToTelegram), без блокирующих alert/confirm.
+ * Отмену пользователем (AbortError) НЕ считаем ошибкой и не фолбэчим.
+ */
+export async function nativeShare(data: { title?: string; text: string; url: string }): Promise<void> {
+  const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+  if (nav && typeof nav.share === 'function') {
+    try {
+      await nav.share({ title: data.title, text: data.text, url: data.url });
+      return;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return;
+      // Иная ошибка share — падаем на Telegram-фолбэк ниже.
+    }
+  }
+  shareToTelegram(data.text, data.url);
+}
+
+/**
+ * Копирование текста в буфер обмена. true — успех, false — не удалось
+ * (вызывающий покажет toast). Пробуем Clipboard API, затем execCommand-фолбэк
+ * для WebView/insecure-origin, где navigator.clipboard недоступен.
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+  if (nav?.clipboard?.writeText) {
+    try {
+      await nav.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Падаем на legacy-фолбэк ниже.
+    }
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}

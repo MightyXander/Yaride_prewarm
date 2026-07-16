@@ -116,6 +116,9 @@ export const Icons = () => (
     <symbol id="i-telegram" viewBox="0 0 24 24">
       <polygon points="2,11.5 22,3 14.5,21.5 11.5,13.5" />
     </symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24">
+      <rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </symbol>
   </svg>
 );
 
