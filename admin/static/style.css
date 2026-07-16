@@ -225,3 +225,20 @@ td.review { min-width: 260px; }
 .btn.ok { background: #e6f6e6; border-color: #57c257; }
 .btn.danger { background: #fdeaea; border-color: #e57373; margin-left: 6px; }
 .flash.ok { background: #e6f6e6; }
+
+/* --- метрики #445: заголовки секций и roadmap-гейт --- */
+.section-title { margin: 28px 0 4px; font-size: 17px; }
+.section-title small { color: var(--muted); font-weight: 400; font-size: 13px; }
+.gate { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; }
+.gate .g { flex: 1 1 240px; background: #fff; border: 1px solid var(--line);
+  border-left-width: 6px; border-radius: 12px; padding: 14px 18px; }
+.gate .g .glbl { font-weight: 600; }
+.gate .g .gnum { font-size: 30px; font-weight: 700; line-height: 1.1; margin: 4px 0; }
+.gate .g .gtgt { color: var(--muted); font-size: 12px; }
+.gate .g .gcap { color: var(--muted); font-size: 12px; margin-top: 8px; }
+.gate .g.green { border-left-color: #15803d; }
+.gate .g.yellow { border-left-color: #f0c000; }
+.gate .g.red { border-left-color: #dc2626; }
+.gate .g.green .gnum { color: #15803d; }
+.gate .g.yellow .gnum { color: #b58900; }
+.gate .g.red .gnum { color: #dc2626; }
