@@ -33,10 +33,17 @@ interface TripCardProps {
   onOpenProfile?: (userId: number) => void;
   /** Ближайшая по времени поездка — подсвечивается цветом (фон --accent + бренд-рамка). */
   isNext?: boolean;
+  /**
+   * Неактивная (серая) карточка режима женских поездок (issue #448): grayscale+opacity,
+   * бронь заблокирована. Не единственный сигнал — рядом обязателен disabledReason.
+   */
+  dimmed?: boolean;
+  /** Текст-причина недоступности брони (показывается под моделью авто + в aria-label/тосте). */
+  disabledReason?: string;
 }
 
 const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
-  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook, isOwn, booked, carColor, plate, onOpenProfile, isNext = false }, ref) => {
+  ({ driver, address, car, price, time, seats, route, expanded, onToggle, onBook, isOwn, booked, carColor, plate, onOpenProfile, isNext = false, dimmed = false, disabledReason }, ref) => {
     const [pressed, setPressed] = useState(false);
 
     const seatsLabel = seats === 1 ? 'место' : seats < 5 ? 'места' : 'мест';
@@ -49,6 +56,10 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
 
     const handleBook = (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
+      if (dimmed) {
+        showToast(disabledReason || 'Недоступно в режиме женских поездок');
+        return;
+      }
       if (isOwn) {
         showToast('Нельзя забронировать свою поездку');
         return;
@@ -69,15 +80,16 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
     };
 
     return (
-      <div ref={ref}>
+      <div ref={ref} style={dimmed ? { filter: 'grayscale(60%)', opacity: 0.6 } : undefined}>
         <Card
           className={`trip-card${pressed ? ' is-pressed' : ''}`}
           role="button"
           tabIndex={0}
           aria-expanded={expanded}
-          aria-label={`Поездка от ${driver.name} в ${time}, ${seats} ${seatsLabel}, нажмите чтобы ${
-            expanded ? 'свернуть' : 'раскрыть'
-          }`}
+          aria-disabled={dimmed || undefined}
+          aria-label={`Поездка от ${driver.name} в ${time}, ${seats} ${seatsLabel}${
+            disabledReason ? `. ${disabledReason}` : ''
+          }, нажмите чтобы ${expanded ? 'свернуть' : 'раскрыть'}`}
           onClick={() => onToggle()}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -219,6 +231,21 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                   </span>
                 )}
               </div>
+              {disabledReason && (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '6px',
+                    alignItems: 'center',
+                    fontSize: '12px',
+                    color: 'var(--muted-foreground)',
+                    marginTop: '4px',
+                  }}
+                >
+                  <Icon id="i-user" style={{ width: '12px', height: '12px', flexShrink: 0 }} />
+                  <span>{disabledReason}</span>
+                </div>
+              )}
             </div>
 
             {/* Колонка 3: время + кнопка с ценой и местами */}
@@ -393,7 +420,7 @@ const TripCard = forwardRef<HTMLDivElement, TripCardProps>(
                   onClick={handleBook}
                   style={{
                     marginTop: '2px',
-                    ...((isOwn || booked) && {
+                    ...((isOwn || booked || dimmed) && {
                       opacity: 0.5,
                       background: 'var(--muted)',
                       color: 'var(--muted-foreground)',
