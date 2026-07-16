@@ -129,7 +129,7 @@ function mockApiPlugin() {
       // Cookie yaride_session ставится так же, как реальный сервер (httpOnly).
       const mockAuthUsers: {
         id: number; email: string; password: string; username: string;
-        firstName: string; lastName: string; name: string;
+        firstName: string; lastName: string; name: string; sex: 'male' | 'female' | 'unknown';
       }[] = [];
       const mockSessions = new Map<string, number>(); // token → userId
       let mockUserSeq = 1000;
@@ -168,11 +168,13 @@ function mockApiPlugin() {
         autoShare: boolean;
         womenOnly: boolean;
         trustedContact: { name: string; phone: string } | null;
+        sex: 'male' | 'female' | 'unknown';
       } = {
         sosEnabled: true,
         autoShare: false,
         womenOnly: true,
         trustedContact: null,
+        sex: 'unknown',
       };
       // Привязка Telegram из профиля (#401): статус привязки текущего аккаунта.
       // Стартует false (CTA-бейдж виден); POST /me/telegram-link-token имитирует
@@ -201,7 +203,7 @@ function mockApiPlugin() {
       };
       const mockUserPublic = (u: typeof mockAuthUsers[number]) => ({
         id: u.id, name: u.name, email: u.email, username: u.username,
-        first_name: u.firstName, last_name: u.lastName,
+        first_name: u.firstName, last_name: u.lastName, sex: u.sex,
       });
 
       server.middlewares.use('/api', (req, res, next) => {
@@ -316,6 +318,7 @@ function mockApiPlugin() {
               driver_rating_count: 15,
               driver_trips_count: 37,
               driver_license_status: 'verified',
+              driver_sex: 'male',
             },
             {
               id: 2,
@@ -338,6 +341,7 @@ function mockApiPlugin() {
               driver_rating_count: 8,
               driver_trips_count: 12,
               driver_license_status: 'verified',
+              driver_sex: 'female',
             },
           ];
 
@@ -363,6 +367,7 @@ function mockApiPlugin() {
               driver_rating_count: 8,
               driver_trips_count: 12,
               driver_license_status: 'verified',
+              driver_sex: 'female',
             },
             {
               id: 4,
@@ -385,6 +390,7 @@ function mockApiPlugin() {
               driver_rating_count: 20,
               driver_trips_count: 43,
               driver_license_status: 'verified',
+              driver_sex: 'male',
             },
           ];
 
@@ -415,6 +421,7 @@ function mockApiPlugin() {
             if (String(p.password ?? '').length < 8) { sendJson({ error: 'Пароль должен быть не короче 8 символов', field: 'password' }, 400); return; }
             if (!USERNAME_RE.test(username)) { sendJson({ error: 'Ник: только латиница, цифры и _', field: 'username' }, 400); return; }
             if (!p.pdnConsent) { sendJson({ error: 'Требуется согласие на обработку персональных данных', field: 'pdnConsent' }, 400); return; }
+            if (p.sex !== 'male' && p.sex !== 'female') { sendJson({ error: 'Укажите пол', field: 'sex' }, 400); return; }
             if (mockAuthUsers.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
               sendJson({ error: 'Такой email уже зарегистрирован', code: 'email_taken' }, 409); return;
             }
@@ -426,6 +433,7 @@ function mockApiPlugin() {
             const user = {
               id: ++mockUserSeq, email, password: String(p.password ?? ''), username,
               firstName, lastName, name: [firstName, lastName].filter(Boolean).join(' ') || username,
+              sex: (p.sex === 'male' || p.sex === 'female') ? p.sex : 'unknown',
             };
             mockAuthUsers.push(user);
             const token = `mock-${user.id}-${Date.now()}`;
@@ -585,6 +593,7 @@ function mockApiPlugin() {
             trips_driver_count: 15,
             trips_passenger_count: 40,
             license_status: 'verified',
+            sex: mockSafety.sex,
             tg_linked: mockTgLinked,
           };
           sendJson({ profile });
@@ -733,6 +742,7 @@ function mockApiPlugin() {
               autoShare: Boolean(p.autoShare),
               womenOnly: Boolean(p.womenOnly),
               trustedContact,
+              sex: (p.sex === 'male' || p.sex === 'female' || p.sex === 'unknown') ? p.sex : mockSafety.sex,
             };
             sendJson(mockSafety);
           });

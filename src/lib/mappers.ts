@@ -37,6 +37,7 @@ export function mapTripListItemToTrip(item: TripListItem): Trip {
       avatar: initials,
       age: item.driver_age ?? undefined,
       verified,
+      sex: item.driver_sex,
       memberSince,
     },
     address: item.start_title,

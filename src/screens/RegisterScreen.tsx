@@ -10,6 +10,7 @@ import {
 } from '../components/AuthKit';
 import { hapticImpact } from '../lib/haptics';
 import { ApiException } from '../lib/api';
+import GenderSelect from '../components/ui/GenderSelect';
 
 /**
  * RegisterScreen — создание аккаунта для браузерных пользователей (без Telegram).
@@ -21,6 +22,8 @@ export interface RegisterPayload {
   username: string;
   email: string;
   password: string;
+  /** Пол (issue #447): обязателен, только male/female. */
+  sex: 'male' | 'female';
   /** Согласие на новости и акции (необязательное). */
   news: boolean;
 }
@@ -88,12 +91,14 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
   const [password, setPassword] = useState('');
   const [consent, setConsent] = useState(false);
   const [news, setNews] = useState(false);
+  const [sex, setSex] = useState<'' | 'male' | 'female'>('');
 
   const [usernameError, setUsernameError] = useState<string | undefined>();
   const [emailError, setEmailError] = useState<string | undefined>();
   const [passwordError, setPasswordError] = useState<string | undefined>();
   const [firstNameError, setFirstNameError] = useState<string | undefined>();
   const [lastNameError, setLastNameError] = useState<string | undefined>();
+  const [sexError, setSexError] = useState<string | undefined>();
   const [formError, setFormError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
@@ -133,6 +138,12 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
     } else {
       setPasswordError(undefined);
     }
+    if (sex === '') {
+      setSexError('Укажите пол');
+      valid = false;
+    } else {
+      setSexError(undefined);
+    }
     if (!valid) return;
 
     hapticImpact('light');
@@ -144,6 +155,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
         username: username.trim(),
         email: email.trim(),
         password,
+        sex: sex as 'male' | 'female',
         news,
       });
       // Успех — App уводит дальше (компонент размонтируется).
@@ -254,6 +266,16 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
             if (passwordError) setPasswordError(undefined);
           }}
           error={passwordError}
+        />
+
+        <GenderSelect
+          value={sex}
+          onChange={(v) => {
+            setSex(v);
+            setSexError(undefined);
+          }}
+          hint="Нужно для режима женских поездок — женщины смогут ехать только с женщинами."
+          error={sexError}
         />
       </div>
 

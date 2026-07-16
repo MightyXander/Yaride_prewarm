@@ -5,6 +5,12 @@ interface ChipProps {
   selected?: boolean;
   onClick?: () => void;
   style?: React.CSSProperties;
+  /** ARIA-роль кнопки (например 'radio' для сегмента GenderSelect). */
+  role?: React.AriaRole;
+  /** aria-checked для role='radio'/'checkbox'. */
+  ariaChecked?: boolean;
+  /** Доступное имя кнопки (aria-label). */
+  ariaLabel?: string;
 }
 
 const Chip: React.FC<ChipProps> = ({
@@ -14,6 +20,9 @@ const Chip: React.FC<ChipProps> = ({
   selected = false,
   onClick,
   style,
+  role,
+  ariaChecked,
+  ariaLabel,
 }) => {
   const content = label ?? children;
   const isInteractive = !!onClick;
@@ -56,6 +65,9 @@ const Chip: React.FC<ChipProps> = ({
       <button
         type="button"
         onClick={onClick}
+        role={role}
+        aria-checked={ariaChecked}
+        aria-label={ariaLabel}
         className="focus-ring pressable"
         style={finalStyle}
         onMouseDown={(e) => {

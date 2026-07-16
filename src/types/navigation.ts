@@ -41,6 +41,8 @@ export interface Trip {
     tripCount: number;
     avatar: string;
     age?: number;
+    /** Пол водителя (issue #447): 'unknown' — не задан. Для режима женских поездок. */
+    sex?: 'male' | 'female' | 'unknown';
     verified?: boolean;
     memberSince?: string;
   };

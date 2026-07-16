@@ -23,7 +23,7 @@ export async function createSession(
 export async function getSessionUser(tokenHash: string): Promise<WebUserRecord | null> {
   await ensureReady();
   const res = await getPool().query<WebUserRecord>(
-    `SELECT u.id, u.name, u.email, u.username, u.first_name, u.last_name
+    `SELECT u.id, u.name, u.email, u.username, u.first_name, u.last_name, u.sex
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = $1 AND s.expires_at > CURRENT_TIMESTAMP
