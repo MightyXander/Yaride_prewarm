@@ -17,6 +17,14 @@ import type { Trip } from '../types/navigation';
 import type { UserRole } from '../lib/role';
 import { formatSubtitle } from '../lib/date';
 import { useProfile } from '../contexts/ProfileContext';
+import SectionHeader from '../components/SectionHeader';
+import WomenRideEmptyState from '../components/WomenRideEmptyState';
+import { useScreenData } from '../hooks/useScreenData';
+import { fetchSafety, DEFAULT_SAFETY } from '../lib/screenFetchers';
+import type { GetMySafetyResponse } from '../types/api';
+
+// Причина недоступности мужских/unknown поездок в режиме женских поездок (issue #448).
+const WOMEN_DISABLED_REASON = 'Водитель — мужчина. Недоступно в режиме женских поездок.';
 
 interface MainScreenProps {
   trips: Trip[];
@@ -79,6 +87,19 @@ const MainScreen: React.FC<MainScreenProps> = ({
   };
 
   const hasTrips = trips.length > 0;
+
+  // Режим женских поездок (issue #448): читаем women_only из safety-настроек тем же
+  // кэш-ключом, что и SafetyScreen/прогрев (useScreenData дедуплицирует запрос).
+  // До ответа сети — серверный дефолт (womenOnly=true), как и на экране «Безопасность».
+  const { data: safety } = useScreenData<GetMySafetyResponse>('safety', fetchSafety);
+  const womenOnly = safety?.womenOnly ?? DEFAULT_SAFETY.womenOnly;
+
+  // При включённом women_only список делим на две секции с сохранением порядка (по времени):
+  // женские (driver.sex==='female') — активные; остальные (male/unknown) — серые, без брони.
+  const femaleTrips = womenOnly ? trips.filter((t) => t.driver.sex === 'female') : trips;
+  const restTrips = womenOnly ? trips.filter((t) => t.driver.sex !== 'female') : [];
+
+  const toggleExpanded = (id: string) => setExpandedId((prev) => (prev === id ? null : id));
 
   // Общий текст счётчика — переиспользуется мобильным Hero (как раньше) и
   // десктоп-дашборд-шапкой (issue #382), чтобы оба представления показывали
@@ -165,20 +186,77 @@ const MainScreen: React.FC<MainScreenProps> = ({
                   showPublish={canPublish}
                 />
               )}
-              <AppearList stagger={40} style={{ flexShrink: 0, ...tripGridStyle }}>
-                {trips.map((trip, index) => (
-                  <TripCard
-                    key={trip.id}
-                    {...trip}
-                    ref={index === 0 ? firstTripRef : null}
-                    isNext={index === 0}
-                    expanded={expandedId === trip.id}
-                    onToggle={() => setExpandedId((prev) => (prev === trip.id ? null : trip.id))}
-                    onBook={() => onTripClick(trip)}
-                    onOpenProfile={onOpenProfile}
-                  />
-                ))}
-              </AppearList>
+              {womenOnly ? (
+                <>
+                  {/* Секция «Женские поездки» — активные карточки; empty-приглашение, если пусто. */}
+                  <div>
+                    <SectionHeader
+                      title="Женские поездки"
+                      count={femaleTrips.length}
+                      variant="female"
+                      first
+                    />
+                    {femaleTrips.length > 0 ? (
+                      <AppearList stagger={40} style={{ flexShrink: 0, ...tripGridStyle }}>
+                        {femaleTrips.map((trip, index) => (
+                          <TripCard
+                            key={trip.id}
+                            {...trip}
+                            ref={index === 0 ? firstTripRef : null}
+                            isNext={index === 0}
+                            expanded={expandedId === trip.id}
+                            onToggle={() => toggleExpanded(trip.id)}
+                            onBook={() => onTripClick(trip)}
+                            onOpenProfile={onOpenProfile}
+                          />
+                        ))}
+                      </AppearList>
+                    ) : (
+                      <WomenRideEmptyState onToggleDirection={onToggleDirection} />
+                    )}
+                  </div>
+
+                  {/* Секция «Остальные — с мужчинами» — серые карточки, бронь заблокирована. */}
+                  {restTrips.length > 0 && (
+                    <div>
+                      <SectionHeader
+                        title="Остальные — с мужчинами"
+                        count={restTrips.length}
+                        variant="muted"
+                      />
+                      <AppearList stagger={40} style={{ flexShrink: 0, ...tripGridStyle }}>
+                        {restTrips.map((trip) => (
+                          <TripCard
+                            key={trip.id}
+                            {...trip}
+                            expanded={expandedId === trip.id}
+                            onToggle={() => toggleExpanded(trip.id)}
+                            onBook={() => onTripClick(trip)}
+                            onOpenProfile={onOpenProfile}
+                            dimmed
+                            disabledReason={WOMEN_DISABLED_REASON}
+                          />
+                        ))}
+                      </AppearList>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <AppearList stagger={40} style={{ flexShrink: 0, ...tripGridStyle }}>
+                  {trips.map((trip, index) => (
+                    <TripCard
+                      key={trip.id}
+                      {...trip}
+                      ref={index === 0 ? firstTripRef : null}
+                      isNext={index === 0}
+                      expanded={expandedId === trip.id}
+                      onToggle={() => toggleExpanded(trip.id)}
+                      onBook={() => onTripClick(trip)}
+                      onOpenProfile={onOpenProfile}
+                    />
+                  ))}
+                </AppearList>
+              )}
             </motion.div>
           ) : (
             <motion.div
