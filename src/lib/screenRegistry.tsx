@@ -205,6 +205,7 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
         onCancelTrip={ctx.handleCancelOwnTrip}
         bookingFocusUserId={ctx.bookingFocusUserId}
         onClearBookingFocus={() => ctx.setBookingFocusUserId(null)}
+        onOpenSafety={() => ctx.navigate('safety')}
       />
     ) : null,
   'booking-profile': (ctx) =>
