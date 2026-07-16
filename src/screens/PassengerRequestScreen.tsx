@@ -6,6 +6,8 @@ import { RouteDot, RouteMidConnector } from '../components/ui/RouteConnector';
 import { LoadErrorState } from '../components/ui/StateView';
 import type { SelectOption } from '../components/ui/Select';
 import { Skeleton } from '../components/ui/Skeleton';
+import Card from '../components/ui/Card';
+import Calendar from '../components/ui/Calendar';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 import { hapticSelection, hapticNotify } from '../lib/haptics';
@@ -47,6 +49,11 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
   const [isPublishing, setIsPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const customTimeLabelId = useId();
+  const dateLabelId = useId();
+  // Дата заявки: по умолчанию сегодня, инлайн-раскрытие календаря (паритет с
+  // DriverPublishScreen и Android, issue #444).
+  const [date, setDate] = useState<string>(localDateStr());
+  const [showCalendar, setShowCalendar] = useState<boolean>(false);
 
   // Состояние для точек маршрута
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
@@ -153,13 +160,10 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
         return;
       }
 
-      // Получение текущей локальной даты в формате YYYY-MM-DD (issue #330:
-      // toISOString() конвертирует в UTC и откатывает дату на вчера ночью).
-      const dateStr = localDateStr();
-
       // Нельзя оставить заявку на прошедшее время или менее чем за 10 минут
-      // до выезда (issue #330).
-      const departureIssue = validateDeparture(dateStr, formatTimeToHHMM(actualTime));
+      // до выезда (issue #330). Дата теперь выбирается пользователем (issue #444),
+      // клиентская пред-валидация зеркалит DriverPublishScreen.
+      const departureIssue = validateDeparture(date, formatTimeToHHMM(actualTime));
       if (departureIssue !== null) {
         showToast(DEPARTURE_ERROR_MESSAGES[departureIssue]);
         setIsPublishing(false);
@@ -170,7 +174,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
       const response = await createAlert({
         fromPointId: Number(fromPointId),
         toPointId: Number(toPointId),
-        date: dateStr,
+        date,
         time: formatTimeToHHMM(actualTime),
       });
 
@@ -335,6 +339,79 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
             </button>
           </div>
         )}
+      </div>
+
+      {/* Дата — инлайн-раскрывающийся календарь (паритет с DriverPublishScreen, issue #444) */}
+      <div role="group" aria-labelledby={dateLabelId}>
+        <div id={dateLabelId} style={sectionLabelStyle}>Дата</div>
+        <button
+          type="button"
+          onClick={() => {
+            hapticSelection();
+            setShowCalendar(!showCalendar);
+          }}
+          className="focus-ring pressable"
+          aria-expanded={showCalendar}
+          style={{
+            width: '100%',
+            minHeight: '48px',
+            padding: '12px 16px',
+            borderRadius: '18px',
+            border: '1px solid var(--field-border)',
+            background: 'var(--field)',
+            boxShadow: 'var(--field-shadow)',
+            color: 'var(--foreground)',
+            fontSize: '15px',
+            fontWeight: 600,
+            fontFamily: 'var(--font-sans)',
+            textAlign: 'left',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>
+            {new Date(date + 'T00:00:00').toLocaleDateString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })}
+          </span>
+          <span
+            style={{
+              display: 'inline-flex',
+              transform: showCalendar ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
+        </button>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateRows: showCalendar ? '1fr' : '0fr',
+            opacity: showCalendar ? 1 : 0,
+            transition: 'grid-template-rows 0.24s ease-out, opacity 0.24s ease-out',
+            marginTop: showCalendar ? '12px' : 0,
+          }}
+        >
+          <div style={{ overflow: 'hidden', minHeight: 0 }}>
+            <Card>
+              <Calendar
+                value={date}
+                onChange={(newDate) => {
+                  setDate(newDate);
+                  setShowCalendar(false);
+                }}
+              />
+            </Card>
+          </div>
+        </div>
       </div>
 
       <div>
