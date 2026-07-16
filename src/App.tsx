@@ -71,6 +71,13 @@ const TAB_ROOT_SCREEN: Record<TabRoot, Screen> = {
 // Базовая длительность доводки commit/отката прогресса после отпускания (мс).
 const SCRUB_SETTLE_MS = 200;
 
+// Pinned-watchdog (#437, #440): период одной проверки и максимум повторных ожиданий,
+// пока отложенный (startTransition) currentScreen догоняет target. ~5×400мс ≈ 2с
+// на медленный/голодающий рендер, затем — жёсткий ресинк (форс перехода на target,
+// БЕЗ отката к origin), см. armPinnedWatchdog.
+const PINNED_WATCHDOG_MS = 400;
+const PINNED_WATCHDOG_MAX_REARMS = 5;
+
 // Экраны, где показываем плавающую навигацию (и резервируем под неё место).
 const NAV_VISIBLE_SCREENS: Screen[] = ['main', 'main-more', 'trip-details', 'profile', 'evening-main', 'user-profile', 'my-trips', 'my-cars', 'my-alerts', 'safety', 'passenger-request'];
 // BackButton скрываем на «главных» (списки поездок), корневых разделах карусели
@@ -313,6 +320,10 @@ function App() {
   // Watchdog pinned-режима: страховка на случай, если currentScreen не догонит
   // target (см. clearPinned/watchdog ниже).
   const pinnedWatchdogRef = useRef<number | null>(null);
+  // Актуальный currentSlot для отложенного watchdog (замыкание finishSettle держит
+  // устаревший): watchdog по нему отличает «currentScreen догнал target» (collapse)
+  // от «ещё не догнал» (медленный startTransition) — см. finishSettle ниже (#440).
+  const currentSlotRef = useRef(0);
   const clearPinned = useCallback(() => {
     pinnedTargetRef.current = null;
     if (pinnedWatchdogRef.current !== null) {
@@ -324,6 +335,50 @@ function App() {
   const currentTab: TabRoot = SCREEN_TAB[currentScreen] ?? 'main';
   const currentSlot = TAB_ORDER.indexOf(currentTab);
   const scrubEnabled = SWIPE_SCREENS.includes(currentScreen);
+  // Зеркало последнего currentSlot для отложенного watchdog (его замыкание держит
+  // устаревший currentScreen). Пишем в рендере — идемпотентно, всегда актуально.
+  currentSlotRef.current = currentSlot;
+
+  // Watchdog pinned-доводки (#437 + фикс #440). Пин живёт, пока отложенный
+  // (startTransition) currentScreen догоняет target. Инвариант: сброс scrubOffset в
+  // null ДОПУСТИМ только когда keyed-экран УЖЕ целевой, иначе показался бы устаревший
+  // origin — карусель отскочит к origin и прыгнет к target («пружинит и возвращается»,
+  // #440). Пока currentScreen не догнал — ЖДЁМ (re-arm), НЕ сбрасывая offset. Чтобы не
+  // залипнуть навечно, если переход реально потерян (switchTab схлопнулся / starvation),
+  // после PINNED_WATCHDOG_MAX_REARMS делаем жёсткий ресинк: повторяем switchTab и
+  // держим offset на target (НЕ откат к origin), currentSlot-эффект добьёт до null.
+  const armPinnedWatchdog = useCallback(
+    (target: number, attempt: number) => {
+      if (pinnedWatchdogRef.current !== null) window.clearTimeout(pinnedWatchdogRef.current);
+      pinnedWatchdogRef.current = window.setTimeout(() => {
+        pinnedWatchdogRef.current = null;
+        // Пин уже снят currentSlot-эффектом (currentScreen пришёл или ушёл) — готово.
+        if (pinnedTargetRef.current === null) return;
+        if (currentSlotRef.current === target) {
+          // currentScreen догнал target, а currentSlot-эффект по какой-то причине не
+          // сработал — гасить offset безопасно (keyed-экран уже целевой).
+          pinnedTargetRef.current = null;
+          setScrubOffset(null);
+          return;
+        }
+        if (attempt < PINNED_WATCHDOG_MAX_REARMS) {
+          // currentScreen ещё НЕ догнал (медленный/голодающий startTransition) — ждём
+          // дальше, offset остаётся приколот к target (scrubLayer показывает target),
+          // никакого отката к origin.
+          armPinnedWatchdog(target, attempt + 1);
+          return;
+        }
+        // Потолок ожидания: переход, похоже, потерян. Жёсткий ресинк — повторяем
+        // switchTab и оставляем offset на target (показываем целевой раздел, НЕ origin).
+        // Пин держим: currentSlot-эффект снимет scrubOffset→null, когда currentScreen
+        // наконец придёт; если так и не придёт — карусель остаётся на target (не залипает
+        // на устаревшем origin), а следующий жест/тап штатно снимет пин.
+        switchTab(TAB_ORDER[target]);
+        setScrubOffset(target);
+      }, PINNED_WATCHDOG_MS);
+    },
+    [setScrubOffset, switchTab]
+  );
 
   // Завершение доводки: сменить РАЗДЕЛ (seam-мгновенно) и снять strip. Смена только
   // при смене tab — откат/доводка внутри своего раздела экран не меняет (под-экран
@@ -346,21 +401,15 @@ function App() {
         switchTab(tab);
         setScrubOffset(target);
         pinnedTargetRef.current = target;
-        if (pinnedWatchdogRef.current !== null) window.clearTimeout(pinnedWatchdogRef.current);
-        // Страховка: если за 400мс currentScreen так и не догнал target (напр.
-        // switchTab схлопнулся в dir===0 по иной причине) — не оставлять каретку
-        // приколотой навечно, лучше редкий доводочный скачок.
-        pinnedWatchdogRef.current = window.setTimeout(() => {
-          pinnedWatchdogRef.current = null;
-          pinnedTargetRef.current = null;
-          setScrubOffset(null);
-        }, 400);
+        // Страховка от вечного пина (#437) БЕЗ отскока к origin (#440): watchdog ждёт
+        // прихода currentScreen, а не гасит offset вслепую через фикс. интервал.
+        armPinnedWatchdog(target, 0);
       } else {
         setScrubOffset(null);
       }
       scrubSourceRef.current = null;
     },
-    [currentScreen, setScrubOffset, switchTab]
+    [armPinnedWatchdog, currentScreen, setScrubOffset, switchTab]
   );
 
   // Снятие pin. Инвариант: pinned-состояние живёт РОВНО пока идёт доводка того
