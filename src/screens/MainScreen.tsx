@@ -32,6 +32,8 @@ interface MainScreenProps {
   onToggleDirection?: () => void;
   userRole?: UserRole;
   onOpenProfile?: (userId: number) => void;
+  selectedDate?: string;
+  onSelectDate?: (date: string) => void;
 }
 
 const MainScreen: React.FC<MainScreenProps> = ({
@@ -48,6 +50,8 @@ const MainScreen: React.FC<MainScreenProps> = ({
   onToggleDirection,
   userRole = 'passenger',
   onOpenProfile,
+  selectedDate,
+  onSelectDate,
 }) => {
   const firstTripRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -107,9 +111,11 @@ const MainScreen: React.FC<MainScreenProps> = ({
           subtitle={subtitle}
           countLabel={tripsCountLabel}
           onToggleDirection={onToggleDirection}
+          selectedDate={selectedDate}
+          onSelectDate={onSelectDate}
         />
       ) : (
-        <Topbar title={title} subtitle={subtitle} />
+        <Topbar title={title} subtitle={subtitle} selectedDate={selectedDate} onSelectDate={onSelectDate} />
       )}
 
       <div style={{ position: 'relative' }}>

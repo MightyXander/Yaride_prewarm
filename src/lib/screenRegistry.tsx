@@ -67,6 +67,8 @@ export interface ScreenCtx {
 
   mainDirection: 'morning' | 'evening';
   setMainDirection: Dispatch<SetStateAction<'morning' | 'evening'>>;
+  selectedDate: string;
+  setSelectedDate: Dispatch<SetStateAction<string>>;
   morningTrips: Trip[];
   eveningTrips: Trip[];
   morningTripsState: AsyncState<Trip[]> & { retry: () => void };
@@ -133,8 +135,8 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       title={ctx.mainDirection === 'morning' ? 'Брагино → Центр' : 'Центр → Брагино'}
       subtitle={
         ctx.mainDirection === 'morning'
-          ? formatSubtitle('утро 7:30–8:40')
-          : formatSubtitle('вечер 17:00–18:30')
+          ? formatSubtitle('утро 7:30–8:40', false, new Date(`${ctx.selectedDate}T00:00:00`))
+          : formatSubtitle('вечер 17:00–18:30', false, new Date(`${ctx.selectedDate}T00:00:00`))
       }
       loading={
         ctx.mainDirection === 'morning'
@@ -163,6 +165,11 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       }}
       userRole={ctx.userRole ?? 'passenger'}
       onOpenProfile={ctx.handleOpenUserProfile}
+      selectedDate={ctx.selectedDate}
+      onSelectDate={(date) => {
+        window.Telegram?.WebApp.HapticFeedback?.impactOccurred('light');
+        ctx.setSelectedDate(date);
+      }}
     />
   ),
   'main-more': (ctx) => (

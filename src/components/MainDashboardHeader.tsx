@@ -1,4 +1,6 @@
 import { Icon } from './Icons';
+import Chip from './ui/Chip';
+import { localDateStr } from '../lib/dateLocal';
 
 interface MainDashboardHeaderProps {
   /** Маршрут в формате "Откуда → Куда" (то же значение, что мобильный Topbar/Hero получают как title). */
@@ -8,6 +10,9 @@ interface MainDashboardHeaderProps {
   /** Готовая подпись счётчика поездок — тот же текст, что показывает мобильный Hero. */
   countLabel: string;
   onToggleDirection?: () => void;
+  /** Выбранная дата поиска ('YYYY-MM-DD'); включает переключатель Сегодня/Завтра. */
+  selectedDate?: string;
+  onSelectDate?: (date: string) => void;
 }
 
 /**
@@ -24,7 +29,11 @@ const MainDashboardHeader: React.FC<MainDashboardHeaderProps> = ({
   subtitle,
   countLabel,
   onToggleDirection,
+  onSelectDate,
+  selectedDate,
 }) => {
+  const today = localDateStr();
+  const tomorrow = localDateStr(new Date(Date.now() + 86_400_000));
   const [from, to] = title.split(' → ');
 
   return (
@@ -179,6 +188,32 @@ const MainDashboardHeader: React.FC<MainDashboardHeaderProps> = ({
                 {subtitle}
               </div>
             </div>
+          </div>
+        )}
+
+        {onSelectDate && (
+          <div
+            style={{
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '0 10px',
+              borderLeft: '1px solid var(--field-border)',
+            }}
+          >
+            <Chip
+              label="Сегодня"
+              selected={selectedDate === today}
+              onClick={() => onSelectDate(today)}
+              style={{ height: '40px', minWidth: 'auto', padding: '0 14px', fontSize: '14px', borderRadius: '12px' }}
+            />
+            <Chip
+              label="Завтра"
+              selected={selectedDate === tomorrow}
+              onClick={() => onSelectDate(tomorrow)}
+              style={{ height: '40px', minWidth: 'auto', padding: '0 14px', fontSize: '14px', borderRadius: '12px' }}
+            />
           </div>
         )}
 
