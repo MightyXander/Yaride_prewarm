@@ -27,6 +27,15 @@ TEMPLATES = Jinja2Templates(directory=str(_BASE / "templates"))
 PWD = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 SCHEMA = os.getenv("DB_SCHEMA", "prewarm").strip() or "prewarm"
 
+# --- Roadmap-гейт: пороги ликвидности (CEO Council, Фаза 1 — один коридор) ---
+# Правятся здесь. Значения калиброваны под окно в 7 дней.
+GATE_EMPTY_SEARCH_GREEN = 20.0   # доля пустых поисков < 20% → зелёный
+GATE_EMPTY_SEARCH_YELLOW = 30.0  # 20–30% → жёлтый, > 30% → красный
+GATE_ACTIVE_DRIVERS_GREEN = 12   # активных водителей/нед ≥ 12 → зелёный
+GATE_ACTIVE_DRIVERS_YELLOW = 8   # 8–11 → жёлтый, < 8 → красный
+GATE_COMPLETED_TRIPS_GREEN = 40  # завершённых поездок/нед ≥ 40 → зелёный
+GATE_COMPLETED_TRIPS_YELLOW = 20 # 20–39 → жёлтый, < 20 → красный
+
 
 def _conn() -> psycopg.Connection:
     url = os.environ["DATABASE_URL"]
@@ -241,18 +250,34 @@ def users_list(request: Request, admin: str = Depends(require_login)):
     return render(request, "users_list.html", active="users", users=users)
 
 
-@app.get("/admin/metrics", response_class=HTMLResponse)
-def metrics(request: Request, admin: str = Depends(require_login)):
-    """Минимальный агрегат метрик ликвидности (CEO Council: «мерить НЕМЕДЛЕННО»).
+def _gate_color(value: float, green_threshold: float, yellow_threshold: float, higher_is_better: bool) -> str:
+    """Цветовая метка гейта. higher_is_better=True: value>=green → зелёный.
+    higher_is_better=False (доля пустых): value<green → зелёный, value<=yellow → жёлтый."""
+    if higher_is_better:
+        if value >= green_threshold:
+            return "green"
+        if value >= yellow_threshold:
+            return "yellow"
+        return "red"
+    if value < green_threshold:
+        return "green"
+    if value <= yellow_threshold:
+        return "yellow"
+    return "red"
 
-    Читает events (schema v13, захват из Node-слоя api.ts: search/booking_created/
-    alert_created) и сворачивает за 7 дней по коридорам: число поисков, доля
-    поисков с нулевым результатом (props.result_count = 0), число броней,
-    число заявок-алертов (сигнал спроса). Полноценный W4-retention/time-to-
-    first-match здесь намеренно не считается — это только фундамент-захват.
+
+@app.get("/admin/metrics", response_class=HTMLResponse)
+def metrics(request: Request, days: int = 7, admin: str = Depends(require_login)):
+    """Бизнес-метрики маркетплейса попуток (issue #445, CEO Council: ликвидность = KPI).
+
+    Блок 1 — обзор (кумулятив), Блок 2 — за период (7 дн.) карточками, Блок 3 —
+    roadmap-гейт с порогами/цветом (пороги — константы GATE_* вверху модуля),
+    Блок 4 — недельный тренд (8 недель, date_trunc('week')), Блок 5 — существующая
+    разбивка по коридорам за период. Период настраивается через ?days=.
     """
-    period_days = 7
+    period_days = max(1, days)
     with _conn() as conn:
+        # --- Блок 5: разбивка по коридорам за период (существующая логика) ---
         rows = conn.execute(
             """
             SELECT
@@ -270,6 +295,101 @@ def metrics(request: Request, admin: str = Depends(require_login)):
             ORDER BY searches DESC, corridor ASC
             """,
             (str(period_days),),
+        ).fetchall()
+
+        # --- Блок 1: обзор (кумулятив, всё время) ---
+        (
+            users_total,
+            drivers_total,
+            trips_total,
+            trips_open,
+            alerts_active,
+        ) = conn.execute(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM users) AS users_total,
+                (SELECT COUNT(*) FROM users WHERE license_status = 'verified') AS drivers_total,
+                (SELECT COUNT(*) FROM trips) AS trips_total,
+                (SELECT COUNT(*) FROM trips WHERE status = 'open') AS trips_open,
+                (SELECT COUNT(*) FROM route_alerts WHERE status = 'active') AS alerts_active
+            """
+        ).fetchone()
+
+        # --- Блок 2/3: агрегаты за период (по таблицам, кроме events) ---
+        (
+            new_users,
+            trips_published,
+            trips_completed,
+            active_drivers,
+            bookings_week,
+            alerts_week,
+        ) = conn.execute(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM users
+                    WHERE created_at >= now() - (%(days)s || ' days')::interval) AS new_users,
+                (SELECT COUNT(*) FROM trips
+                    WHERE created_at >= now() - (%(days)s || ' days')::interval) AS trips_published,
+                (SELECT COUNT(*) FROM trips
+                    WHERE status = 'completed'
+                      AND created_at >= now() - (%(days)s || ' days')::interval) AS trips_completed,
+                (SELECT COUNT(DISTINCT driver_id) FROM trips
+                    WHERE created_at >= now() - (%(days)s || ' days')::interval) AS active_drivers,
+                (SELECT COUNT(*) FROM bookings
+                    WHERE status = 'active'
+                      AND created_at >= now() - (%(days)s || ' days')::interval) AS bookings_week,
+                (SELECT COUNT(*) FROM route_alerts
+                    WHERE created_at >= now() - (%(days)s || ' days')::interval) AS alerts_week
+            """,
+            {"days": str(period_days)},
+        ).fetchone()
+
+        # --- Блок 4: недельный тренд (последние 8 недель, ISO-понедельник) ---
+        trend_rows = conn.execute(
+            """
+            WITH weeks AS (
+                SELECT gs::date AS wk
+                FROM generate_series(
+                    date_trunc('week', now()) - interval '7 weeks',
+                    date_trunc('week', now()),
+                    interval '1 week'
+                ) gs
+            ),
+            u AS (SELECT date_trunc('week', created_at)::date wk, COUNT(*) n
+                  FROM users WHERE created_at >= date_trunc('week', now()) - interval '7 weeks' GROUP BY 1),
+            tp AS (SELECT date_trunc('week', created_at)::date wk, COUNT(*) n
+                   FROM trips WHERE created_at >= date_trunc('week', now()) - interval '7 weeks' GROUP BY 1),
+            tc AS (SELECT date_trunc('week', created_at)::date wk, COUNT(*) n
+                   FROM trips WHERE status = 'completed'
+                     AND created_at >= date_trunc('week', now()) - interval '7 weeks' GROUP BY 1),
+            bk AS (SELECT date_trunc('week', created_at)::date wk, COUNT(*) n
+                   FROM bookings WHERE status = 'active'
+                     AND created_at >= date_trunc('week', now()) - interval '7 weeks' GROUP BY 1),
+            al AS (SELECT date_trunc('week', created_at)::date wk, COUNT(*) n
+                   FROM route_alerts WHERE created_at >= date_trunc('week', now()) - interval '7 weeks' GROUP BY 1),
+            ev AS (SELECT date_trunc('week', created_at)::date wk,
+                       COUNT(*) FILTER (WHERE type = 'search') s,
+                       COUNT(*) FILTER (
+                           WHERE type = 'search'
+                             AND COALESCE((props->>'result_count')::int, -1) = 0) z
+                   FROM events WHERE created_at >= date_trunc('week', now()) - interval '7 weeks' GROUP BY 1)
+            SELECT weeks.wk,
+                COALESCE(u.n, 0)  AS new_users,
+                COALESCE(tp.n, 0) AS trips_published,
+                COALESCE(tc.n, 0) AS trips_completed,
+                COALESCE(ev.s, 0) AS searches,
+                COALESCE(ev.z, 0) AS empty_searches,
+                COALESCE(bk.n, 0) AS bookings,
+                COALESCE(al.n, 0) AS alerts
+            FROM weeks
+            LEFT JOIN u  ON u.wk  = weeks.wk
+            LEFT JOIN tp ON tp.wk = weeks.wk
+            LEFT JOIN tc ON tc.wk = weeks.wk
+            LEFT JOIN bk ON bk.wk = weeks.wk
+            LEFT JOIN al ON al.wk = weeks.wk
+            LEFT JOIN ev ON ev.wk = weeks.wk
+            ORDER BY weeks.wk DESC
+            """
         ).fetchall()
 
     items = []
@@ -293,6 +413,63 @@ def metrics(request: Request, admin: str = Depends(require_login)):
         (totals["zero_result"] / totals["searches"] * 100) if totals["searches"] else 0.0
     )
 
+    empty_rate = totals["zero_result_rate"]
+
+    overview = {
+        "users_total": users_total,
+        "drivers_total": drivers_total,
+        "passengers_total": users_total - drivers_total,
+        "trips_total": trips_total,
+        "trips_open": trips_open,
+        "alerts_active": alerts_active,
+    }
+    week = {
+        "new_users": new_users,
+        "trips_published": trips_published,
+        "trips_completed": trips_completed,
+        "active_drivers": active_drivers,
+        "bookings": bookings_week,
+        "alerts": alerts_week,
+        "searches": totals["searches"],
+        "empty_rate": empty_rate,
+    }
+    gate = [
+        {
+            "label": "Доля пустых поисков",
+            "value": "%.0f%%" % empty_rate,
+            "target": "цель <20% (зел.), 20–30% жёлт., >30% красн.",
+            "caption": "реклама пассажирам оправдана при <20–30%",
+            "color": _gate_color(empty_rate, GATE_EMPTY_SEARCH_GREEN, GATE_EMPTY_SEARCH_YELLOW, False),
+        },
+        {
+            "label": "Активных водителей/нед",
+            "value": active_drivers,
+            "target": "цель ≥12 (зел.), 8–11 жёлт., <8 красн.",
+            "caption": "цель ликвидности 8–12 регулярных водителей",
+            "color": _gate_color(active_drivers, GATE_ACTIVE_DRIVERS_GREEN, GATE_ACTIVE_DRIVERS_YELLOW, True),
+        },
+        {
+            "label": "Завершённых поездок/нед",
+            "value": trips_completed,
+            "target": "цель ≥40 (зел.), 20–39 жёлт., <20 красн.",
+            "caption": "порог живого коридора 40–60 поездок/нед",
+            "color": _gate_color(trips_completed, GATE_COMPLETED_TRIPS_GREEN, GATE_COMPLETED_TRIPS_YELLOW, True),
+        },
+    ]
+    trend = [
+        {
+            "week": wk,
+            "new_users": t_new_users,
+            "trips_published": t_trips_pub,
+            "trips_completed": t_trips_done,
+            "searches": t_searches,
+            "empty_rate": (t_empty / t_searches * 100) if t_searches else 0.0,
+            "bookings": t_bookings,
+            "alerts": t_alerts,
+        }
+        for (wk, t_new_users, t_trips_pub, t_trips_done, t_searches, t_empty, t_bookings, t_alerts) in trend_rows
+    ]
+
     return render(
         request,
         "metrics.html",
@@ -300,6 +477,10 @@ def metrics(request: Request, admin: str = Depends(require_login)):
         period_days=period_days,
         items=items,
         totals=totals,
+        overview=overview,
+        week=week,
+        gate=gate,
+        trend=trend,
     )
 
 

@@ -1,19 +1,72 @@
 {% extends "base.html" %}
 {% block title %}Метрики ликвидности — Yaride Admin{% endblock %}
 {% block content %}
-<h1>Метрики ликвидности <small>за последние {{ period_days }} дней</small></h1>
+<h1>Бизнес-метрики <small>маркетплейс попуток · окно {{ period_days }} дн.</small></h1>
 
+<h2 class="section-title">Обзор <small>(кумулятив, всё время)</small></h2>
 <div class="cards">
-    <div class="card"><div class="num">{{ totals.searches }}</div><div class="lbl">Поисков</div></div>
-    <div class="card{% if totals.zero_result_rate >= 50 %} warn{% endif %}">
-        <div class="num">{{ '%.0f'|format(totals.zero_result_rate) }}%</div>
-        <div class="lbl">Zero-result rate ({{ totals.zero_result }} из {{ totals.searches }})</div>
-    </div>
-    <div class="card"><div class="num">{{ totals.bookings }}</div><div class="lbl">Броней</div></div>
-    <div class="card"><div class="num">{{ totals.alerts }}</div><div class="lbl">Заявок-алертов (спрос)</div></div>
+    <div class="card"><div class="num">{{ overview.users_total }}</div><div class="lbl">Уникальных пользователей</div></div>
+    <div class="card"><div class="num">{{ overview.drivers_total }}</div><div class="lbl">Водителей (ВУ verified)</div></div>
+    <div class="card"><div class="num">{{ overview.passengers_total }}</div><div class="lbl">Пассажиров (остальные)</div></div>
+    <div class="card"><div class="num">{{ overview.trips_total }}</div><div class="lbl">Поездок опубликовано всего</div></div>
+    <div class="card"><div class="num">{{ overview.trips_open }}</div><div class="lbl">Открытых сейчас</div></div>
+    <div class="card"><div class="num">{{ overview.alerts_active }}</div><div class="lbl">Активных заявок-алертов</div></div>
 </div>
 
-<h1 style="margin-top: 28px;">По коридорам</h1>
+<h2 class="section-title">За {{ period_days }} дней</h2>
+<div class="cards">
+    <div class="card"><div class="num">{{ week.new_users }}</div><div class="lbl">Новых пользователей</div></div>
+    <div class="card"><div class="num">{{ week.trips_published }}</div><div class="lbl">Поездок опубликовано</div></div>
+    <div class="card"><div class="num">{{ week.trips_completed }}</div><div class="lbl">Поездок завершено</div></div>
+    <div class="card"><div class="num">{{ week.active_drivers }}</div><div class="lbl">Активных водителей</div></div>
+    <div class="card"><div class="num">{{ week.bookings }}</div><div class="lbl">Броней (active)</div></div>
+    <div class="card"><div class="num">{{ week.alerts }}</div><div class="lbl">Заявок-алертов (спрос)</div></div>
+    <div class="card"><div class="num">{{ week.searches }}</div><div class="lbl">Поисков</div></div>
+    <div class="card{% if week.empty_rate >= 30 %} warn{% endif %}">
+        <div class="num">{{ '%.0f'|format(week.empty_rate) }}%</div>
+        <div class="lbl">Доля пустых поисков</div>
+    </div>
+</div>
+
+<h2 class="section-title">Roadmap-гейт <small>«пора ли двигаться дальше» (Фаза 1 — ликвидность на одном коридоре)</small></h2>
+<div class="gate">
+    {% for g in gate %}
+    <div class="g {{ g.color }}">
+        <div class="glbl">{{ g.label }}</div>
+        <div class="gnum">{{ g.value }}</div>
+        <div class="gtgt">{{ g.target }}</div>
+        <div class="gcap">{{ g.caption }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<h2 class="section-title">Недельный тренд <small>(последние 8 недель, ISO-неделя)</small></h2>
+<table>
+    <thead>
+        <tr>
+            <th>Неделя (пн)</th><th>Новые польз.</th><th>Поездок опубл.</th><th>Поездок заверш.</th>
+            <th>Поиски</th><th>% пустых</th><th>Брони</th><th>Заявки</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in trend %}
+        <tr>
+            <td>{{ r.week }}</td>
+            <td>{{ r.new_users }}</td>
+            <td>{{ r.trips_published }}</td>
+            <td>{{ r.trips_completed }}</td>
+            <td>{{ r.searches }}</td>
+            <td>{{ '%.0f'|format(r.empty_rate) }}%</td>
+            <td>{{ r.bookings }}</td>
+            <td>{{ r.alerts }}</td>
+        </tr>
+    {% else %}
+        <tr><td colspan="8" class="empty">Данных за период пока нет.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<h2 class="section-title">Разбивка по коридорам <small>за {{ period_days }} дней</small></h2>
 <table>
     <thead>
         <tr>
