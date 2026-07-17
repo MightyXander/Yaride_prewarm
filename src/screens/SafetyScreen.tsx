@@ -6,7 +6,6 @@ import Header from '../components/Header';
 import { Icon } from '../components/Icons';
 import { Slot } from '../components/ui/Skeleton';
 import PhoneField from '../components/PhoneField';
-import GenderSelect from '../components/ui/GenderSelect';
 import { saveMySafety, ApiException } from '../lib/api';
 import { useScreenData, useDelayedFlag } from '../hooks/useScreenData';
 import { fetchSafety, DEFAULT_SAFETY } from '../lib/screenFetchers';
@@ -119,19 +118,6 @@ const SafetyScreen: React.FC = () => {
     }
   };
 
-  /** Смена пола (issue #447): оптимистично + PUT полного состояния; ошибка — откат + toast. */
-  const persistSex = async (next: 'male' | 'female') => {
-    const prev = { sosEnabled, autoShare, womenOnly, trustedContact, sex };
-    mutate({ ...prev, sex: next });
-    try {
-      const result = await saveMySafety({ ...prev, sex: next });
-      mutate(result);
-    } catch {
-      mutate(prev);
-      showToast('Не удалось сохранить пол');
-    }
-  };
-
   const openContactForm = () => {
     setContactName(trustedContact?.name ?? '');
     setContactPhone(trustedContact?.phone ?? '');
@@ -195,24 +181,6 @@ const SafetyScreen: React.FC = () => {
     >
       <Header title="Безопасность" />
 
-      {/* Пол (issue #447): первый блок — это условие женского режима, а не «личные
-          данные»; стоит над тумблерами. Оптимистичный апдейт как persistToggle. */}
-      <div>
-        <div style={sectionLabelStyle}>Пол</div>
-        <Card style={{ padding: '14px 16px' }}>
-          <GenderSelect
-            value={sex}
-            onChange={persistSex}
-            label={null}
-            hint={
-              sex === 'unknown'
-                ? 'Укажите пол, чтобы включить женские поездки.'
-                : 'Влияет на режим женских поездок.'
-            }
-          />
-        </Card>
-      </div>
-
       {/* Переключатели безопасности — Slot-кроссфейд лечит «дефолты→реальные»
           мигание (issue #352): маска показывается только если загрузка длится
           дольше 180мс (showSkeleton), иначе дефолты видны сразу без мерцания. */}
@@ -238,7 +206,11 @@ const SafetyScreen: React.FC = () => {
           <SafetyRow
             icon="i-user"
             title="Только женский состав"
-            hint="Показывать поездки с женщинами-водителями"
+            hint={
+              sex === 'unknown'
+                ? 'Укажите пол в профиле, чтобы включить'
+                : 'Показывать поездки с женщинами-водителями'
+            }
             checked={womenOnly}
             onChange={(v) => persistToggle('womenOnly', v)}
             disabled={loading}
