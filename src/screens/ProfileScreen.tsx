@@ -1,5 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import Card from '../components/ui/Card';
+import GenderSelect from '../components/ui/GenderSelect';
 import Button from '../components/ui/Button';
 import Header from '../components/Header';
 import EmailLoginSection from '../components/EmailLoginSection';
@@ -9,6 +10,8 @@ import type { ThemeMode } from '../hooks/useTheme';
 import { useProfile } from '../contexts/ProfileContext';
 import { useScreenData } from '../hooks/useScreenData';
 import { prefetchScreenData } from '../lib/screenDataCache';
+import { getMySafety, saveMySafety } from '../lib/api';
+import { showToast } from '../lib/toast';
 import {
   fetchMyCars,
   fetchMyTripsUpcoming,
@@ -16,7 +19,7 @@ import {
   fetchMyAlerts,
   fetchSafety,
 } from '../lib/screenFetchers';
-import type { Car } from '../types/api';
+import type { Car, Sex } from '../types/api';
 import { FLOATING_NAV_SCROLL_CLEARANCE } from '../components/FloatingNav';
 import { ResponsiveTwoColumn } from '../components/ui/ResponsiveTwoColumn';
 
@@ -137,6 +140,29 @@ const THEME_MODE_LABEL: Record<ThemeMode, string> = {
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onMyAlerts, themeMode = 'system', onSetThemeMode, theme, onOpenProfile, onLogout }) => {
   const { profile, loading, needsTelegram, refetch } = useProfile();
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
+  const [sex, setSex] = useState<Sex>(profile?.sex ?? 'unknown');
+
+  // Синхронизируем локальный пол при обновлении профиля (issue #452): значение
+  // живёт в users.sex, приходит из useProfile; локальный state — для оптимизма.
+  useEffect(() => {
+    if (profile) setSex(profile.sex);
+  }, [profile]);
+
+  // Смена пола из Профиля (issue #452): единственный путь персиста sex — safety API
+  // (профиль-эндпоинта на запись нет). Тянем свежий safety, чтобы не клоббернуть
+  // настройки, затем PUT. Оптимистично + откат при ошибке.
+  const handleSexChange = async (next: 'male' | 'female') => {
+    const prev = sex;
+    setSex(next);
+    try {
+      const s = await getMySafety();
+      await saveMySafety({ ...s, sex: next });
+      await refetch();
+    } catch {
+      setSex(prev);
+      showToast('Не удалось сохранить пол');
+    }
+  };
 
   // Профиль живёт в контексте (не размонтируется), поэтому при заходе на экран
   // тихо перезапрашиваем — чтобы статус ВУ (одобрение админом) и счётчики были
@@ -268,6 +294,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
     </Card>
   );
 
+  // Секция «Пол» (issue #452): переехала с «Безопасности» — сразу после identity.
+  // Персист через safety API (см. handleSexChange). Рендерим только с профилем.
+  const genderSection = profile ? (
+    <Card style={{ padding: '14px 16px' }}>
+      <GenderSelect
+        value={sex}
+        onChange={handleSexChange}
+        label="Пол"
+        hint="Нужен для режима женских поездок"
+      />
+    </Card>
+  ) : null;
+
   // Секции (main-колонка десктоп-раскладки, issue #387): меню + вход по email +
   // «Стать водителем»/выйти — тот же порядок и содержимое, что и раньше.
   const sections = (
@@ -356,7 +395,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
       <ResponsiveTwoColumn
         asideSide="left"
         style={{ flex: 1 }}
-        aside={identityCard}
+        aside={
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {identityCard}
+            {genderSection}
+          </div>
+        }
         main={sections}
       />
 
