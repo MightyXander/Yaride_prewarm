@@ -296,17 +296,33 @@ const TimelineRow: React.FC<{
             padding: '10px 12px',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
+            gap: '9px',
             cursor: 'pointer',
             border: nearest ? '1.5px solid var(--brand)' : '1px solid var(--border)',
           }}
         >
           <div onClick={handleAvatar} style={{ cursor: trip.driver.id && onOpenProfile ? 'pointer' : 'default' }}>
-            <Avatar label={getInitials(trip.driver.name)} hideRating size={40} />
+            <div
+              aria-hidden
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '14px',
+                background: 'var(--muted)',
+                color: 'var(--foreground)',
+                display: 'grid',
+                placeItems: 'center',
+                fontWeight: 800,
+                fontSize: '15px',
+                flexShrink: 0,
+              }}
+            >
+              {getInitials(trip.driver.name)}
+            </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-              <span style={{ fontWeight: 800, fontSize: '15px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+              <span style={{ fontWeight: 800, fontSize: '15px', flexShrink: 0, whiteSpace: 'nowrap' }}>
                 {trip.driver.name}
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--muted-foreground)', fontSize: '13px', fontWeight: 700, flexShrink: 0 }}>
