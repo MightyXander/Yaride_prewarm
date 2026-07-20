@@ -350,6 +350,31 @@ function publicUser(u: WebUserRecord): Record<string, unknown> {
 // ----------------------------------------------------------------------------
 
 /**
+ * Нормализовать дату рождения (issue #455): строгий YYYY-MM-DD, реальная дата,
+ * не в будущем, возраст ≤120 лет. Возвращает канонический YYYY-MM-DD или null.
+ */
+export function normalizeBirthDate(raw: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (m === null) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  if (
+    dt.getUTCFullYear() !== year ||
+    dt.getUTCMonth() !== month - 1 ||
+    dt.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  const now = new Date();
+  if (dt.getTime() > now.getTime()) return null;
+  const oldest = Date.UTC(now.getUTCFullYear() - 120, now.getUTCMonth(), now.getUTCDate());
+  if (dt.getTime() < oldest) return null;
+  return `${m[1]}-${m[2]}-${m[3]}`;
+}
+
+/**
  * POST /api/auth/register
  * Body: { email, password, username, firstName, lastName,
  *         pdnConsent: true, pdnConsentVersion, marketingConsent?, marketingConsentVersion? }
@@ -405,6 +430,14 @@ export async function handleRegister(req: ApiRequest): Promise<ApiResponse> {
     return err(400, 'Укажите пол', { field: 'sex' });
   }
 
+  // Дата рождения (issue #455): опциональна при регистрации; если задана —
+  // строгая валидация (YYYY-MM-DD, реальная дата, не будущее, возраст ≤120).
+  const birthDateRaw = asString(body.birthDate).trim();
+  const birthDate = birthDateRaw === '' ? null : normalizeBirthDate(birthDateRaw);
+  if (birthDateRaw !== '' && birthDate === null) {
+    return err(400, 'Некорректная дата рождения', { field: 'birthDate' });
+  }
+
   // Cheap-win: проверяем занятость email/username ДО scrypt — не жжём CPU/RAM на
   // заведомо конфликтных регистрациях. Гонку добивает уникальный индекс + catch 23505
   // в createWebUser (ниже).
@@ -427,6 +460,7 @@ export async function handleRegister(req: ApiRequest): Promise<ApiResponse> {
       firstName,
       lastName,
       sex,
+      birthDate,
       pdnConsentVersion,
       marketingConsent,
       marketingConsentVersion,

@@ -29,6 +29,8 @@
  *   POST /api/me/phone/verify-code   { code } — подтвердить код (issue #328)
  *   GET  /api/me/safety              настройки безопасности + доверенный контакт + пол (issue #344/#447)
  *   PUT  /api/me/safety              { sosEnabled, autoShare, womenOnly, trustedContact, sex } — сохранить целиком (issue #344/#447)
+ *   GET  /api/me/personal           личные данные + активная заявка на изменение (issue #455)
+ *   POST /api/me/personal/request   { username?,email?,first_name?,last_name?,birth_date?,sex? } — заявка на изменение (issue #455)
  *
  * Валидация входа — ручная (zod в deps нет). Telegram initData проверяется через
  * verifyInitData (HMAC по BOT_TOKEN; без токена — dev-bypass с пометкой).
@@ -94,6 +96,14 @@ import {
   type TimeSlot,
   type TripStatusFilter,
 } from './repo.ts';
+// Прямые импорты из repo-модулей (issue #455): barrel repo.ts НЕ реэкспортирует
+// новый profileChangeRequests, а getPersonalDataById живёт в users.
+import { getPersonalDataById } from './repo/users.ts';
+import {
+  createOrReplacePendingRequest,
+  getPendingRequestByUser,
+  type ProfilePersonalFields,
+} from './repo/profileChangeRequests.ts';
 import {
   getSessionUserFromRequest,
   reissueSessionForUser,
@@ -103,6 +113,7 @@ import {
   EMAIL_RE,
   USERNAME_RE,
   MIN_PASSWORD_LENGTH,
+  normalizeBirthDate,
 } from './auth.ts';
 import {
   getBotUsername,
@@ -952,6 +963,183 @@ export async function handleSaveMySafety(req: ApiRequest): Promise<ApiResponse> 
   }
   const sex = await getUserSex(userId);
   return { status: 200, body: { ...settings, sex } };
+}
+
+// ============================================================================
+// Личные данные профиля + очередь заявок на изменение (issue #455).
+//
+// Профиль напрямую НЕ меняется: клиент присылает дельту → создаётся pending-
+// заявка, применение — после одобрения админом (#457). Пол после регистрации
+// правится ТОЛЬКО через заявку; PUT /api/me/safety (запись sex) сохранён для
+// safety-экрана и здесь не дублируется.
+// ============================================================================
+
+/**
+ * GET /api/me/personal — личные данные текущего пользователя + активная заявка.
+ * Ответ: { personal: {username,email,first_name,last_name,birth_date,sex},
+ *          pendingRequest: {id,payload,status,created_at} | null }.
+ */
+export async function handleGetMyPersonal(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const personal = await getPersonalDataById(userId);
+  if (personal === null) {
+    return err(404, 'Профиль не найден');
+  }
+
+  const pending = await getPendingRequestByUser(userId);
+  return {
+    status: 200,
+    body: {
+      personal,
+      pendingRequest:
+        pending === null
+          ? null
+          : {
+              id: pending.id,
+              payload: pending.payload,
+              status: pending.status,
+              created_at: pending.created_at,
+            },
+    },
+  };
+}
+
+/**
+ * POST /api/me/personal/request — заявка на изменение личных данных (issue #455).
+ * Body — частичная дельта { username?, email?, first_name?, last_name?,
+ * birth_date?, sex? }. Валидация формата → фильтр полей, равных текущим (реальная
+ * дельта) → пустая дельта 400 → мягкая проверка занятости username/email другим
+ * пользователем 409 → createOrReplacePendingRequest (заменяет прежний pending).
+ * users НЕ меняется. Ответ: { request: {id,payload,status,created_at} }.
+ */
+export async function handleRequestPersonalChange(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const current = await getPersonalDataById(userId);
+  if (current === null) {
+    return err(404, 'Профиль не найден');
+  }
+
+  const body = asRecord(req.body);
+  const delta: ProfilePersonalFields = {};
+
+  if (Object.prototype.hasOwnProperty.call(body, 'username')) {
+    if (typeof body.username !== 'string') {
+      return err(400, 'Ник должен быть строкой', { field: 'username' });
+    }
+    const username = body.username.trim();
+    if (username === '') {
+      return err(400, 'Ник не может быть пустым', { field: 'username' });
+    }
+    // Регистронезависимое сравнение (uq_users_username_lower) — так case-only
+    // «изменение» не создаёт ложный self-конфликт при проверке занятости.
+    if (username.toLowerCase() !== (current.username ?? '').toLowerCase()) {
+      delta.username = username;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'email')) {
+    if (typeof body.email !== 'string') {
+      return err(400, 'Email должен быть строкой', { field: 'email' });
+    }
+    const email = body.email.trim();
+    if (!EMAIL_RE.test(email)) {
+      return err(400, 'Введите корректный email', { field: 'email' });
+    }
+    if (email.toLowerCase() !== (current.email ?? '').toLowerCase()) {
+      delta.email = email;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'first_name')) {
+    if (typeof body.first_name !== 'string') {
+      return err(400, 'Имя должно быть строкой', { field: 'first_name' });
+    }
+    const firstName = body.first_name.trim();
+    if (firstName === '') {
+      return err(400, 'Имя не может быть пустым', { field: 'first_name' });
+    }
+    if (firstName !== (current.first_name ?? '')) {
+      delta.first_name = firstName;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'last_name')) {
+    if (typeof body.last_name !== 'string') {
+      return err(400, 'Фамилия должна быть строкой', { field: 'last_name' });
+    }
+    const lastName = body.last_name.trim();
+    if (lastName === '') {
+      return err(400, 'Фамилия не может быть пустой', { field: 'last_name' });
+    }
+    if (lastName !== (current.last_name ?? '')) {
+      delta.last_name = lastName;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'birth_date')) {
+    const raw = body.birth_date;
+    if (raw === null) {
+      // Явный сброс даты рождения.
+      if (current.birth_date !== null) {
+        delta.birth_date = null;
+      }
+    } else if (typeof raw === 'string') {
+      const birthDate = normalizeBirthDate(raw.trim());
+      if (birthDate === null) {
+        return err(400, 'Некорректная дата рождения', { field: 'birth_date' });
+      }
+      if (birthDate !== current.birth_date) {
+        delta.birth_date = birthDate;
+      }
+    } else {
+      return err(400, 'Некорректная дата рождения', { field: 'birth_date' });
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'sex')) {
+    const sex = body.sex;
+    if (sex !== 'male' && sex !== 'female' && sex !== 'unknown') {
+      return err(400, 'Некорректный пол', { field: 'sex' });
+    }
+    if (sex !== current.sex) {
+      delta.sex = sex;
+    }
+  }
+
+  if (Object.keys(delta).length === 0) {
+    return err(400, 'Нет изменений', { code: 'empty_delta' });
+  }
+
+  // Мягкая проверка занятости другим пользователем (быстрый SELECT). Значения в
+  // дельте заведомо отличаются от текущих, поэтому собственная строка не даёт
+  // ложного 409.
+  if (delta.username !== undefined && (await isUsernameTaken(delta.username))) {
+    return err(409, 'Этот ник уже занят', { code: 'username_taken', field: 'username' });
+  }
+  if (delta.email !== undefined && (await isEmailTaken(delta.email))) {
+    return err(409, 'Такой email уже зарегистрирован', { code: 'email_taken', field: 'email' });
+  }
+
+  const request = await createOrReplacePendingRequest(userId, delta);
+  return {
+    status: 200,
+    body: {
+      request: {
+        id: request.id,
+        payload: request.payload,
+        status: request.status,
+        created_at: request.created_at,
+      },
+    },
+  };
 }
 
 // ============================================================================

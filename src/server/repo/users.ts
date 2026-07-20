@@ -365,6 +365,33 @@ export async function getUserProfileById(internalId: number): Promise<UserProfil
   return res.rows[0] ?? null;
 }
 
+/** Личные данные профиля для GET /api/me/personal (issue #455). */
+export interface PersonalData {
+  username: string | null;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  birth_date: string | null;
+  sex: 'male' | 'female' | 'unknown';
+}
+
+/**
+ * Личные данные пользователя по внутреннему id (issue #455) — источник для
+ * GET /api/me/personal и дельта-фильтра POST /api/me/personal/request.
+ * getUserProfileById для этого не годится: он не тянет email/first_name/last_name.
+ * birth_date приводится к строке YYYY-MM-DD (колонка DATE). null, если юзера нет.
+ */
+export async function getPersonalDataById(userId: number): Promise<PersonalData | null> {
+  await ensureReady();
+  const res = await getPool().query<PersonalData>(
+    `SELECT username, email, first_name, last_name,
+            to_char(birth_date, 'YYYY-MM-DD') AS birth_date, sex
+     FROM users WHERE id = $1`,
+    [userId],
+  );
+  return res.rows[0] ?? null;
+}
+
 /** Пол пользователя по внутреннему id (issue #447). Дефолт 'unknown', если строки нет. */
 export async function getUserSex(userId: number): Promise<'male' | 'female' | 'unknown'> {
   await ensureReady();

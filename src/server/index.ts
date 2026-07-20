@@ -61,6 +61,8 @@ export {
   handleSaveMyPhone,
   handleGetMySafety,
   handleSaveMySafety,
+  handleGetMyPersonal,
+  handleRequestPersonalChange,
   handleSendPhoneVerificationCode,
   handleVerifyPhoneCode,
   handleGetMyCredentials,

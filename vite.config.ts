@@ -181,6 +181,43 @@ function mockApiPlugin() {
       // «юзер дошёл до бота» и через ~6с переводит в true — так тестируется
       // поллинг перехода в «Telegram подключён» без реального бота.
       let mockTgLinked = false;
+      // Личные данные профиля (#455): источник GET /me/personal и база дельта-
+      // фильтра POST /me/personal/request. Пол берётся из mockSafety.sex (в реале
+      // sex живёт в users.sex и пишется через PUT /me/safety).
+      let mockPersonal: {
+        username: string | null;
+        email: string | null;
+        first_name: string | null;
+        last_name: string | null;
+        birth_date: string | null;
+      } = {
+        username: 'mightyxander',
+        email: 'me@yaride.dev',
+        first_name: 'Тест',
+        last_name: 'Пользователь',
+        birth_date: '1994-03-15',
+      };
+      // Активная заявка на изменение (#455). POST заменяет прежнюю (как реальный
+      // createOrReplacePendingRequest); null = заявки нет.
+      let mockPending: { id: number; payload: Record<string, unknown>; status: string; created_at: string } | null = null;
+      let mockPendingSeq = 5000;
+      // Зарезервированные «занятые» ник/email — имитируют чужой аккаунт → 409.
+      const MOCK_TAKEN_USERNAME = 'taken_user';
+      const MOCK_TAKEN_EMAIL = 'taken@yaride.dev';
+      const normalizeBirthDateMock = (raw: string): string | null => {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+        if (m === null) return null;
+        const year = Number(m[1]);
+        const month = Number(m[2]);
+        const day = Number(m[3]);
+        const dt = new Date(Date.UTC(year, month - 1, day));
+        if (dt.getUTCFullYear() !== year || dt.getUTCMonth() !== month - 1 || dt.getUTCDate() !== day) return null;
+        const now = new Date();
+        if (dt.getTime() > now.getTime()) return null;
+        const oldest = Date.UTC(now.getUTCFullYear() - 120, now.getUTCMonth(), now.getUTCDate());
+        if (dt.getTime() < oldest) return null;
+        return `${m[1]}-${m[2]}-${m[3]}`;
+      };
       const normalizeRuPhoneMock = (raw: string): string | null => {
         const digits = String(raw).replace(/\D/g, '');
         let national: string;
@@ -745,6 +782,90 @@ function mockApiPlugin() {
               sex: (p.sex === 'male' || p.sex === 'female' || p.sex === 'unknown') ? p.sex : mockSafety.sex,
             };
             sendJson(mockSafety);
+          });
+          return;
+        }
+
+        // GET /api/me/personal — личные данные + активная заявка (#455).
+        if (method === 'GET' && pathname === '/me/personal') {
+          sendJson({
+            personal: { ...mockPersonal, sex: mockSafety.sex },
+            pendingRequest: mockPending,
+          });
+          return;
+        }
+
+        // POST /api/me/personal/request — заявка на изменение (#455). Валидация
+        // формата → дельта-фильтр (поля, равные текущим, отбрасываются) → пустая
+        // дельта 400 → занятость username/email 409 → создать/заменить pending.
+        if (method === 'POST' && pathname === '/me/personal/request') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            let parsed: unknown = {};
+            try { parsed = JSON.parse(body || '{}'); } catch { parsed = {}; }
+            const p: Record<string, unknown> =
+              typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+                ? (parsed as Record<string, unknown>)
+                : {};
+            const cur = { ...mockPersonal, sex: mockSafety.sex };
+            const delta: Record<string, unknown> = {};
+
+            if ('username' in p) {
+              if (typeof p.username !== 'string' || p.username.trim() === '') { sendJson({ error: 'Ник не может быть пустым', field: 'username' }, 400); return; }
+              const v = p.username.trim();
+              if (v.toLowerCase() !== (cur.username ?? '').toLowerCase()) delta.username = v;
+            }
+            if ('email' in p) {
+              if (typeof p.email !== 'string' || !EMAIL_RE.test(p.email.trim())) { sendJson({ error: 'Введите корректный email', field: 'email' }, 400); return; }
+              const v = p.email.trim();
+              if (v.toLowerCase() !== (cur.email ?? '').toLowerCase()) delta.email = v;
+            }
+            if ('first_name' in p) {
+              if (typeof p.first_name !== 'string' || p.first_name.trim() === '') { sendJson({ error: 'Имя не может быть пустым', field: 'first_name' }, 400); return; }
+              const v = p.first_name.trim();
+              if (v !== (cur.first_name ?? '')) delta.first_name = v;
+            }
+            if ('last_name' in p) {
+              if (typeof p.last_name !== 'string' || p.last_name.trim() === '') { sendJson({ error: 'Фамилия не может быть пустой', field: 'last_name' }, 400); return; }
+              const v = p.last_name.trim();
+              if (v !== (cur.last_name ?? '')) delta.last_name = v;
+            }
+            if ('birth_date' in p) {
+              const raw = p.birth_date;
+              if (raw === null) {
+                if (cur.birth_date !== null) delta.birth_date = null;
+              } else if (typeof raw === 'string') {
+                const bd = normalizeBirthDateMock(raw.trim());
+                if (bd === null) { sendJson({ error: 'Некорректная дата рождения', field: 'birth_date' }, 400); return; }
+                if (bd !== cur.birth_date) delta.birth_date = bd;
+              } else {
+                sendJson({ error: 'Некорректная дата рождения', field: 'birth_date' }, 400); return;
+              }
+            }
+            if ('sex' in p) {
+              const s = p.sex;
+              if (s !== 'male' && s !== 'female' && s !== 'unknown') { sendJson({ error: 'Некорректный пол', field: 'sex' }, 400); return; }
+              if (s !== cur.sex) delta.sex = s;
+            }
+
+            if (Object.keys(delta).length === 0) { sendJson({ error: 'Нет изменений', code: 'empty_delta' }, 400); return; }
+
+            if (typeof delta.username === 'string') {
+              const un = delta.username.toLowerCase();
+              if (un === MOCK_TAKEN_USERNAME || mockAuthUsers.some((u) => u.username.toLowerCase() === un)) {
+                sendJson({ error: 'Этот ник уже занят', code: 'username_taken', field: 'username' }, 409); return;
+              }
+            }
+            if (typeof delta.email === 'string') {
+              const em = delta.email.toLowerCase();
+              if (em === MOCK_TAKEN_EMAIL || mockAuthUsers.some((u) => u.email.toLowerCase() === em)) {
+                sendJson({ error: 'Такой email уже зарегистрирован', code: 'email_taken', field: 'email' }, 409); return;
+              }
+            }
+
+            mockPending = { id: mockPendingSeq++, payload: delta, status: 'pending', created_at: new Date().toISOString() };
+            sendJson({ request: mockPending });
           });
           return;
         }

@@ -38,6 +38,8 @@ try {
     verifyPhoneCode: mod.handleVerifyPhoneCode,
     getMySafety: mod.handleGetMySafety,
     saveMySafety: mod.handleSaveMySafety,
+    getMyPersonal: mod.handleGetMyPersonal,
+    requestPersonalChange: mod.handleRequestPersonalChange,
     getMyCredentials: mod.handleGetMyCredentials,
     addMyCredentials: mod.handleAddMyCredentials,
     linkMyAccount: mod.handleLinkMyAccount,
@@ -277,6 +279,9 @@ app.post('/api/me/phone/verify-code', wrap(api?.verifyPhoneCode));
 // Issue #344: настройки безопасности + доверенный контакт (срез 1 из #323).
 app.get('/api/me/safety', wrap(api?.getMySafety));
 app.put('/api/me/safety', wrap(api?.saveMySafety));
+// Issue #455: личные данные профиля + заявка на изменение (pending до одобрения #457).
+app.get('/api/me/personal', wrap(api?.getMyPersonal));
+app.post('/api/me/personal/request', wrap(api?.requestPersonalChange));
 app.get('/api/me/credentials', wrap(api?.getMyCredentials));
 app.post('/api/me/credentials', wrap(api?.addMyCredentials));
 app.post('/api/me/link-account', wrap(api?.linkMyAccount));
