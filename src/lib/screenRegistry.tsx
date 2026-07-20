@@ -138,6 +138,7 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
   main: (ctx) => (
     <MainScreen
       trips={ctx.mainDirection === 'morning' ? ctx.morningTrips : ctx.eveningTrips}
+      direction={ctx.mainDirection}
       title={ctx.mainDirection === 'morning' ? 'Брагино → Центр' : 'Центр → Брагино'}
       subtitle={
         ctx.mainDirection === 'morning'
@@ -288,6 +289,7 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
   'evening-main': (ctx) => (
     <MainScreen
       trips={ctx.eveningTrips}
+      direction="evening"
       title="Центр → Брагино"
       subtitle={formatSubtitle('вечер 17:30–19:00')}
       heroKicker={`${dayWord(ctx.selectedDate)} домой`}
