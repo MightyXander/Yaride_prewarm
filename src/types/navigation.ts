@@ -26,6 +26,7 @@ export type Screen =
   | 'user-profile'
   | 'notifications'
   | 'my-cars'
+  | 'personal-data'
   | 'add-car'
   | 'my-alerts';
 

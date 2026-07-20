@@ -59,6 +59,7 @@ export const SCREEN_TO_TAB: Record<Screen, NavTabRoot | 'notifications' | null> 
   'become-driver': 'profile',
   'license-review': 'profile',
   'my-cars': 'profile',
+  'personal-data': 'profile',
   safety: 'profile',
   'passenger-request': 'main',
   'request-published': 'main',

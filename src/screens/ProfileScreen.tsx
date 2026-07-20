@@ -5,7 +5,6 @@ import Header from '../components/Header';
 import EmailLoginSection from '../components/EmailLoginSection';
 import TelegramLinkSection from '../components/TelegramLinkSection';
 import ThemeModeSheet from '../components/ThemeModeSheet';
-import PersonalDataSection from '../components/PersonalDataSection';
 import type { ThemeMode } from '../hooks/useTheme';
 import { useProfile } from '../contexts/ProfileContext';
 import { useScreenData } from '../hooks/useScreenData';
@@ -28,6 +27,8 @@ interface ProfileScreenProps {
   onSafety?: () => void;
   /** Открыть экран «Мои поездки» (экран 17). */
   onMyTrips?: () => void;
+  /** Открыть экран «Личные данные». */
+  onPersonalData?: () => void;
   /** Открыть экран «Мои машины» / добавление машины. */
   onMyCars?: () => void;
   /** Открыть экран «Мои заявки» (активные заявки на маршрут, issue #321). */
@@ -135,7 +136,7 @@ const THEME_MODE_LABEL: Record<ThemeMode, string> = {
   system: 'Авто',
 };
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onMyAlerts, themeMode = 'system', onSetThemeMode, theme, onOpenProfile, onLogout }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicenseReview, onSafety, onMyTrips, onMyCars, onMyAlerts, onPersonalData, themeMode = 'system', onSetThemeMode, theme, onOpenProfile, onLogout }) => {
   const { profile, loading, needsTelegram, refetch } = useProfile();
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
 
@@ -276,6 +277,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
       {/* Меню одной карточкой */}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <MenuRow
+          onClick={onPersonalData}
+          icon={<svg viewBox="0 0 24 24" style={navIconStyle}><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" /></svg>}
+          label="Личные данные"
+        />
+        <MenuRow
           onClick={onMyTrips}
           icon={<svg viewBox="0 0 24 24" style={navIconStyle}><path d="M4 3h16v18l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3L4 21z" /><path d="M8 8h8M8 12h8M8 16h4" /></svg>}
           label="Мои поездки"
@@ -360,7 +366,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBecomeDriver, onLicense
         aside={
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {identityCard}
-            <PersonalDataSection />
           </div>
         }
         main={sections}

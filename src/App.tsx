@@ -80,7 +80,7 @@ const PINNED_WATCHDOG_MS = 400;
 const PINNED_WATCHDOG_MAX_REARMS = 5;
 
 // Экраны, где показываем плавающую навигацию (и резервируем под неё место).
-const NAV_VISIBLE_SCREENS: Screen[] = ['main', 'main-more', 'trip-details', 'profile', 'evening-main', 'user-profile', 'my-trips', 'my-cars', 'my-alerts', 'safety', 'passenger-request'];
+const NAV_VISIBLE_SCREENS: Screen[] = ['main', 'main-more', 'trip-details', 'profile', 'evening-main', 'user-profile', 'my-trips', 'my-cars', 'my-alerts', 'safety', 'passenger-request', 'personal-data'];
 // BackButton скрываем на «главных» (списки поездок), корневых разделах карусели
 // (уведомления/профиль — достижимы табами, «назад» некуда) и веб-флоу авторизации.
 const NO_BACK_BUTTON_SCREENS: Screen[] = ['auth-gate', 'intro', 'main', 'main-more', 'evening-main', 'notifications', 'profile'];

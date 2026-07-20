@@ -38,6 +38,7 @@ export const PARENT_SCREEN: Record<Screen, Screen> = {
   'user-profile': 'main',
   notifications: 'main',
   'my-cars': 'profile',
+  'personal-data': 'profile',
   'add-car': 'driver-publish',
   'my-alerts': 'profile',
 };
@@ -61,6 +62,7 @@ const SCREEN_TAB: Partial<Record<Screen, TabRoot>> = {
   // обратное: свой раздел — карусель, чужой — микро-слайд.
   'my-trips': 'profile',
   'my-cars': 'profile',
+  'personal-data': 'profile',
   'my-alerts': 'profile',
   safety: 'profile',
 };
@@ -105,6 +107,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       'user-profile': 0,
       notifications: 0,
       'my-cars': 0,
+      'personal-data': 0,
       'add-car': 0,
       'my-alerts': 0,
     },

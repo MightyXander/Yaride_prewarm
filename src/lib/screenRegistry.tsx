@@ -20,6 +20,7 @@ const UserProfileScreen = lazy(() => import('../screens/UserProfileScreen'));
 const NotificationsScreen = lazy(() => import('../screens/NotificationsScreen'));
 const AddCarScreen = lazy(() => import('../screens/AddCarScreen'));
 const MyCarsScreen = lazy(() => import('../screens/MyCarsScreen'));
+const PersonalDataScreen = lazy(() => import('../screens/PersonalDataScreen'));
 const MyAlertsScreen = lazy(() => import('../screens/MyAlertsScreen'));
 const AuthGateScreen = lazy(() => import('../screens/AuthGateScreen'));
 const LoginScreen = lazy(() => import('../screens/LoginScreen'));
@@ -237,6 +238,7 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       onLicenseReview={() => ctx.navigate('license-review')}
       onSafety={() => ctx.navigate('safety')}
       onMyTrips={() => ctx.navigate('my-trips')}
+      onPersonalData={() => ctx.navigate('personal-data')}
       onMyCars={() => ctx.navigate('my-cars')}
       onMyAlerts={() => ctx.navigate('my-alerts')}
       themeMode={ctx.themeMode}
@@ -321,6 +323,7 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
     ) : null,
   notifications: (ctx) => <NotificationsScreen onNavigate={ctx.handleNotificationNavigate} />,
   'my-cars': (ctx) => <MyCarsScreen onAddCar={() => ctx.navigate('add-car', null, undefined, undefined, 'my-cars')} />,
+  'personal-data': () => <PersonalDataScreen />,
   'add-car': (ctx) => <AddCarScreen onSaved={ctx.goBack} />,
   'my-alerts': (ctx) => (
     <MyAlertsScreen
