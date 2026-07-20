@@ -222,7 +222,10 @@ function FloatingNavBar({
   const driveCaret = useCallback(
     (slot: number | null) => {
       if (slot === null) {
-        caretSlotRef.current = bellActive ? 0 : current + 1;
+        // Settled-позицию проставляет рендер через свежий settledSlot (при release
+        // scrubActive=false и isDragging=false, ветка caretSlotRef в рендере не
+        // читается). Вычислять её здесь по замкнутым bellActive/current нельзя —
+        // stale closure давал неверную стартовую позицию и видимый отскок (#453).
         labelSlotRef.current = null;
         setDragSlot(null);
         return;
@@ -236,7 +239,7 @@ function FloatingNavBar({
         setDragSlot(s);
       }
     },
-    [bellActive, current]
+    []
   );
 
   // App драйвит каретку через этот ref во время свайпа экрана и доводки (в т.ч. pinned).
