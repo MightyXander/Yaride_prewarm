@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import quote
 
 import psycopg
 from passlib.context import CryptContext
@@ -160,6 +161,9 @@ def dashboard(request: Request, admin: str = Depends(require_login)):
         pending = conn.execute(
             "SELECT COUNT(*) FROM license_requests WHERE status='pending'"
         ).fetchone()[0]
+        pending_profiles = conn.execute(
+            "SELECT COUNT(*) FROM profile_change_requests WHERE status='pending'"
+        ).fetchone()[0]
     return render(
         request,
         "dashboard.html",
@@ -170,6 +174,7 @@ def dashboard(request: Request, admin: str = Depends(require_login)):
             "trips_total": trips_total,
             "bookings": bookings,
             "pending_drivers": pending,
+            "pending_profiles": pending_profiles,
         },
     )
 
@@ -227,6 +232,145 @@ def _review_license(req_id: int, req_status: str, user_status: str, reviewer: st
             (req_status, reviewer, req_id),
         )
         conn.execute("UPDATE users SET license_status=%s WHERE id=%s", (user_status, driver_id))
+
+
+# --- Запросы на изменения данных профиля (issue #457) --------------------------
+# Поля личных данных, которые пользователь может запросить к изменению; порядок
+# определяет отображение в карточке заявки.
+_PROFILE_FIELDS = ("username", "email", "first_name", "last_name", "birth_date", "sex")
+_PROFILE_FIELD_LABELS = {
+    "username": "Логин",
+    "email": "Email",
+    "first_name": "Имя",
+    "last_name": "Фамилия",
+    "birth_date": "Дата рождения",
+    "sex": "Пол",
+}
+_SEX_LABELS = {"male": "Мужской", "female": "Женский", "unknown": "Не указан"}
+
+
+def _fmt_profile_value(field: str, value) -> str:
+    if value is None or value == "":
+        return "—"
+    if field == "sex":
+        return _SEX_LABELS.get(value, str(value))
+    return str(value)
+
+
+@app.get("/admin/profile-requests", response_class=HTMLResponse)
+def profile_requests(
+    request: Request,
+    error: str | None = None,
+    msg: str | None = None,
+    admin: str = Depends(require_login),
+):
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT pcr.id, pcr.user_id, pcr.payload, pcr.created_at,
+                   u.username, u.email, u.first_name, u.last_name, u.birth_date, u.sex
+            FROM profile_change_requests pcr
+            JOIN users u ON u.id = pcr.user_id
+            WHERE pcr.status = 'pending'
+            ORDER BY pcr.created_at ASC
+            """
+        ).fetchall()
+    items = []
+    for r in rows:
+        (req_id, user_id, payload, created_at,
+         username, email, first_name, last_name, birth_date, sex) = r
+        current = {
+            "username": username, "email": email,
+            "first_name": first_name, "last_name": last_name,
+            "birth_date": birth_date, "sex": sex,
+        }
+        payload = payload if isinstance(payload, dict) else {}
+        changes = [
+            {
+                "label": _PROFILE_FIELD_LABELS[f],
+                "current": _fmt_profile_value(f, current.get(f)),
+                "requested": _fmt_profile_value(f, payload[f]),
+            }
+            for f in _PROFILE_FIELDS
+            if f in payload
+        ]
+        items.append({
+            "req_id": req_id, "user_id": user_id,
+            "username": username, "email": email,
+            "first_name": first_name, "last_name": last_name,
+            "created_at": created_at, "changes": changes,
+        })
+    return render(
+        request, "profile_requests.html", active="profile_requests",
+        items=items, pending_count=len(items), error=error, msg=msg,
+    )
+
+
+@app.post("/admin/profile-requests/{req_id}/approve")
+def profile_request_approve(request: Request, req_id: int, admin: str = Depends(require_login)):
+    err = _apply_profile_request(req_id, admin)
+    if err:
+        return RedirectResponse(f"/admin/profile-requests?error={quote(err)}", status_code=303)
+    return RedirectResponse("/admin/profile-requests", status_code=303)
+
+
+@app.post("/admin/profile-requests/{req_id}/reject")
+def profile_request_reject(
+    request: Request,
+    req_id: int,
+    reason: str = Form(""),
+    admin: str = Depends(require_login),
+):
+    _reject_profile_request(req_id, admin, reason)
+    return RedirectResponse("/admin/profile-requests", status_code=303)
+
+
+def _apply_profile_request(req_id: int, reviewer: str) -> str | None:
+    """Применить одобренную заявку к users в одной транзакции.
+
+    UPDATE только присутствующих в payload полей. При нарушении UNIQUE
+    (username/email занят) — откат и возврат текста ошибки; users не меняется.
+    """
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT user_id, payload FROM profile_change_requests"
+            " WHERE id = %s AND status = 'pending'",
+            (req_id,),
+        ).fetchone()
+        if not row:
+            return None
+        user_id, payload = row
+        payload = payload if isinstance(payload, dict) else {}
+        sets, vals = [], []
+        for f in _PROFILE_FIELDS:
+            if f in payload:
+                sets.append(f"{f} = %s")
+                vals.append(payload[f])
+        try:
+            with conn.transaction():
+                if sets:
+                    conn.execute(
+                        f"UPDATE users SET {', '.join(sets)} WHERE id = %s",
+                        (*vals, user_id),
+                    )
+                conn.execute(
+                    "UPDATE profile_change_requests SET status='approved',"
+                    " reviewed_at=now(), reviewer=%s, reject_reason=NULL WHERE id=%s",
+                    (reviewer, req_id),
+                )
+        except psycopg.errors.UniqueViolation:
+            return "Не удалось одобрить: логин или email уже заняты другим пользователем."
+    return None
+
+
+def _reject_profile_request(req_id: int, reviewer: str, reason: str) -> None:
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE profile_change_requests SET status='rejected',"
+            " reviewed_at=now(), reviewer=%s, reject_reason=%s"
+            " WHERE id=%s AND status='pending'",
+            (reviewer, reason or None, req_id),
+        )
 
 
 @app.get("/admin/users", response_class=HTMLResponse)

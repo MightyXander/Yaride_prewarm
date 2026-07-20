@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Запросы на изменение профиля — Yaride Admin{% endblock %}
+{% block content %}
+<h1>Запросы на изменение данных профиля <small>ожидают: {{ pending_count }}</small></h1>
+{% for u in items %}
+<div class="card req">
+    <div class="req-head">
+        <strong>#{{ u.user_id }}</strong>
+        {{ u.username or '—' }}
+        {% if u.first_name or u.last_name %}<span>({{ u.first_name or '' }} {{ u.last_name or '' }})</span>{% endif %}
+        {% if u.email %}<span>{{ u.email }}</span>{% endif %}
+        <span class="muted">заявка #{{ u.req_id }}, {{ u.created_at }}</span>
+    </div>
+    <table>
+        <thead>
+            <tr><th>Поле</th><th>Текущее</th><th>Запрошенное</th></tr>
+        </thead>
+        <tbody>
+        {% for c in u.changes %}
+            <tr>
+                <td>{{ c.label }}</td>
+                <td>{{ c.current }}</td>
+                <td><strong>{{ c.requested }}</strong></td>
+            </tr>
+        {% else %}
+            <tr><td colspan="3" class="empty">Пустая дельта.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <div class="actions">
+        <form method="post" action="/admin/profile-requests/{{ u.req_id }}/approve" style="display:inline">
+            <button class="btn ok" type="submit">Одобрить</button>
+        </form>
+        <form method="post" action="/admin/profile-requests/{{ u.req_id }}/reject" style="display:inline">
+            <input type="text" name="reason" placeholder="Причина отклонения">
+            <button class="btn danger" type="submit">Отклонить</button>
+        </form>
+    </div>
+</div>
+{% else %}
+<p class="empty">Нет заявок на модерации.</p>
+{% endfor %}
+{% endblock %}

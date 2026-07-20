@@ -11,5 +11,9 @@
         <div class="num">{{ stats.pending_drivers }}</div>
         <div class="lbl"><a href="/admin/drivers/pending">Заявки ВУ на модерации</a></div>
     </div>
+    <div class="card{% if stats.pending_profiles %} warn{% endif %}">
+        <div class="num">{{ stats.pending_profiles }}</div>
+        <div class="lbl"><a href="/admin/profile-requests">Запросы на изменение профиля</a></div>
+    </div>
 </div>
 {% endblock %}
