@@ -7,6 +7,7 @@ import {
   PasswordField,
   ButtonSpinner,
   AuthError,
+  authLabelStyle,
 } from '../components/AuthKit';
 import { hapticImpact } from '../lib/haptics';
 import { ApiException } from '../lib/api';
@@ -24,6 +25,8 @@ export interface RegisterPayload {
   password: string;
   /** Пол (issue #447): обязателен, только male/female. */
   sex: 'male' | 'female';
+  /** Дата рождения (issue #456): YYYY-MM-DD, необязательна при регистрации. */
+  birthDate?: string;
   /** Согласие на новости и акции (необязательное). */
   news: boolean;
 }
@@ -92,6 +95,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
   const [consent, setConsent] = useState(false);
   const [news, setNews] = useState(false);
   const [sex, setSex] = useState<'' | 'male' | 'female'>('');
+  const [birthDate, setBirthDate] = useState('');
+  const birthDateId = useId();
 
   const [usernameError, setUsernameError] = useState<string | undefined>();
   const [emailError, setEmailError] = useState<string | undefined>();
@@ -156,6 +161,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
         email: email.trim(),
         password,
         sex: sex as 'male' | 'female',
+        birthDate: birthDate || undefined,
         news,
       });
       // Успех — App уводит дальше (компонент размонтируется).
@@ -267,6 +273,30 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSubmit, onLogin }) =>
           }}
           error={passwordError}
         />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+          <label htmlFor={birthDateId} style={authLabelStyle}>Дата рождения</label>
+          <input
+            id={birthDateId}
+            className="focus-ring"
+            type="date"
+            autoComplete="bday"
+            value={birthDate}
+            max={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setBirthDate(e.target.value)}
+            style={{
+              height: '52px',
+              borderRadius: '14px',
+              border: '1.5px solid var(--field-border)',
+              background: 'var(--field)',
+              color: 'var(--foreground)',
+              padding: '0 16px',
+              fontSize: '15px',
+              fontFamily: 'var(--font-sans)',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
 
         <GenderSelect
           value={sex}

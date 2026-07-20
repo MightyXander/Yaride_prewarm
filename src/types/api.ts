@@ -592,6 +592,8 @@ export interface RegisterRequest {
   marketingConsentVersion?: string;
   /** Пол (issue #447): обязателен при веб-регистрации, только male/female. */
   sex: 'male' | 'female';
+  /** Дата рождения (issue #456): YYYY-MM-DD, необязательна при регистрации. */
+  birthDate?: string;
 }
 
 export interface LoginRequest {
@@ -640,4 +642,47 @@ export interface ApiErrorResponse {
   /** Машинно-различимый код (напр. email_taken, username_taken, invalid_credentials). */
   code?: string;
   [key: string]: unknown;
+}
+
+/* --------------------------- Личные данные (#456) --------------------------- */
+
+/** Личные данные пользователя из GET /api/me/personal (issue #456). */
+export interface PersonalData {
+  username: string | null;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  /** Дата рождения в формате YYYY-MM-DD. */
+  birth_date: string | null;
+  sex: Sex;
+}
+
+/** Активная заявка на изменение личных данных (payload — частичная дельта). */
+export interface PersonalChangeRequest {
+  id: number;
+  payload: Partial<PersonalData>;
+  status: 'pending';
+  created_at: string;
+}
+
+/** GET /api/me/personal — личные данные + активная заявка (или null). */
+export interface GetMyPersonalResponse {
+  personal: PersonalData;
+  pendingRequest: PersonalChangeRequest | null;
+}
+
+/** POST /api/me/personal/request — тело: частичная дельта (бэк сам вычислит изменения). */
+export interface PersonalChangeRequestBody {
+  username?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  /** null — сброс даты рождения. */
+  birth_date?: string | null;
+  sex?: Sex;
+}
+
+/** POST /api/me/personal/request → { request }. */
+export interface RequestPersonalChangeResponse {
+  request: PersonalChangeRequest;
 }

@@ -44,6 +44,7 @@ export function useAuthHandlers({ gateContext, userRole, navigate, setAuthed, se
       firstName: payload.firstName,
       lastName: payload.lastName,
       sex: payload.sex,
+      birthDate: payload.birthDate,
       pdnConsent: true,
       pdnConsentVersion: POLICY_VERSION,
       marketingConsent: payload.news,

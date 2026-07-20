@@ -63,6 +63,9 @@ import type {
   LinkAccountResponse,
   ApiErrorResponse,
   CreateTelegramLinkTokenResponse,
+  GetMyPersonalResponse,
+  PersonalChangeRequestBody,
+  RequestPersonalChangeResponse,
 } from '../types/api.ts';
 
 const API_BASE = '/api';
@@ -248,6 +251,25 @@ export async function saveMySafety(params: SaveMySafetyRequest): Promise<SaveMyS
   return apiFetch<SaveMySafetyResponse>('/me/safety', {
     method: 'PUT',
     body: JSON.stringify(params),
+  });
+}
+
+/** GET /api/me/personal — личные данные + активная заявка на изменение (issue #456). */
+export async function getMyPersonal(): Promise<GetMyPersonalResponse> {
+  return apiFetch<GetMyPersonalResponse>('/me/personal');
+}
+
+/**
+ * POST /api/me/personal/request — заявка на изменение личных данных (issue #456).
+ * Тело — частичная дельта (можно слать всю форму, бэк отфильтрует неизменённые поля).
+ * Возможные ошибки: 400 { field } / 400 { code: 'empty_delta' } / 409 { code, field }.
+ */
+export async function requestPersonalChange(
+  fields: PersonalChangeRequestBody,
+): Promise<RequestPersonalChangeResponse> {
+  return apiFetch<RequestPersonalChangeResponse>('/me/personal/request', {
+    method: 'POST',
+    body: JSON.stringify(fields),
   });
 }
 
