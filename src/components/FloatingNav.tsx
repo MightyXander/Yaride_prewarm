@@ -91,9 +91,6 @@ export const FLOATING_NAV_CONTENT_PADDING = `calc(env(safe-area-inset-bottom, 0p
  * доскролливался ВЫШЕ навбара, а не оставался под ним. */
 export const FLOATING_NAV_SCROLL_CLEARANCE = `calc(${FLOATING_NAV_HEIGHT} + 40px)`;
 
-// Порог горизонтали (px) для старта drag каретки без hold — сразу «свайпаешь» по навбару.
-const DRAG_ACTIVATION_PX = 6;
-
 interface FloatingNavProps {
   currentScreen: Screen;
   onNavigate: (root: NavTabRoot) => void;
@@ -103,10 +100,6 @@ interface FloatingNavProps {
   scrubActive?: boolean;
   /** App пишет сюда драйвер каретки: slot 0..2, либо null — отпустить в settled. */
   caretDriveRef?: { current: ((slot: number | null) => void) | null };
-  /** Drag каретки скрабит экраны: репорт дробной позиции в слотах на каждый move. */
-  onCaretScrub?: (slotFraction: number) => void;
-  /** Каретка отпущена (cancelled — жест отменён/сорван): App решает commit/откат. */
-  onCaretScrubEnd?: (cancelled: boolean) => void;
 }
 
 function FloatingNavBar({
@@ -115,104 +108,25 @@ function FloatingNavBar({
   onNotificationsClick,
   scrubActive = false,
   caretDriveRef,
-  onCaretScrub,
-  onCaretScrubEnd,
 }: {
   activeTab: NavTabRoot | 'notifications';
   onNavigate: (root: NavTabRoot) => void;
   onNotificationsClick: () => void;
   scrubActive?: boolean;
   caretDriveRef?: { current: ((slot: number | null) => void) | null };
-  onCaretScrub?: (slotFraction: number) => void;
-  onCaretScrubEnd?: (cancelled: boolean) => void;
 }) {
   // На экране уведомлений активна подсветка колокола → pill уезжает в первую ячейку (current = -1).
   const bellActive = activeTab === 'notifications';
   const current = ITEMS.findIndex(({ root }) => root === activeTab);
   const prefersReduced = useReducedMotion();
 
-  // --- Drag каретки (touch & hold): pointerdown в области навбара + удержание ≥250мс без
-  // отпускания активирует drag-режим — каретка прыгает под палец и следует за ним по X;
-  // отпускание раньше активирует обычный клик (поведение не меняется). Слотов три: 0 = колокол,
-  // 1 = Поездки, 2 = Профиль (индекс совпадает с `current + 1`, который использует transform-формула ниже).
-  const navElRef = useRef<HTMLElement | null>(null);
   const caretRef = useRef<HTMLDivElement | null>(null);
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const [isDragging, setIsDragging] = useState(false);
-  // Ближайший слот в drag — state-зеркало lastSlotRef: подпись «следует за пальцем»
-  // (labelSlot ниже) требует ререндера при смене слота (issue #422).
+  // Слот с раскрытой подписью «следует за пальцем» при свайпе ЭКРАНА (issue #422):
+  // driveCaret зовёт setDragSlot при scrubActive — это требует локального ре-рендера навбара.
   const [dragSlot, setDragSlot] = useState<number | null>(null);
-
-  const pointerIdRef = useRef<number | null>(null);
-  const startPointerRef = useRef<{ x: number; y: number } | null>(null);
-  const dragBaseFracRef = useRef(0);
-  const dragStartFracRef = useRef(0);
-  const dragActiveRef = useRef(false);
-  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
-  const lastSlotRef = useRef<number | null>(null);
-  const suppressClickRef = useRef(false);
-
-  const getSlotElements = useCallback(
-    (): (HTMLButtonElement | null)[] => [bellRef.current, tabRefs.current[0] ?? null, tabRefs.current[1] ?? null],
-    []
-  );
-
-  const nearestSlot = useCallback(
-    (clientX: number): number => {
-      const slots = getSlotElements();
-      let best = 0;
-      let bestDist = Infinity;
-      slots.forEach((el, idx) => {
-        if (!el) return;
-        const rect = el.getBoundingClientRect();
-        const center = rect.left + rect.width / 2;
-        const dist = Math.abs(clientX - center);
-        if (dist < bestDist) {
-          bestDist = dist;
-          best = idx;
-        }
-      });
-      return best;
-    },
-    [getSlotElements]
-  );
-
-
-  // Непрерывная позиция пальца в слотах (0..2): линейная интерполяция между
-  // центрами слот-кнопок; за крайними центрами — зажим (края не зациклены).
-  // Питает onCaretScrub (скраб экранов) и labelSlot (подпись под кареткой).
-  const slotFractionForClientX = useCallback(
-    (clientX: number): number => {
-      const centers: number[] = [];
-      for (const el of getSlotElements()) {
-        if (!el) return lastSlotRef.current ?? 0;
-        const rect = el.getBoundingClientRect();
-        centers.push(rect.left + rect.width / 2);
-      }
-      if (clientX <= centers[0]) return 0;
-      if (clientX >= centers[centers.length - 1]) return centers.length - 1;
-      for (let i = 0; i < centers.length - 1; i++) {
-        if (clientX <= centers[i + 1]) {
-          return i + (clientX - centers[i]) / (centers[i + 1] - centers[i]);
-        }
-      }
-      return centers.length - 1;
-    },
-    [getSlotElements]
-  );
-
-  const navigateToSlot = useCallback(
-    (slot: number) => {
-      if (slot === 0) {
-        onNotificationsClick();
-      } else {
-        onNavigate(ITEMS[slot - 1].root);
-      }
-    },
-    [onNavigate, onNotificationsClick]
-  );
 
   // Позиция каретки — только через CSS-переменную --caret-slot (0..2): drag/скраб пишут
   // её императивно, без ре-рендера App на кадр (перф iOS/WKWebView). Лейбл (подпись под
@@ -223,7 +137,7 @@ function FloatingNavBar({
     (slot: number | null) => {
       if (slot === null) {
         // Settled-позицию проставляет рендер через свежий settledSlot (при release
-        // scrubActive=false и isDragging=false, ветка caretSlotRef в рендере не
+        // scrubActive=false, ветка caretSlotRef в рендере не
         // читается). Вычислять её здесь по замкнутым bellActive/current нельзя —
         // stale closure давал неверную стартовую позицию и видимый отскок (#453).
         labelSlotRef.current = null;
@@ -252,161 +166,10 @@ function FloatingNavBar({
   }, [caretDriveRef, driveCaret]);
 
 
-  // Полный сброс drag-состояния (issue #420, дефект B): осиротевший drag —
-  // pointerup/pointercancel не был доставлен — иначе оставляет каретку навечно
-  // в drag-позиции без transition, и переходы её больше не двигают.
-  const resetDragState = useCallback(() => {
-    // Активный drag срывается без pointerup (blur/скрытие вкладки) — откат скраба.
-    if (dragActiveRef.current) onCaretScrubEnd?.(true);
-    dragActiveRef.current = false;
-    lastSlotRef.current = null;
-    startPointerRef.current = null;
-    setIsDragging(false);
-    // На не-скраб экранах App каретку не ведёт — вернуть её в settled локально.
-    if (!onCaretScrubEnd) driveCaret(null);
-  }, [onCaretScrubEnd, driveCaret]);
-
-  // Страховка: браузер увёл фокус/вкладку посреди drag — pointerup уже не придёт.
-  useEffect(() => {
-    const onBlur = () => resetDragState();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') resetDragState();
-    };
-    window.addEventListener('blur', onBlur);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      window.removeEventListener('blur', onBlur);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [resetDragState]);
-
-  const handleNavPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLElement>) => {
-      if (!e.isPrimary) return;
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      // Осиротевший drag от предыдущего пойнтера (up/cancel не доставлен) —
-      // полный сброс ДО начала новой сессии, иначе isDragging/dragFraction залипают.
-      if (dragActiveRef.current || isDragging) {
-        resetDragState();
-      }
-      pointerIdRef.current = e.pointerId;
-      startPointerRef.current = { x: e.clientX, y: e.clientY };
-      lastPointerRef.current = { x: e.clientX, y: e.clientY };
-      dragActiveRef.current = false;
-      // Без hold-таймера: drag активируется сразу по горизонтальному движению
-      // (порог DRAG_ACTIVATION_PX) в onPointerMove; тап без движения — обычный клик.
-    },
-    [isDragging, resetDragState]
-  );
-
-  const handleNavPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLElement>) => {
-      if (pointerIdRef.current !== e.pointerId) return;
-      lastPointerRef.current = { x: e.clientX, y: e.clientY };
-      // Активация drag: сразу по горизонтальному движению сверх порога (без hold).
-      if (!dragActiveRef.current) {
-        // reduced-motion (issue #430): drag каретки выключен — работает только клик.
-        if (prefersReduced) return;
-        const start = startPointerRef.current;
-        if (!start) return;
-        const dx = e.clientX - start.x;
-        const dy = e.clientY - start.y;
-        if (Math.abs(dx) < DRAG_ACTIVATION_PX || Math.abs(dx) <= Math.abs(dy)) return;
-        dragActiveRef.current = true;
-        try {
-          navElRef.current?.setPointerCapture(e.pointerId);
-        } catch {
-          /* capture недоступен — drag продолжит работать через bubbling */
-        }
-        // Дельта-модель (без скачка под палец): каретка стартует со своего слота и
-        // едет на дельту дробной позиции пальца от точки нажатия (issue #422).
-        // Во время pinned-доводки (issue #437) currentTab/current ещё старый — стартуем
-        // от текущей ВИЗУАЛЬНОЙ позиции каретки (caretSlotRef), иначе телепорт на current+1.
-        dragBaseFracRef.current = scrubActive ? caretSlotRef.current : bellActive ? 0 : current + 1;
-        dragStartFracRef.current = slotFractionForClientX(start.x);
-        setIsDragging(true);
-      }
-      const frac = Math.min(
-        2,
-        Math.max(0, dragBaseFracRef.current + (slotFractionForClientX(e.clientX) - dragStartFracRef.current))
-      );
-      const slot = Math.round(frac);
-      if (slot !== lastSlotRef.current) {
-        lastSlotRef.current = slot;
-        hapticSelection();
-      }
-      // Позицию/лейбл каретки ведёт App (во время скраба) либо локально driveCaret
-      // (на не-скраб экранах) — без setState на кадр (перф iOS/WKWebView).
-      if (onCaretScrub) onCaretScrub(frac);
-      else driveCaret(frac);
-    },
-    [bellActive, current, onCaretScrub, prefersReduced, scrubActive, slotFractionForClientX, driveCaret]
-  );
-
-  const endPointerSession = useCallback(
-    (e: React.PointerEvent<HTMLElement>, commit: boolean) => {
-      if (pointerIdRef.current !== e.pointerId) return;
-      const wasDragging = dragActiveRef.current;
-      if (wasDragging) {
-        const navEl = navElRef.current;
-        try {
-          navEl?.releasePointerCapture(e.pointerId);
-        } catch {
-          /* уже отпущен — не критично */
-        }
-        setIsDragging(false);
-        if (onCaretScrubEnd) {
-          // Live-scrub (issue #422): решение commit/откат принимает App по последней
-          // дробной позиции (settle → release каретки); сам слот здесь не навигируем.
-          suppressClickRef.current = true;
-          window.setTimeout(() => {
-            suppressClickRef.current = false;
-          }, 0);
-          if (commit) hapticImpact('light');
-          onCaretScrubEnd(!commit);
-        } else if (commit) {
-          const slot = lastSlotRef.current ?? nearestSlot(e.clientX);
-          suppressClickRef.current = true;
-          window.setTimeout(() => {
-            suppressClickRef.current = false;
-          }, 0);
-          hapticImpact('light');
-          driveCaret(null);
-          navigateToSlot(slot);
-        } else {
-          driveCaret(null);
-        }
-      }
-      dragActiveRef.current = false;
-      pointerIdRef.current = null;
-      startPointerRef.current = null;
-      lastPointerRef.current = null;
-      lastSlotRef.current = null;
-    },
-    [navigateToSlot, nearestSlot, onCaretScrubEnd, driveCaret]
-  );
-
-  const handleNavPointerUp = useCallback(
-    (e: React.PointerEvent<HTMLElement>) => endPointerSession(e, true),
-    [endPointerSession]
-  );
-
-  const handleNavPointerCancel = useCallback(
-    (e: React.PointerEvent<HTMLElement>) => endPointerSession(e, false),
-    [endPointerSession]
-  );
-
-  const handleNavClickCapture = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    if (suppressClickRef.current) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  }, []);
-
   // Слот с раскрытой подписью (issue #422): в drag/скрабе «фокус следует за
   // пальцем» — подпись только у слота под кареткой; settled — у активного, как раньше.
   const settledSlot = bellActive ? 0 : current + 1;
-  const labelSlot = (scrubActive || isDragging) && dragSlot !== null ? dragSlot : settledSlot;
+  const labelSlot = scrubActive && dragSlot !== null ? dragSlot : settledSlot;
 
   return (
     <div
@@ -440,13 +203,7 @@ function FloatingNavBar({
       />
       <div style={{ width: '20rem', maxWidth: 'calc(100% - 2rem)' }}>
         <nav
-          ref={navElRef}
           aria-label="Основная навигация"
-          onPointerDown={handleNavPointerDown}
-          onPointerMove={handleNavPointerMove}
-          onPointerUp={handleNavPointerUp}
-          onPointerCancel={handleNavPointerCancel}
-          onClickCapture={handleNavClickCapture}
           style={{
             pointerEvents: 'auto',
             position: 'relative',
@@ -465,9 +222,6 @@ function FloatingNavBar({
             boxShadow: '0 14px 40px -16px rgba(0, 0, 0, .45), 0 2px 8px -4px rgba(0, 0, 0, .25)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
-            // Без этого долгое удержание на навбаре может запустить нативный page-scroll/zoom
-            // до того, как активируется drag-режим каретки (навбар сам не скроллится).
-            touchAction: 'none',
           }}
         >
           {/* Скользящий индикатор brand-gradient — только для двух табов (Поездки/Профиль).
@@ -490,10 +244,10 @@ function FloatingNavBar({
                 background: 'var(--gradient-brand)',
                 boxShadow: '0 4px 14px -4px rgba(255, 210, 40, 0.55)',
                 willChange: 'transform',
-                ['--caret-slot']: String(scrubActive || isDragging ? caretSlotRef.current : settledSlot),
+                ['--caret-slot']: String(scrubActive ? caretSlotRef.current : settledSlot),
                 transform: 'translateX(calc(var(--caret-slot) * (100% + 0.25rem)))',
                 transition:
-                  scrubActive || isDragging || prefersReduced
+                  scrubActive || prefersReduced
                     ? 'none'
                     : 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
               } as CSSProperties
@@ -659,7 +413,7 @@ export function isNavVisibleForScreen(screen: Screen): boolean {
   return !HIDDEN_ON.includes(screen) && !!SCREEN_TO_TAB[screen];
 }
 
-export function FloatingNav({ currentScreen, onNavigate, onNotificationsClick, scrubActive, caretDriveRef, onCaretScrub, onCaretScrubEnd }: FloatingNavProps) {
+export function FloatingNav({ currentScreen, onNavigate, onNotificationsClick, scrubActive, caretDriveRef }: FloatingNavProps) {
   if (!isNavVisibleForScreen(currentScreen)) return null;
   const activeTab = SCREEN_TO_TAB[currentScreen];
   if (!activeTab) return null;
@@ -672,8 +426,6 @@ export function FloatingNav({ currentScreen, onNavigate, onNotificationsClick, s
       onNotificationsClick={onNotificationsClick}
       scrubActive={scrubActive}
       caretDriveRef={caretDriveRef}
-      onCaretScrub={onCaretScrub}
-      onCaretScrubEnd={onCaretScrubEnd}
     />,
     document.body
   );

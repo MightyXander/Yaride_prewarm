@@ -11,7 +11,7 @@ import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/Floating
 import { DesktopSidebar } from './components/DesktopSidebar';
 import { useNavigation } from './hooks/useNavigation';
 import { useMediaQuery } from './hooks/useMediaQuery';
-import { useTabSwipe, SWIPE_SCREENS, SCREEN_TAB, TAB_ORDER } from './hooks/useTabSwipe';
+import { useTabSwipe, SCREEN_TAB, TAB_ORDER } from './hooks/useTabSwipe';
 import { DESKTOP_BREAKPOINT, DESKTOP_MAX_PX, MOBILE_COLUMN_PX } from './lib/layout';
 import { useStartParam, hasStartParam } from './hooks/useStartParam';
 import { loadLastScreen, clearLastScreen, clearLegacyLastScreen } from './lib/lastScreen';
@@ -71,9 +71,6 @@ const TAB_ROOT_SCREEN: Record<TabRoot, Screen> = {
 
 // Базовая длительность доводки commit/отката прогресса после отпускания (мс).
 const SCRUB_SETTLE_MS = 200;
-
-// Окно усреднения скорости флика каретки навбара (мс) — как у свайпа (useTabSwipe).
-const CARET_VELOCITY_WINDOW_MS = 100;
 
 // Pinned-watchdog (#437, #440): период одной проверки и максимум повторных ожиданий,
 // пока отложенный (startTransition) currentScreen догоняет target. ~5×400мс ≈ 2с
@@ -364,8 +361,8 @@ function App() {
   // Экран, с которого начат скраб (может быть под-экраном раздела, напр. main-more):
   // strip рендерит его на слоте своего раздела, соседи — корневые экраны.
   const scrubOriginScreenRef = useRef<Screen>(currentScreen);
-  // Активный источник за раз: палец по экрану ИЛИ drag каретки.
-  const scrubSourceRef = useRef<'swipe' | 'caret' | null>(null);
+  // Активный источник скраба (issue #422): палец по ЭКРАНУ. null — скраба нет.
+  const scrubSourceRef = useRef<'swipe' | null>(null);
   // Новый swipe-жест начат (pointerdown) — handoff доводки делает первый move.
   const swipeGestureNewRef = useRef(false);
   // Базовый offset жеста (offset на первый move + пройденная за активацию доля).
@@ -392,7 +389,6 @@ function App() {
 
   const currentTab: TabRoot = SCREEN_TAB[currentScreen] ?? 'main';
   const currentSlot = TAB_ORDER.indexOf(currentTab);
-  const scrubEnabled = SWIPE_SCREENS.includes(currentScreen);
   // Зеркало последнего currentSlot для отложенного watchdog (его замыкание держит
   // устаревший currentScreen). Пишем в рендере — идемпотентно, всегда актуально.
   currentSlotRef.current = currentSlot;
@@ -580,12 +576,10 @@ function App() {
   // handoff (перехват доводки + базовый offset) делает первый активированный move —
   // тап идущую доводку не срывает.
   const handleSwipeGestureStart = useCallback(() => {
-    if (scrubSourceRef.current === 'caret') return;
     swipeGestureNewRef.current = true;
   }, []);
   const handleSwipeScrubMove = useCallback(
     (dxFraction: number) => {
-      if (scrubSourceRef.current === 'caret') return;
       if (swipeGestureNewRef.current) {
         swipeGestureNewRef.current = false;
         if (settleRafRef.current !== null) {
@@ -622,74 +616,6 @@ function App() {
     onScrubMove: handleSwipeScrubMove,
     onScrubEnd: handleSwipeScrubEnd,
   });
-
-  // Источник «drag каретки» (FloatingNav): абсолютная дробная позиция в слотах
-  // (0 — колокол, 1 — Поездки, 2 — Профиль) прямо в offset.
-  const lastCaretFractionRef = useRef(currentSlot);
-  // Окно скорости флика каретки (как у свайпа) — быстрый флик перекидывает на следующий
-  // слот даже при коротком пути (иначе Math.round «отскакивал» короткий быстрый флик назад).
-  const caretSamplesRef = useRef<Array<{ f: number; t: number }>>([]);
-  const handleCaretScrub = useCallback(
-    (fraction: number) => {
-      if (scrubSourceRef.current === 'swipe') return;
-      if (scrubSourceRef.current !== 'caret') {
-        if (settleRafRef.current !== null) {
-          cancelAnimationFrame(settleRafRef.current);
-          settleRafRef.current = null;
-        }
-        // Новый drag каретки перехватывает pinned-доводку (issue #437): снимаем
-        // pin/watchdog — иначе watchdog позже насильно сбросит offset посреди уже
-        // нового жеста. FloatingNav стартует drag от текущей визуальной позиции, скачка нет.
-        if (scrubOffsetRef.current === null) scrubOriginScreenRef.current = currentScreen;
-        clearPinned();
-        caretSamplesRef.current = [];
-        scrubSourceRef.current = 'caret';
-      }
-      lastCaretFractionRef.current = fraction;
-      const now = performance.now();
-      const samples = caretSamplesRef.current;
-      samples.push({ f: fraction, t: now });
-      while (samples.length > 1 && now - samples[0].t > CARET_VELOCITY_WINDOW_MS) samples.shift();
-      setScrubOffset(Math.min(2, Math.max(0, fraction)));
-    },
-    [currentScreen, clearPinned, setScrubOffset]
-  );
-  const handleCaretScrubEnd = useCallback(
-    (cancelled: boolean) => {
-      if (scrubSourceRef.current !== 'caret') return;
-      if (scrubOffsetRef.current === null) {
-        scrubSourceRef.current = null;
-        return;
-      }
-      const samples = caretSamplesRef.current;
-      caretSamplesRef.current = [];
-      if (cancelled) {
-        // Cancelled-жест (Telegram отобрал pointer, issue #439) доводим ВПЕРЁД к
-        // ближайшему слоту от последней известной позиции (не откат к currentSlot);
-        // фолбэк на currentSlot — только если позиция не finite.
-        const known = Number.isFinite(lastCaretFractionRef.current);
-        const target = known
-          ? Math.round(Math.min(2, Math.max(0, lastCaretFractionRef.current)))
-          : currentSlot;
-        settleTo(target);
-        return;
-      }
-      // Обычное отпускание: скорость флика по окну перекидывает на следующий слот даже
-      // при коротком пути (иначе Math.round «отскакивал» короткий быстрый флик назад).
-      let v = 0;
-      if (samples.length > 1) {
-        const first = samples[0];
-        const last = samples[samples.length - 1];
-        const span = last.t - first.t;
-        if (span > 0) v = (last.f - first.f) / span; // слот/мс, + к профилю (вперёд по offset)
-      }
-      settleFromRelease(v, false);
-    },
-    [currentSlot, settleTo, settleFromRelease]
-  );
-
-  // Каретка ↔ скраб: FloatingNav получает тот же непрерывный offset (слот == индекс
-  // раздела); в собственном drag каретки FloatingNav игнорирует scrubOffset (dragX главнее).
 
   // Strip живого скраба (issue #422): ПОВЕРХ карусели, 3 панели-раздела на translateX
   // (i − offset)·100%; позиция гоняется через refs (paneRefs) без ре-рендера. Keyed-экран
@@ -872,8 +798,6 @@ function App() {
             onNotificationsClick={() => navigateToTab('notifications')}
             scrubActive={scrubActive}
             caretDriveRef={caretDriveRef}
-            onCaretScrub={scrubEnabled ? handleCaretScrub : undefined}
-            onCaretScrubEnd={scrubEnabled ? handleCaretScrubEnd : undefined}
           />
         )}
       </div>
