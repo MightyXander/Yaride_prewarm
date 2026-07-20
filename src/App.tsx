@@ -72,6 +72,9 @@ const TAB_ROOT_SCREEN: Record<TabRoot, Screen> = {
 // Базовая длительность доводки commit/отката прогресса после отпускания (мс).
 const SCRUB_SETTLE_MS = 200;
 
+// Окно усреднения скорости флика каретки навбара (мс) — как у свайпа (useTabSwipe).
+const CARET_VELOCITY_WINDOW_MS = 100;
+
 // Pinned-watchdog (#437, #440): период одной проверки и максимум повторных ожиданий,
 // пока отложенный (startTransition) currentScreen догоняет target. ~5×400мс ≈ 2с
 // на медленный/голодающий рендер, затем — жёсткий ресинк (форс перехода на target,
@@ -312,12 +315,49 @@ function App() {
   // его же получает каретка навбара. Прерывание доводки новым жестом — продолжение
   // от текущего offset: без коммит-снапа и скачков, цепочки (край→центр→другой край)
   // бесшовны в обе стороны.
-  const [scrubOffset, setScrubOffsetState] = useState<number | null>(null);
   const scrubOffsetRef = useRef<number | null>(null);
-  const setScrubOffset = useCallback((v: number | null) => {
-    scrubOffsetRef.current = v;
-    setScrubOffsetState(v);
+  // scrubActive — идёт ли скраб (монтаж strip + скрытие keyed-экрана). Непрерывная
+  // ПОЗИЦИЯ (scrubOffsetRef) гоняется в DOM через refs — БЕЗ setState на кадр: раньше
+  // каждый кадр пере-рендерил тяжёлые деревья экранов (jank на iOS/WKWebView, ~24fps
+  // под нагрузкой). React-рендер теперь только на СТАРТ (монтаж strip) и ФИНИШ жеста.
+  const [scrubActive, setScrubActiveState] = useState(false);
+  const scrubActiveRef = useRef(false);
+  // Панели strip (по слоту 0..2) и императивный драйвер каретки навбара — пишем им
+  // transform напрямую, минуя React.
+  const paneRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const caretDriveRef = useRef<((slot: number | null) => void) | null>(null);
+  // Запись позиции скраба в DOM без ре-рендера: strip-панели + каретка навбара.
+  const applyScrubDom = useCallback((off: number) => {
+    scrubOffsetRef.current = off;
+    const panes = paneRefs.current;
+    for (const p of panes) {
+      if (!p) continue;
+      p.style.transform = `translateX(${(Number(p.dataset.slot) - off) * 100}%)`;
+    }
+    caretDriveRef.current?.(off);
   }, []);
+  // Совместимый со ВСЕЙ pin/watchdog-логикой (#437/#440) сеттер: число — позиция (актив
+  // + запись в DOM; setState лишь на первом кадре жеста, дальше только refs); null —
+  // снять strip и отпустить каретку в settled. Точки вызова pin/watchdog не меняются.
+  const setScrubOffset = useCallback(
+    (v: number | null) => {
+      if (v === null) {
+        scrubOffsetRef.current = null;
+        caretDriveRef.current?.(null);
+        if (scrubActiveRef.current) {
+          scrubActiveRef.current = false;
+          setScrubActiveState(false);
+        }
+        return;
+      }
+      if (!scrubActiveRef.current) {
+        scrubActiveRef.current = true;
+        setScrubActiveState(true);
+      }
+      applyScrubDom(v);
+    },
+    [applyScrubDom]
+  );
   // seamNav: keyed-экран целевого раздела монтируется мгновенно (variants seam) —
   // strip уже показал его на месте, иначе повторный слайд при завершении.
   const [seamNav, setSeamNav] = useState(false);
@@ -586,6 +626,9 @@ function App() {
   // Источник «drag каретки» (FloatingNav): абсолютная дробная позиция в слотах
   // (0 — колокол, 1 — Поездки, 2 — Профиль) прямо в offset.
   const lastCaretFractionRef = useRef(currentSlot);
+  // Окно скорости флика каретки (как у свайпа) — быстрый флик перекидывает на следующий
+  // слот даже при коротком пути (иначе Math.round «отскакивал» короткий быстрый флик назад).
+  const caretSamplesRef = useRef<Array<{ f: number; t: number }>>([]);
   const handleCaretScrub = useCallback(
     (fraction: number) => {
       if (scrubSourceRef.current === 'swipe') return;
@@ -595,14 +638,18 @@ function App() {
           settleRafRef.current = null;
         }
         // Новый drag каретки перехватывает pinned-доводку (issue #437): снимаем
-        // pin/watchdog — иначе watchdog позже насильно сбросит scrubOffset
-        // посреди уже нового жеста. FloatingNav сам стартует drag от текущей
-        // визуальной позиции (scrubOffset), скачка нет.
+        // pin/watchdog — иначе watchdog позже насильно сбросит offset посреди уже
+        // нового жеста. FloatingNav стартует drag от текущей визуальной позиции, скачка нет.
         if (scrubOffsetRef.current === null) scrubOriginScreenRef.current = currentScreen;
         clearPinned();
+        caretSamplesRef.current = [];
         scrubSourceRef.current = 'caret';
       }
       lastCaretFractionRef.current = fraction;
+      const now = performance.now();
+      const samples = caretSamplesRef.current;
+      samples.push({ f: fraction, t: now });
+      while (samples.length > 1 && now - samples[0].t > CARET_VELOCITY_WINDOW_MS) samples.shift();
       setScrubOffset(Math.min(2, Math.max(0, fraction)));
     },
     [currentScreen, clearPinned, setScrubOffset]
@@ -614,65 +661,83 @@ function App() {
         scrubSourceRef.current = null;
         return;
       }
-      // Cancelled-жест (Telegram отобрал pointer, см. issue #439) доводим ВПЕРЁД —
-      // до ближайшего слота от последней известной дробной позиции, та же семантика,
-      // что в settleFromRelease (App.tsx:443), а не откатываем к currentSlot. Фолбэк
-      // на currentSlot — только если позиция и правда неизвестна (не finite).
-      const knownFraction = Number.isFinite(lastCaretFractionRef.current);
-      const target =
-        cancelled && !knownFraction
-          ? currentSlot
-          : Math.round(Math.min(2, Math.max(0, lastCaretFractionRef.current)));
-      settleTo(target);
+      const samples = caretSamplesRef.current;
+      caretSamplesRef.current = [];
+      if (cancelled) {
+        // Cancelled-жест (Telegram отобрал pointer, issue #439) доводим ВПЕРЁД к
+        // ближайшему слоту от последней известной позиции (не откат к currentSlot);
+        // фолбэк на currentSlot — только если позиция не finite.
+        const known = Number.isFinite(lastCaretFractionRef.current);
+        const target = known
+          ? Math.round(Math.min(2, Math.max(0, lastCaretFractionRef.current)))
+          : currentSlot;
+        settleTo(target);
+        return;
+      }
+      // Обычное отпускание: скорость флика по окну перекидывает на следующий слот даже
+      // при коротком пути (иначе Math.round «отскакивал» короткий быстрый флик назад).
+      let v = 0;
+      if (samples.length > 1) {
+        const first = samples[0];
+        const last = samples[samples.length - 1];
+        const span = last.t - first.t;
+        if (span > 0) v = (last.f - first.f) / span; // слот/мс, + к профилю (вперёд по offset)
+      }
+      settleFromRelease(v, false);
     },
-    [currentSlot, settleTo]
+    [currentSlot, settleTo, settleFromRelease]
   );
 
   // Каретка ↔ скраб: FloatingNav получает тот же непрерывный offset (слот == индекс
   // раздела); в собственном drag каретки FloatingNav игнорирует scrubOffset (dragX главнее).
 
-  // Strip живого скраба (issue #422): ПОВЕРХ карусели, без AnimatePresence — до двух
-  // соседних экранов, каждый на translateX (i − offset)·100%. Keyed-экран под strip
-  // скрыт (visibility), НЕ размонтирован. Панель раздела-origin рендерит фактический
-  // экран старта (в т.ч. под-экран), соседи — корневые (их маунт-фетчи дедупят кэши #414).
-  const scrubLayer =
-    scrubOffset != null
-      ? (() => {
-          const origin = scrubOriginScreenRef.current ?? currentScreen;
-          const originIdx = TAB_ORDER.indexOf(SCREEN_TAB[origin] ?? 'main');
-          const lo = Math.max(0, Math.floor(scrubOffset));
-          const hi = Math.min(2, Math.ceil(scrubOffset));
-          const indices = lo === hi ? [lo] : [lo, hi];
-          const paneStyle = (screen: Screen, translatePct: number): CSSProperties => ({
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'absolute',
-            inset: 0,
-            paddingBottom:
-              NAV_VISIBLE_SCREENS.includes(screen) && !isDesktop
-                ? FLOATING_NAV_CONTENT_PADDING
-                : 'env(safe-area-inset-bottom)',
-            transform: `translateX(${translatePct}%)`,
-            background: 'var(--background)',
-          });
-          return (
-            <div aria-hidden style={{ position: 'absolute', inset: 0, zIndex: 5, overflow: 'hidden', pointerEvents: 'none' }}>
-              {indices.map((i) => {
-                const screen = i === originIdx ? origin : TAB_ROOT_SCREEN[TAB_ORDER[i]];
-                return (
-                  <div key={i} style={paneStyle(screen, (i - scrubOffset) * 100)}>
-                    <ErrorBoundary resetKey={screen}>
-                      <Suspense fallback={<ScreenSkeleton />}>
-                        {screenRegistry[screen]?.(screenCtx)}
-                      </Suspense>
-                    </ErrorBoundary>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()
-      : null;
+  // Strip живого скраба (issue #422): ПОВЕРХ карусели, 3 панели-раздела на translateX
+  // (i − offset)·100%; позиция гоняется через refs (paneRefs) без ре-рендера. Keyed-экран
+  // под strip скрыт (visibility), НЕ размонтирован. Панель раздела-origin рендерит
+  // фактический экран старта (в т.ч. под-экран), соседи — корневые (их фетчи дедупят #414).
+  const scrubLayer = scrubActive
+    ? (() => {
+        const off = scrubOffsetRef.current ?? currentSlot;
+        const origin = scrubOriginScreenRef.current ?? currentScreen;
+        const originIdx = TAB_ORDER.indexOf(SCREEN_TAB[origin] ?? 'main');
+        const paneStyle = (screen: Screen, i: number): CSSProperties => ({
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'absolute',
+          inset: 0,
+          paddingBottom:
+            NAV_VISIBLE_SCREENS.includes(screen) && !isDesktop
+              ? FLOATING_NAV_CONTENT_PADDING
+              : 'env(safe-area-inset-bottom)',
+          transform: `translateX(${(i - off) * 100}%)`,
+          background: 'var(--background)',
+          willChange: 'transform',
+        });
+        return (
+          <div aria-hidden style={{ position: 'absolute', inset: 0, zIndex: 5, overflow: 'hidden', pointerEvents: 'none' }}>
+            {[0, 1, 2].map((i) => {
+              const screen = i === originIdx ? origin : TAB_ROOT_SCREEN[TAB_ORDER[i]];
+              return (
+                <div
+                  key={i}
+                  data-slot={i}
+                  ref={(el) => {
+                    paneRefs.current[i] = el;
+                  }}
+                  style={paneStyle(screen, i)}
+                >
+                  <ErrorBoundary resetKey={screen}>
+                    <Suspense fallback={<ScreenSkeleton />}>
+                      {screenRegistry[screen]?.(screenCtx)}
+                    </Suspense>
+                  </ErrorBoundary>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()
+    : null;
 
   // Смена экрана (AnimatePresence + направленный слайд) — общая для мобиля и десктопа,
   // различается только внешняя обвязка (сайдбар-строка vs мобильная колонка), поэтому
@@ -703,7 +768,7 @@ function App() {
             navVisible && !isDesktop ? FLOATING_NAV_CONTENT_PADDING : 'env(safe-area-inset-bottom)',
           // Во время скраба keyed-экран скрыт (слой поверх показывает его копию
           // в позиции пальца), но НЕ размонтирован — состояние живо.
-          visibility: scrubOffset != null ? 'hidden' : undefined,
+          visibility: scrubActive ? 'hidden' : undefined,
         }}
       >
         <ErrorBoundary resetKey={currentScreen}>
@@ -805,7 +870,8 @@ function App() {
             currentScreen={currentScreen}
             onNavigate={(root) => navigateToTab(root === 'profile' ? 'profile' : 'main')}
             onNotificationsClick={() => navigateToTab('notifications')}
-            scrubOffset={scrubOffset}
+            scrubActive={scrubActive}
+            caretDriveRef={caretDriveRef}
             onCaretScrub={scrubEnabled ? handleCaretScrub : undefined}
             onCaretScrubEnd={scrubEnabled ? handleCaretScrubEnd : undefined}
           />
