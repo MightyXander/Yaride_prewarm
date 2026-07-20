@@ -6,6 +6,7 @@
 
 import { ensureReady, getPool, withTransaction } from '../db.ts';
 import { internalUserIdByTg } from './_shared.ts';
+import type { ProfilePersonalFields } from './profileChangeRequests.ts';
 
 // ============================================================================
 // Браузерная авторизация (issue #242): email/пароль, согласия 152-ФЗ.
@@ -19,6 +20,12 @@ export interface WebUserRecord {
   username: string | null;
   first_name: string | null;
   last_name: string | null;
+  /**
+   * Дата рождения ISO (issue #454). Опционально: заполняется createWebUser и
+   * getUserProfileById, но SELECT'ы сессии/логина (sessions.ts, findUserByEmail)
+   * её не тянут — за пределами границ этой задачи (#454), доберётся в #455.
+   */
+  birth_date?: string | null;
   sex: 'male' | 'female' | 'unknown';
 }
 
@@ -39,6 +46,8 @@ export interface CreateWebUserParams {
   passwordHash: string;
   firstName: string;
   lastName: string;
+  /** Дата рождения ISO (issue #454), опционально при веб-регистрации. */
+  birthDate?: string | null;
   /** Пол (issue #447): только male/female при веб-регистрации. */
   sex: 'male' | 'female';
   pdnConsentVersion: string;
@@ -121,10 +130,11 @@ export async function createWebUser(params: CreateWebUserParams): Promise<WebUse
     try {
       const ins = await client.query<WebUserRecord>(
         `INSERT INTO users(name, email, username, password_hash, first_name, last_name, sex,
+                           birth_date,
                            pdn_consent_at, pdn_consent_version,
                            marketing_consent_at, marketing_consent_version)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10)
-         RETURNING id, name, email, username, first_name, last_name, sex`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, $9, $10, $11)
+         RETURNING id, name, email, username, first_name, last_name, sex, birth_date`,
         [
           name,
           email,
@@ -133,6 +143,7 @@ export async function createWebUser(params: CreateWebUserParams): Promise<WebUse
           firstName,
           lastName,
           params.sex,
+          params.birthDate ?? null,
           params.pdnConsentVersion,
           marketingAt,
           marketingVer,
@@ -324,6 +335,7 @@ export interface UserProfile {
   name: string;
   username: string | null;
   age: number | null;
+  birth_date: string | null;
   sex: 'male' | 'female' | 'unknown';
   rating_avg: number;
   rating_count: number;
@@ -345,7 +357,7 @@ export async function getUserProfile(tgUserId: number): Promise<UserProfile | nu
 export async function getUserProfileById(internalId: number): Promise<UserProfile | null> {
   await ensureReady();
   const res = await getPool().query<UserProfile>(
-    `SELECT id, tg_user_id, name, username, age, sex, rating_avg, rating_count,
+    `SELECT id, tg_user_id, name, username, age, birth_date, sex, rating_avg, rating_count,
             trips_driver_count, trips_passenger_count, license_status
      FROM users WHERE id = $1`,
     [internalId],
@@ -375,6 +387,55 @@ export async function updateUserSex(
   await ensureReady();
   const res = await getPool().query('UPDATE users SET sex = $2 WHERE id = $1', [userId, sex]);
   return (res.rowCount ?? 0) > 0;
+}
+
+/**
+ * Обновить переданные личные поля пользователя (issue #454; применение
+ * одобренной заявки из #455/#457). UPDATE только присутствующих в `fields`
+ * ключей ({username,email,first_name,last_name,birth_date,sex}); пустой объект
+ * или ненайденный пользователь → false. Нарушение UNIQUE (username/email) →
+ * UserConflictError(username_taken|email_taken) для внятного ответа вызывающему.
+ * `age` и `name` не трогаем — денормализация синхронизируется на уровне #455.
+ */
+export async function updateUserPersonalFields(
+  userId: number,
+  fields: ProfilePersonalFields,
+): Promise<boolean> {
+  await ensureReady();
+  const allowed = [
+    'username',
+    'email',
+    'first_name',
+    'last_name',
+    'birth_date',
+    'sex',
+  ] as const;
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  for (const key of allowed) {
+    if (Object.prototype.hasOwnProperty.call(fields, key)) {
+      values.push(fields[key]);
+      sets.push(`${key} = $${values.length}`);
+    }
+  }
+  if (sets.length === 0) return false;
+  values.push(userId);
+  try {
+    const res = await getPool().query(
+      `UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length}`,
+      values,
+    );
+    return (res.rowCount ?? 0) > 0;
+  } catch (e) {
+    const err = e as { code?: string; constraint?: string };
+    if (err.code === '23505') {
+      if (err.constraint === 'uq_users_username_lower') {
+        throw new UserConflictError('username_taken');
+      }
+      throw new UserConflictError('email_taken');
+    }
+    throw e;
+  }
 }
 
 /**

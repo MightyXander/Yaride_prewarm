@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 19;
+export const CURRENT_SCHEMA_VERSION = 20;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -40,6 +40,9 @@ const BOOTSTRAP_SQL = `
     password_hash TEXT,
     first_name TEXT,
     last_name TEXT,
+    -- Дата рождения (issue #454, личные данные профиля). NULLABLE: старые строки
+    -- и Telegram-юзеры её не имеют; age НЕ трогаем (отдельное самостоятельное поле).
+    birth_date DATE,
     pdn_consent_at TIMESTAMPTZ,
     pdn_consent_version TEXT,
     marketing_consent_at TIMESTAMPTZ,
@@ -310,6 +313,25 @@ const BOOTSTRAP_SQL = `
 
   CREATE UNIQUE INDEX IF NOT EXISTS uq_telegram_link_tokens_hash ON telegram_link_tokens(token_hash);
   CREATE INDEX IF NOT EXISTS idx_telegram_link_tokens_user ON telegram_link_tokens(user_id, created_at);
+
+  -- Очередь заявок на изменение личных данных профиля после регистрации
+  -- (issue #454, фундамент backend #455 / mini-app #456 / админки #457).
+  -- payload — частичная дельта (любые из username,email,first_name,last_name,
+  -- birth_date,sex). Один активный pending на пользователя гарантирует частичный
+  -- уникальный индекс uq_pcr_pending; логика замены прежнего pending — в #455/#457.
+  CREATE TABLE IF NOT EXISTS profile_change_requests (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    payload JSONB NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    reviewed_at timestamptz,
+    reviewer TEXT,
+    reject_reason TEXT
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS uq_pcr_pending
+    ON profile_change_requests (user_id) WHERE status = 'pending';
 `;
 
 /**
@@ -354,6 +376,11 @@ const BOOTSTRAP_SQL = `
  * v18→v19: пол пользователя (issue #447, фундамент женских поездок) —
  *        users.sex TEXT NOT NULL DEFAULT 'unknown' CHECK IN (male/female/unknown).
  *        Аддитивно: колонка с дефолтом, существующие строки получают 'unknown'.
+ * v19→v20: личные данные профиля (issue #454) — users.birth_date DATE NULL
+ *        (ДР как самостоятельное поле; age не трогаем) + таблица очереди
+ *        profile_change_requests (заявки на изменение личных данных) с частичным
+ *        уникальным индексом uq_pcr_pending (один pending на пользователя).
+ *        Аддитивно: ADD COLUMN/CREATE TABLE/CREATE INDEX IF NOT EXISTS.
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -717,6 +744,30 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
     await pool.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT 'unknown'
         CHECK (sex IN ('male', 'female', 'unknown'));
+    `);
+    return;
+  }
+  if (fromV === 19 && toV === 20) {
+    // Личные данные профиля (issue #454). Идемпотентно: ADD COLUMN /
+    // CREATE TABLE / CREATE UNIQUE INDEX IF NOT EXISTS. Аддитивно, ничего
+    // существующего не переписывает (age сохраняется как есть).
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE;
+
+      CREATE TABLE IF NOT EXISTS profile_change_requests (
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        payload JSONB NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'approved', 'rejected')),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        reviewed_at timestamptz,
+        reviewer TEXT,
+        reject_reason TEXT
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_pcr_pending
+        ON profile_change_requests (user_id) WHERE status = 'pending';
     `);
     return;
   }
