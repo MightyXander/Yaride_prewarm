@@ -428,3 +428,63 @@ export async function notifyPassengersAboutTripCancellation(params: {
     console.error('[notifyPassengersAboutTripCancellation] Ошибка уведомлений:', err);
   }
 }
+
+// ============================================================================
+// Issue #472: алерты админу о новых ошибках (error_traces) с троттлингом
+// ============================================================================
+
+/** Окно троттлинга алертов об ошибках: не чаще одного sendMessage за 10 минут. */
+const ERROR_ALERT_WINDOW_MS = 10 * 60 * 1000;
+
+/** Сколько символов message попадает в текст алерта (полный текст — в error_traces). */
+const ERROR_ALERT_MESSAGE_MAX_CHARS = 300;
+
+// Состояние троттлинга — in-memory (module-level), персистентность не нужна:
+// после рестарта окно просто начинается заново.
+let lastErrorAlertAtMs = 0;
+let suppressedErrorAlerts = 0;
+
+/**
+ * Короткий алерт админу о новой ошибке (после успешной вставки трейса в
+ * error_traces). Вызывать fire-and-forget (`void notifyAdminAboutError(...)`) —
+ * ответ пользователю не задерживается, ошибки отправки только логируются.
+ *
+ * Троттлинг: не чаще 1 сообщения за 10 минут. Ошибки, пришедшие в закрытое
+ * окно, копятся в счётчик и упоминаются в следующем алерте
+ * («…и ещё N за последние 10 мин»).
+ *
+ * Если ADMIN_CHAT_ID не задан — no-op (лог и выход), как в
+ * notifyAdminAboutLicenseRequest.
+ */
+export async function notifyAdminAboutError(params: {
+  source: string;
+  errorType?: string | null;
+  message: string;
+}): Promise<void> {
+  try {
+    const adminChatId = Number((process.env.ADMIN_CHAT_ID ?? '').trim());
+    if (!adminChatId) {
+      console.log('[notifyAdminAboutError] ADMIN_CHAT_ID не задан — алерт админу пропущен');
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastErrorAlertAtMs < ERROR_ALERT_WINDOW_MS) {
+      suppressedErrorAlerts += 1;
+      return;
+    }
+    const suppressed = suppressedErrorAlerts;
+    suppressedErrorAlerts = 0;
+    lastErrorAlertAtMs = now;
+
+    let text = `⚠️ ${params.source}/${params.errorType ?? 'unknown'}: ${params.message.slice(0, ERROR_ALERT_MESSAGE_MAX_CHARS)}`;
+    if (suppressed > 0) {
+      text += `\n…и ещё ${suppressed} за последние 10 мин`;
+    }
+
+    await sendMessage(adminChatId, text);
+  } catch (err) {
+    // Не ломаем основной поток при ошибке алерта — только логируем.
+    console.error('[notifyAdminAboutError] Ошибка алерта админу:', err);
+  }
+}

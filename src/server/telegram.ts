@@ -207,6 +207,65 @@ export async function sendMessage(
   }
 }
 
+/**
+ * Отправить документ через Bot API sendDocument (issue #472).
+ *
+ * Файл уходит multipart/form-data (FormData + Blob): Bot API принимает
+ * загрузку контента только так, JSON-путь работает лишь для file_id/URL.
+ *
+ * @param chatId ID чата (Telegram user ID или chat ID)
+ * @param content Содержимое файла (Buffer или строка UTF-8)
+ * @param filename Имя файла, которое увидит получатель
+ * @param caption Подпись к документу (опционально)
+ * @param botToken BOT_TOKEN (process.env.BOT_TOKEN); если пусто — ошибка
+ * @returns true при успехе, false при ошибке (логируется)
+ */
+export async function sendDocument(
+  chatId: number | string,
+  content: Buffer | string,
+  filename: string,
+  caption?: string,
+  botToken?: string | null,
+): Promise<boolean> {
+  const token = (botToken ?? process.env.BOT_TOKEN ?? '').trim();
+  if (token === '') {
+    console.error('sendDocument: BOT_TOKEN отсутствует');
+    return false;
+  }
+
+  const url = `${TELEGRAM_API_BASE}/bot${token}/sendDocument`;
+  // Копия в свежий Uint8Array<ArrayBuffer>: Buffer типизирован поверх
+  // ArrayBufferLike и в BlobPart напрямую не проходит.
+  const bytes = new Uint8Array(
+    typeof content === 'string' ? Buffer.from(content, 'utf8') : content,
+  );
+
+  const form = new FormData();
+  form.append('chat_id', String(chatId));
+  if (caption !== undefined && caption !== '') {
+    form.append('caption', caption);
+  }
+  form.append('document', new Blob([bytes]), filename);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      body: form,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`sendDocument failed (${response.status}):`, errorText);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('sendDocument exception:', err);
+    return false;
+  }
+}
+
 /** Кэш username бота (без ведущего `@`). undefined = ещё не резолвили через getMe. */
 let cachedBotUsername: string | null | undefined;
 
@@ -612,7 +671,62 @@ export async function handleWebhookUpdate(
     return await handleLicenseQueueCommand(chatId, actor, token);
   }
 
+  // Issue #472: /logs [N] — txt-файл с последними трейсами из error_traces.
+  // Доступ строго chat.id === ADMIN_CHAT_ID; всем остальным не отвечаем вообще
+  // (ни отказа, ни подсказки — команда не должна быть обнаружима перебором).
+  if (text.startsWith('/logs')) {
+    const adminChatId = Number((process.env.ADMIN_CHAT_ID ?? '').trim());
+    if (!adminChatId || chatId !== adminChatId) {
+      return true;
+    }
+    return await handleLogsCommand(adminChatId, text, token);
+  }
+
   return true;
+}
+
+/**
+ * Команда `/logs [N]` (issue #472): прислать админу txt-файл с последними N
+ * трейсами из error_traces. N по умолчанию 200, максимум 1000. Формат файла:
+ * на каждый трейс строка `created_at | source | error_type | message`, затем
+ * stack (если есть), затем разделитель `---`. Пустая таблица → обычное
+ * сообщение «Трейсов нет».
+ */
+async function handleLogsCommand(
+  adminChatId: number,
+  text: string,
+  botToken: string,
+): Promise<boolean> {
+  // Ленивый import: telegram.ts в цикле импорта с notify.ts↔repo.ts — статический
+  // импорт repo здесь невозможен (тот же приём, что и в остальных ветках модуля).
+  const { listRecentTraces } = await import('./repo.ts');
+
+  const rawN = text.slice('/logs'.length).trim();
+  const parsedN = Number.parseInt(rawN, 10);
+  const limit = Number.isFinite(parsedN) && parsedN > 0 ? Math.min(parsedN, 1000) : 200;
+
+  const traces = await listRecentTraces(limit);
+  if (traces.length === 0) {
+    return await sendMessage(adminChatId, 'Трейсов нет.', {}, botToken);
+  }
+
+  const body = traces
+    .map((t) => {
+      const createdAt =
+        t.created_at instanceof Date ? t.created_at.toISOString() : String(t.created_at);
+      const header = `${createdAt} | ${t.source} | ${t.error_type ?? '-'} | ${t.message}`;
+      return t.stack ? `${header}\n${t.stack}` : header;
+    })
+    .join('\n---\n');
+
+  const filename = `errors-${new Date().toISOString().slice(0, 10)}.txt`;
+  return await sendDocument(
+    adminChatId,
+    Buffer.from(body, 'utf8'),
+    filename,
+    `Последние ${traces.length} трейсов`,
+    botToken,
+  );
 }
 
 /**

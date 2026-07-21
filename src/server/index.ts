@@ -117,4 +117,7 @@ export async function pingDb(): Promise<boolean> {
 }
 
 // Telegram Bot API helpers (issue #85).
-export { sendMessage, setWebhook, handleWebhookUpdate } from './telegram.ts';
+export { sendMessage, sendDocument, setWebhook, handleWebhookUpdate } from './telegram.ts';
+
+// Issue #472: алерт админу о новых ошибках (server.js::wrap, ветка 500).
+export { notifyAdminAboutError } from './notify.ts';

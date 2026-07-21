@@ -90,7 +90,7 @@ export interface ErrorTraceRow {
   created_at: Date;
 }
 
-/** Последние трейсы (новые сверху) — для будущего просмотра в админке (#471+). */
+/** Последние трейсы (новые сверху) — админка (#471+) и команда бота /logs (#472, N ≤ 1000). */
 export async function listRecentTraces(limit: number): Promise<ErrorTraceRow[]> {
   await ensureReady();
   const res = await getPool().query<ErrorTraceRow>(
@@ -98,7 +98,7 @@ export async function listRecentTraces(limit: number): Promise<ErrorTraceRow[]> 
        FROM error_traces
       ORDER BY id DESC
       LIMIT $1`,
-    [Math.max(1, Math.min(limit, 500))],
+    [Math.max(1, Math.min(limit, 1000))],
   );
   return res.rows;
 }

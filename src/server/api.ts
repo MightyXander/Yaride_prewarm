@@ -128,6 +128,7 @@ import {
   notifyAdminAboutLicenseRequest,
   notifyPassengerAboutBookingDecision,
   notifyPassengersAboutTripCancellation,
+  notifyAdminAboutError,
 } from './notify.ts';
 import { getChannel, isSmsConfigured, sendVerificationCode } from './sms.ts';
 import { MSK_OFFSET_MS } from './time.ts';
@@ -2146,6 +2147,14 @@ export async function handleReportError(req: ApiRequest): Promise<ApiResponse> {
     message,
     stack: typeof body.stack === 'string' ? body.stack : null,
     context: asRecord(body.context),
+  });
+
+  // Issue #472: короткий алерт админу о новой ошибке (троттлинг — внутри
+  // notify.ts). Тоже fire-and-forget: ответ репортеру не задерживаем.
+  void notifyAdminAboutError({
+    source: 'frontend',
+    errorType: typeof body.errorType === 'string' ? body.errorType : null,
+    message,
   });
 
   return accepted;

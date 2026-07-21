@@ -19,6 +19,8 @@ let telegram = null;
 // Issue #470: трейсы ошибок в БД (error_traces). null до инициализации слоя данных.
 let insertErrorTrace = null;
 let deleteTracesOlderThan = null;
+// Issue #472: алерт админу о новых ошибках (троттлинг внутри notify.ts).
+let notifyAdminAboutError = null;
 try {
   const mod = await import('./dist-server/index.js');
   await mod.initDb();
@@ -26,6 +28,7 @@ try {
   dbSchema = mod.getSchemaName?.() ?? null;
   insertErrorTrace = mod.insertErrorTrace;
   deleteTracesOlderThan = mod.deleteTracesOlderThan;
+  notifyAdminAboutError = mod.notifyAdminAboutError;
   api = {
     listTrips: mod.handleListTrips,
     getTrip: mod.handleGetTrip,
@@ -266,6 +269,14 @@ function wrap(handler) {
           stack: err?.stack ?? null,
           context: { path: req.path, method: req.method },
         });
+        // Issue #472: короткий алерт админу (fire-and-forget, ответ не задерживаем).
+        if (notifyAdminAboutError) {
+          void notifyAdminAboutError({
+            source: 'backend',
+            errorType: err?.name ?? null,
+            message: String(err?.message ?? err),
+          });
+        }
       }
       res.status(500).json({ error: 'Внутренняя ошибка сервера' });
     }
