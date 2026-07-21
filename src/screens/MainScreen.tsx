@@ -272,6 +272,25 @@ const TimelineNode: React.FC<{ nearest?: boolean; dashed?: boolean; isFirst?: bo
   </div>
 );
 
+// Время отправления «17⁴⁰»: часы крупно, минуты приподняты и мельче (issue #476).
+// Через <sup>+стили, НЕ unicode-надстрочные (иначе часть цифр не отрисовалась бы).
+const DepartureTime: React.FC<{ time: string; nearest: boolean }> = ({ time, nearest }) => {
+  const [hours, minutes] = time.split(':');
+  return (
+    <span
+      style={{
+        fontVariantNumeric: 'tabular-nums',
+        fontWeight: nearest ? 800 : 600,
+        color: nearest ? 'var(--foreground)' : 'var(--muted-foreground)',
+        lineHeight: 1,
+      }}
+    >
+      <span style={{ fontSize: '19px' }}>{hours}</span>
+      <sup style={{ fontSize: '11px', fontWeight: 700, marginLeft: '1px', verticalAlign: 'super', lineHeight: 0 }}>{minutes}</sup>
+    </span>
+  );
+};
+
 const TimelineRow: React.FC<{
   trip: Trip;
   nearest: boolean;
@@ -290,7 +309,9 @@ const TimelineRow: React.FC<{
   const mins = minutesUntil(trip.time);
   const durationLabel = nearest && isToday && mins >= 0 && mins < 60 ? `через ${mins} мин` : duration;
   const seatsLabel = trip.seats === 0 ? 'мест нет' : `${trip.seats} ${pluralRu(trip.seats, SEAT_WORDS)}`;
-  const badge = trip.booked ? 'ты едешь' : trip.isOwn ? 'твоя поездка' : null;
+  // #476: бейдж «твоя поездка» убран; свою поездку помечаем нейтрально-серым фоном (isOwn) без бейджа.
+  const badge = trip.booked ? 'ты едешь' : null;
+  const isOwn = trip.isOwn;
 
   const handleAvatar = (e: React.MouseEvent) => {
     if (trip.driver.id && onOpenProfile) {
@@ -301,17 +322,8 @@ const TimelineRow: React.FC<{
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '48px 22px minmax(0, 1fr)', columnGap: '4px', paddingBottom: isLast ? 0 : '12px' }}>
-      <div style={{ paddingTop: `${DOT_Y - 10}px`, textAlign: 'right', paddingRight: '4px' }}>
-        <span
-          style={{
-            fontSize: '16px',
-            fontWeight: nearest ? 800 : 600,
-            fontVariantNumeric: 'tabular-nums',
-            color: nearest ? 'var(--foreground)' : 'var(--muted-foreground)',
-          }}
-        >
-          {trip.time}
-        </span>
+      <div style={{ paddingTop: `${DOT_Y - 13}px`, textAlign: 'right', paddingRight: '4px' }}>
+        <DepartureTime time={trip.time} nearest={nearest} />
       </div>
       <TimelineNode nearest={nearest} isFirst={isFirst} isLast={isLast} />
       <div style={{ minWidth: 0, ...(dimmed ? { filter: 'grayscale(60%)', opacity: 0.6 } : null) }}>
@@ -326,14 +338,16 @@ const TimelineRow: React.FC<{
               onTripClick(trip);
             }
           }}
-          variant={nearest ? 'accent' : 'default'}
+          variant={nearest && !isOwn ? 'accent' : 'default'}
           style={{
-            padding: '10px 12px',
+            padding: '12px 12px',
             display: 'flex',
-            alignItems: 'center',
-            gap: '9px',
+            alignItems: 'flex-start',
+            gap: '10px',
             cursor: 'pointer',
-            border: nearest ? '1.5px solid var(--brand)' : '1px solid var(--border)',
+            ...(isOwn
+              ? { background: 'var(--muted)', border: '1px solid var(--border)' }
+              : { border: nearest ? '1.5px solid var(--brand)' : '1px solid var(--border)' }),
           }}
         >
           <div onClick={handleAvatar} style={{ cursor: trip.driver.id && onOpenProfile ? 'pointer' : 'default' }}>
@@ -348,7 +362,7 @@ const TimelineRow: React.FC<{
                 display: 'grid',
                 placeItems: 'center',
                 fontWeight: 800,
-                fontSize: '15px',
+                fontSize: '16px',
                 flexShrink: 0,
               }}
             >
@@ -356,21 +370,19 @@ const TimelineRow: React.FC<{
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
-              <span style={{ fontWeight: 800, fontSize: '16.5px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+              <span style={{ fontWeight: 800, fontSize: '18px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {trip.driver.name}
               </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--muted-foreground)', fontSize: '13.5px', fontWeight: 700, flexShrink: 0 }}>
-                <Icon id="i-star" fill style={{ width: '13px', height: '13px', color: 'var(--star)' }} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--muted-foreground)', fontSize: '14px', fontWeight: 700, flexShrink: 0 }}>
+                <Icon id="i-star" fill style={{ width: '14px', height: '14px', color: 'var(--star)' }} />
                 {rating}
               </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, marginTop: '2px' }}>
               {badge && (
                 <span
                   style={{
                     flexShrink: 0,
-                    fontSize: '11px',
+                    fontSize: '11.5px',
                     fontWeight: 700,
                     padding: '1px 7px',
                     borderRadius: '999px',
@@ -381,18 +393,32 @@ const TimelineRow: React.FC<{
                   {badge}
                 </span>
               )}
-              <span style={{ fontSize: '14px', color: 'var(--muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                {from} → {to} · {durationLabel}
-              </span>
+            </div>
+            {/* #476: маршрут внутри карточки — from сверху, to снизу, маркеры ○→● как в шапке. */}
+            <div style={{ display: 'flex', gap: '7px', marginTop: '6px', minWidth: 0 }}>
+              <div aria-hidden style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '5px 0 4px' }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', border: '2px solid var(--muted-foreground)', flexShrink: 0 }} />
+                <span style={{ width: '2px', flex: 1, minHeight: '9px', background: 'var(--border)', margin: '2px 0' }} />
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--brand)', flexShrink: 0 }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                <span style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {from}
+                </span>
+                <span style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {to}
+                  <span style={{ fontWeight: 600, color: 'var(--muted-foreground)', fontSize: '13px' }}> · {durationLabel}</span>
+                </span>
+              </div>
             </div>
             {disabledReason && (
-              <div style={{ fontSize: '11.5px', color: 'var(--muted-foreground)', marginTop: '2px' }}>{disabledReason}</div>
+              <div style={{ fontSize: '12.5px', color: 'var(--muted-foreground)', marginTop: '4px' }}>{disabledReason}</div>
             )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
-            <span style={{ fontWeight: 800, fontSize: '16.5px', fontVariantNumeric: 'tabular-nums' }}>{trip.price} ₽</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--muted-foreground)', fontSize: '13px', fontWeight: 600 }}>
-              <Icon id="i-seat" style={{ width: '14px', height: '14px' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
+            <span style={{ fontWeight: 800, fontSize: '18px', fontVariantNumeric: 'tabular-nums' }}>{trip.price} ₽</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--muted-foreground)', fontSize: '14px', fontWeight: 600 }}>
+              <Icon id="i-seat" style={{ width: '15px', height: '15px' }} />
               {seatsLabel}
             </span>
           </div>
