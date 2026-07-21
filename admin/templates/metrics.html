@@ -89,4 +89,42 @@
     {% endfor %}
     </tbody>
 </table>
+
+<h2 class="section-title">Поведение <small>mini-app · за {{ period_days }} дней</small></h2>
+<table>
+    <thead>
+        <tr>
+            <th>Топ кликов (element)</th><th>Экран</th><th>Кликов</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for row in behavior_clicks %}
+        <tr>
+            <td>{{ row.element }}</td>
+            <td>{{ row.screen }}</td>
+            <td>{{ row.count }}</td>
+        </tr>
+    {% else %}
+        <tr><td colspan="3" class="empty">Кликов пока нет — данные появятся после первых сессий в mini-app.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+<table>
+    <thead>
+        <tr>
+            <th>Топ экранов</th><th>Просмотров</th><th>Уник. пользователей</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for row in behavior_screens %}
+        <tr>
+            <td>{{ row.screen }}</td>
+            <td>{{ row.count }}</td>
+            <td>{{ row.uniq_users }}</td>
+        </tr>
+    {% else %}
+        <tr><td colspan="3" class="empty">Просмотров экранов пока нет — данные появятся после первых сессий в mini-app.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
 {% endblock %}

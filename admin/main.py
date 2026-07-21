@@ -1540,7 +1540,8 @@ def metrics(request: Request, days: int = 7, admin: str = Depends(require_login)
     Блок 1 — обзор (кумулятив), Блок 2 — за период (7 дн.) карточками, Блок 3 —
     roadmap-гейт с порогами/цветом (пороги — константы GATE_* вверху модуля),
     Блок 4 — недельный тренд (8 недель, date_trunc('week')), Блок 5 — существующая
-    разбивка по коридорам за период. Период настраивается через ?days=.
+    разбивка по коридорам за период, Блок 6 — поведение mini-app (issue #473):
+    топ-20 кликов ui_click и топ экранов screen_view. Период — через ?days=.
     """
     period_days = max(1, days)
     with _conn() as conn:
@@ -1659,6 +1660,41 @@ def metrics(request: Request, days: int = 7, admin: str = Depends(require_login)
             """
         ).fetchall()
 
+        # --- Блок 6 (issue #473): поведение mini-app за период ---
+        # Топ-20 кликов (props: {screen, element, ...} пишет handleTrackEvents).
+        click_rows = conn.execute(
+            """
+            SELECT
+                COALESCE(props->>'element', '(без label)') AS element,
+                COALESCE(props->>'screen', '(неизвестно)') AS screen,
+                COUNT(*) AS clicks
+            FROM events
+            WHERE type = 'ui_click'
+              AND created_at >= now() - (%s || ' days')::interval
+            GROUP BY 1, 2
+            ORDER BY clicks DESC, element ASC
+            LIMIT 20
+            """,
+            (str(period_days),),
+        ).fetchall()
+        # Топ экранов по просмотрам; uniq_users не считает анонимные события
+        # (user_id IS NULL — COUNT(DISTINCT) их игнорирует).
+        screen_rows = conn.execute(
+            """
+            SELECT
+                COALESCE(props->>'screen', '(неизвестно)') AS screen,
+                COUNT(*) AS views,
+                COUNT(DISTINCT user_id) AS uniq_users
+            FROM events
+            WHERE type = 'screen_view'
+              AND created_at >= now() - (%s || ' days')::interval
+            GROUP BY 1
+            ORDER BY views DESC, screen ASC
+            LIMIT 20
+            """,
+            (str(period_days),),
+        ).fetchall()
+
     items = []
     totals = {"searches": 0, "zero_result": 0, "bookings": 0, "alerts": 0}
     for corridor, searches, zero_result, bookings, alerts in rows:
@@ -1736,6 +1772,14 @@ def metrics(request: Request, days: int = 7, admin: str = Depends(require_login)
         }
         for (wk, t_new_users, t_trips_pub, t_trips_done, t_searches, t_empty, t_bookings, t_alerts) in trend_rows
     ]
+    behavior_clicks = [
+        {"element": element, "screen": screen, "count": clicks}
+        for (element, screen, clicks) in click_rows
+    ]
+    behavior_screens = [
+        {"screen": screen, "count": views, "uniq_users": uniq_users}
+        for (screen, views, uniq_users) in screen_rows
+    ]
 
     return render(
         request,
@@ -1748,6 +1792,8 @@ def metrics(request: Request, days: int = 7, admin: str = Depends(require_login)
         week=week,
         gate=gate,
         trend=trend,
+        behavior_clicks=behavior_clicks,
+        behavior_screens=behavior_screens,
     )
 
 

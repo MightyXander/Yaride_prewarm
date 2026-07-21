@@ -13,8 +13,15 @@
 
 import { ensureReady, getPool } from '../db.ts';
 
-/** Тип события воронки. Строка, а не union — таблица events.type без CHECK. */
-export type EventType = 'search' | 'booking_created' | 'alert_created';
+/** Тип события. Строка, а не union — таблица events.type без CHECK. Воронка
+ * ликвидности (search/booking_created/alert_created) + поведение mini-app
+ * (issue #473): ui_click / screen_view. */
+export type EventType =
+  | 'search'
+  | 'booking_created'
+  | 'alert_created'
+  | 'ui_click'
+  | 'screen_view';
 
 export interface LogEventParams {
   type: EventType;

@@ -31,6 +31,7 @@ import { showToast } from './lib/toast';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { prewarmInitial, prewarmAround } from './lib/appPrefetch';
 import { screenRegistry } from './lib/screenRegistry';
+import { initAnalytics, trackScreenView } from './lib/analytics';
 import type { ScreenCtx } from './lib/screenRegistry';
 import type { TabRoot } from './hooks/useNavigation';
 import type { Screen } from './types/navigation';
@@ -266,6 +267,19 @@ function App() {
   // чанков + дедупликация prefetchScreenData.
   useEffect(() => {
     prewarmAround(currentScreen);
+  }, [currentScreen]);
+
+  // Поведенческая аналитика (issue #473): один глобальный click-слушатель +
+  // screen_view на каждой смене экрана, включая первый показ. Текущий экран
+  // слушатель кликов берёт через ref — он всегда актуален без пересоздания
+  // подписки (initAnalytics повторный вызов игнорирует, StrictMode-безопасно).
+  const analyticsScreenRef = useRef(currentScreen);
+  analyticsScreenRef.current = currentScreen;
+  useEffect(() => {
+    initAnalytics(() => analyticsScreenRef.current);
+  }, []);
+  useEffect(() => {
+    trackScreenView(currentScreen);
   }, [currentScreen]);
 
   // На auth-экранах (login/register) back показываем ТОЛЬКО в Telegram-контексте:

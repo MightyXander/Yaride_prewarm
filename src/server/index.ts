@@ -91,6 +91,7 @@ export {
   handleAddCar,
   handleCancelTrip,
   handleReportError,
+  handleTrackEvents,
 } from './api.ts';
 export type { ApiRequest, ApiResponse, SetCookieInstruction } from './api.ts';
 

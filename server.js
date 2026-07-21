@@ -76,6 +76,7 @@ try {
     authLogout: mod.handleLogout,
     authMe: mod.handleMe,
     reportError: mod.handleReportError,
+    trackEvents: mod.handleTrackEvents,
   };
   telegram = {
     sendMessage: mod.sendMessage,
@@ -342,6 +343,11 @@ app.get('/api/_debug/counts', wrap(api?.debugCounts));
 // Issue #470: трейсы необработанных ошибок фронта. Без обязательной авторизации
 // (ошибки случаются до логина); rate-limit и обрезка полей — внутри хендлера.
 app.post('/api/errors/report', wrap(api?.reportError));
+
+// Issue #473: батчи поведенческих событий mini-app (ui_click/screen_view →
+// таблица events). Без обязательной авторизации; whitelist типов, лимиты
+// батча/props и rate-limit — внутри хендлера, ответ всегда 202.
+app.post('/api/events/track', wrap(api?.trackEvents));
 
 // Issue #198: публичный профиль пользователя и его отзывы.
 app.get('/api/users/:id/profile', wrap(api?.getUserProfile));

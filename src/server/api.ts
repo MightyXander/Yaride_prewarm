@@ -94,6 +94,7 @@ import {
   createLinkToken,
   countRecentLinkTokens,
   type FindTripsParams,
+  type EventType,
   type TimeSlot,
   type TripStatusFilter,
 } from './repo.ts';
@@ -2156,6 +2157,119 @@ export async function handleReportError(req: ApiRequest): Promise<ApiResponse> {
     errorType: typeof body.errorType === 'string' ? body.errorType : null,
     message,
   });
+
+  return accepted;
+}
+
+/**
+ * Rate-limit батчей поведенческих событий (issue #473): in-memory скользящее
+ * окно 30 батчей/мин на IP — паттерн allowErrorReport (#470). Штатный клиент
+ * шлёт ≤12 батчей/мин (flush раз в 5 сек), лимит давит только спам. Сверх
+ * лимита — молча дропаем (ответ всё равно 202).
+ */
+const TRACK_BATCHES_PER_MINUTE = 30;
+const TRACK_WINDOW_MS = 60_000;
+const trackBuckets = new Map<string, { windowStart: number; count: number }>();
+
+function allowTrackBatch(ip: string): boolean {
+  const now = Date.now();
+  if (trackBuckets.size > 1000) {
+    for (const [key, bucket] of trackBuckets) {
+      if (now - bucket.windowStart >= TRACK_WINDOW_MS) {
+        trackBuckets.delete(key);
+      }
+    }
+  }
+  const bucket = trackBuckets.get(ip);
+  if (bucket === undefined || now - bucket.windowStart >= TRACK_WINDOW_MS) {
+    trackBuckets.set(ip, { windowStart: now, count: 1 });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= TRACK_BATCHES_PER_MINUTE;
+}
+
+/** Whitelist типов поведенческих событий: прочее — молчаливый дроп. */
+const TRACK_EVENT_TYPES: Record<string, true> = { ui_click: true, screen_view: true };
+/** Максимум событий в одном батче; хвост сверх лимита — дроп. */
+const TRACK_MAX_BATCH = 50;
+/** Потолок сериализованного props ОДНОГО события; сверх — дроп события. */
+const TRACK_MAX_PROPS_BYTES = 1024;
+
+/**
+ * POST /api/events/track — батч поведенческих событий mini-app (issue #473):
+ * клики (`ui_click`) и просмотры экранов (`screen_view`) в таблицу events.
+ *
+ * Тело — массив до 50 событий { type, screen, element?, props? }. БЕЗ
+ * обязательной авторизации (клики случаются и до логина): userId пишется,
+ * если удалось опознать пользователя, — по образцу handleReportError (#470).
+ * Ответ ВСЕГДА 202: клиент fire-and-forget, а спамер не должен отличать
+ * «записано» от «дропнуто» (rate-limit 30 батчей/мин на IP; события вне
+ * whitelist типов, без screen или с props > 1 КБ молча дропаются).
+ */
+export async function handleTrackEvents(req: ApiRequest): Promise<ApiResponse> {
+  const accepted: ApiResponse = { status: 202, body: { accepted: true } };
+
+  if (!allowTrackBatch(req.ip ?? 'unknown')) {
+    return accepted;
+  }
+
+  if (!Array.isArray(req.body)) {
+    return accepted;
+  }
+
+  // Валидация ДО резолва пользователя: пустой/мусорный батч не трогает БД.
+  const events: Array<{ type: EventType; props: Record<string, unknown> }> = [];
+  for (const raw of req.body.slice(0, TRACK_MAX_BATCH)) {
+    const item = asRecord(raw);
+    const type = typeof item.type === 'string' ? item.type : '';
+    if (TRACK_EVENT_TYPES[type] !== true) continue;
+    const screen = typeof item.screen === 'string' ? item.screen.trim() : '';
+    if (screen === '') continue;
+    const element = typeof item.element === 'string' ? item.element : undefined;
+    const props: Record<string, unknown> = {
+      screen,
+      ...(element !== undefined ? { element } : {}),
+      ...asRecord(item.props),
+    };
+    // Потолок полезной нагрузки одного события — 1 КБ сериализованного props.
+    try {
+      if (Buffer.byteLength(JSON.stringify(props), 'utf8') > TRACK_MAX_PROPS_BYTES) continue;
+    } catch {
+      continue; // несериализуемый props (circular и т.п.) — дроп события
+    }
+    events.push({ type: type as EventType, props });
+  }
+  if (events.length === 0) {
+    return accepted;
+  }
+
+  // Опциональная аутентификация: initData → cookie-сессия → null. Любой сбой
+  // резолва (битый initData, недоступная БД) не должен ронять приём батча.
+  let userId: number | null = null;
+  try {
+    const authResult = authenticate(req, req.headers['x-telegram-init-data']);
+    if ('user' in authResult) {
+      const userProfile = await ensureUser({
+        tgUserId: authResult.user.id,
+        name: telegramDisplayName(authResult.user),
+        username: authResult.user.username ?? null,
+      });
+      userId = userProfile.id;
+    } else {
+      const webUser = await getSessionUserFromRequest(req);
+      if (webUser !== null) {
+        userId = webUser.id;
+      }
+    }
+  } catch {
+    // Событие ценнее опознания — пишем анонимно.
+  }
+
+  // Fire-and-forget: logEvent никогда не бросает, ответ клиенту не задерживаем.
+  for (const event of events) {
+    void logEvent({ type: event.type, userId, props: event.props });
+  }
 
   return accepted;
 }
