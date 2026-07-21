@@ -40,6 +40,43 @@ class LicenseStatus(str, Enum):
     rejected = "rejected"
 
 
+class TimeSlot(str, Enum):
+    """CHECK trips.time_slot IN ('morning','evening') — src/server/schema.ts."""
+
+    morning = "morning"
+    evening = "evening"
+
+
+class TripStatus(str, Enum):
+    """CHECK trips.status IN ('open','cancelled','completed')."""
+
+    open = "open"
+    cancelled = "cancelled"
+    completed = "completed"
+
+
+class BookingStatus(str, Enum):
+    """CHECK bookings.status IN ('active','cancelled_by_passenger','cancelled_by_driver')."""
+
+    active = "active"
+    cancelled_by_passenger = "cancelled_by_passenger"
+    cancelled_by_driver = "cancelled_by_driver"
+
+
+class PointKind(str, Enum):
+    """CHECK route_points.kind IN ('stop','locality')."""
+
+    stop = "stop"
+    locality = "locality"
+
+
+class ErrorSource(str, Enum):
+    """CHECK error_traces.source IN ('frontend','backend') — issue #470."""
+
+    frontend = "frontend"
+    backend = "backend"
+
+
 def normalize_birth_date(raw: str) -> str | None:
     """Зеркало normalizeBirthDate (src/server/auth.ts:356-375).
 
@@ -160,6 +197,37 @@ FIELD_LABELS = {
     "sex": "Пол",
     "birth_date": "Дата рождения",
     "license_status": "Статус ВУ",
+    # issue #471: поездки / брони / точки маршрута
+    "start_point_id": "Точка отправления",
+    "end_point_id": "Точка назначения",
+    "trip_date": "Дата поездки",
+    "departure_time": "Время выезда",
+    "time_slot": "Слот",
+    "price_rub": "Цена, ₽",
+    "seats_total": "Мест всего",
+    "comment": "Комментарий",
+    "car_model": "Марка авто",
+    "car_color": "Цвет авто",
+    "plate": "Госномер",
+    "status": "Статус",
+    "locality": "Населённый пункт",
+    "district": "Район",
+    "admin_area": "Адм. округ",
+    "title": "Название",
+    "latitude": "Широта",
+    "longitude": "Долгота",
+    "kind": "Тип точки",
+    "parent_point_id": "Родительская точка",
+}
+
+# Поле формы → Enum допустимых значений (для человекочитаемой ошибки).
+# Поля с именем "status" различаются по формам — для них значения берутся
+# из ctx ошибки pydantic (ветка fallback в format_validation_errors).
+FIELD_ENUMS = {
+    "sex": Sex,
+    "license_status": LicenseStatus,
+    "time_slot": TimeSlot,
+    "kind": PointKind,
 }
 
 
@@ -170,10 +238,20 @@ def format_validation_errors(exc: ValidationError) -> str:
         field = str(err["loc"][0]) if err["loc"] else "?"
         label = FIELD_LABELS.get(field, field)
         if err["type"] == "enum":
-            allowed = ", ".join(
-                m.value for m in (Sex if field == "sex" else LicenseStatus)
-            )
+            enum_cls = FIELD_ENUMS.get(field)
+            if enum_cls is not None:
+                allowed = ", ".join(m.value for m in enum_cls)
+            else:
+                allowed = str((err.get("ctx") or {}).get("expected", "")).replace("'", "")
             parts.append(f"{label}: допустимые значения — {allowed}")
+        elif err["type"] in ("int_parsing", "int_type", "int_from_float"):
+            parts.append(f"{label}: введите целое число")
+        elif err["type"] in ("float_parsing", "float_type"):
+            parts.append(f"{label}: введите число")
+        elif err["type"] in ("missing", "string_type"):
+            # string_type возникает, когда обязательное текстовое поле пришло
+            # пустым (валидатор _blank_to_none превратил "" в None).
+            parts.append(f"{label}: обязательное поле")
         else:
             # pydantic префиксует наши ValueError строкой "Value error, "
             msg = err["msg"].removeprefix("Value error, ")
@@ -181,19 +259,162 @@ def format_validation_errors(exc: ValidationError) -> str:
     return "; ".join(parts)
 
 
-def db_error_message(exc: Exception) -> str:
+# Сообщения SQLSTATE по «сущностям» (entity) — у каждой таблицы свои уникальные
+# индексы и внешние ключи, универсальный текст был бы враньём для формы.
+_UNIQUE_MSG = {
+    "users": "Логин или email уже заняты другим пользователем.",
+    "route_points": "Точка с таким сочетанием «населённый пункт / район / округ / название» уже существует.",
+    "bookings": "У этого пассажира уже есть бронь на эту поездку.",
+    "default": "Нарушена уникальность: такая запись уже существует.",
+}
+_CHECK_MSG = {
+    "users": "Значение нарушает ограничение БД: проверьте поля «Пол» и «Статус ВУ».",
+    "default": "Значение нарушает CHECK-ограничение БД: проверьте поля со списком допустимых значений.",
+}
+_FK_MSG = {
+    "users": "Операция невозможна: на пользователя ссылаются другие записи.",
+    "default": "Операция невозможна: запись ссылается на несуществующие данные либо на неё ссылаются другие записи.",
+}
+
+
+def db_error_message(exc: Exception, entity: str = "users") -> str:
     """Маппер SQLSTATE → понятное русское сообщение для формы.
 
     Используется в обработчиках write-операций: транзакция откатывается,
-    админ видит текст ошибки вместо 500 / сырой ошибки БД.
+    админ видит текст ошибки вместо 500 / сырой ошибки БД. entity подбирает
+    формулировку под таблицу (users по умолчанию — обратная совместимость #469).
     """
     sqlstate = getattr(exc, "sqlstate", None)
     if sqlstate == "23505":
-        return "Логин или email уже заняты другим пользователем."
+        return _UNIQUE_MSG.get(entity, _UNIQUE_MSG["default"])
     if sqlstate == "23514":
-        return "Значение нарушает ограничение БД: проверьте поля «Пол» и «Статус ВУ»."
+        return _CHECK_MSG.get(entity, _CHECK_MSG["default"])
     if sqlstate == "22008":
         return "Некорректная дата: проверьте формат YYYY-MM-DD."
     if sqlstate == "23503":
-        return "Операция невозможна: на пользователя ссылаются другие записи."
+        return _FK_MSG.get(entity, _FK_MSG["default"])
     return f"Ошибка базы данных ({sqlstate or exc.__class__.__name__})."
+
+
+# --- Формы разделов «Поездки», «Брони», «Точки маршрута» (issue #471) ----------
+
+TRIP_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# departure_time — TEXT 'HH:MM' с ведущими нулями: лексикографическое сравнение
+# совпадает с хронологическим (src/server/repo/trips.ts:137-146).
+DEPARTURE_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+class TripEditForm(BaseModel):
+    """Форма редактирования поездки (admin/trips/{id}).
+
+    Сознательно НЕ редактируются: driver_id (смена водителя ломает
+    денормализованные trips_driver_count), seats_booked (поддерживается из
+    активных броней), id/created_at (системные).
+    """
+
+    start_point_id: int
+    end_point_id: int
+    trip_date: str | None = None
+    departure_time: str | None = None
+    time_slot: TimeSlot
+    price_rub: int
+    seats_total: int
+    comment: str | None = None
+    car_model: str | None = None
+    car_color: str | None = None
+    plate: str | None = None
+    status: TripStatus
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _blank_to_none(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "":
+                return None
+        return v
+
+    @field_validator("trip_date")
+    @classmethod
+    def _check_trip_date(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if TRIP_DATE_RE.fullmatch(v) is None:
+            raise ValueError("формат YYYY-MM-DD")
+        try:
+            date.fromisoformat(v)
+        except ValueError:
+            raise ValueError("несуществующая дата")
+        return v
+
+    @field_validator("departure_time")
+    @classmethod
+    def _check_departure_time(cls, v: str | None) -> str | None:
+        if v is not None and DEPARTURE_TIME_RE.fullmatch(v) is None:
+            raise ValueError("формат HH:MM (24 часа, с ведущими нулями)")
+        return v
+
+    @field_validator("price_rub")
+    @classmethod
+    def _check_price(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("не может быть отрицательной")
+        return v
+
+    @field_validator("seats_total")
+    @classmethod
+    def _check_seats(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("минимум 1 место")
+        return v
+
+
+class BookingEditForm(BaseModel):
+    """Смена статуса брони. Пересчёт trips_passenger_count и trips.seats_booked
+    делает обработчик в той же транзакции."""
+
+    status: BookingStatus
+
+
+class RoutePointForm(BaseModel):
+    """Создание/редактирование точки маршрута (admin/route-points)."""
+
+    locality: str
+    # str | None: _blank_to_none ('' → None) отрабатывает до проверки типа,
+    # затем _none_to_empty (after) возвращает '' — колонки NOT NULL DEFAULT ''.
+    district: str | None = ""
+    admin_area: str | None = ""
+    title: str
+    latitude: float | None = None
+    longitude: float | None = None
+    kind: PointKind = PointKind.stop
+    parent_point_id: int | None = None
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _blank_to_none(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "":
+                return None
+        return v
+
+    @field_validator("district", "admin_area")
+    @classmethod
+    def _none_to_empty(cls, v: str | None) -> str:
+        # Колонки NOT NULL DEFAULT '' — пустое поле формы означает ''.
+        return v if v is not None else ""
+
+    @field_validator("latitude")
+    @classmethod
+    def _check_latitude(cls, v: float | None) -> float | None:
+        if v is not None and not (-90.0 <= v <= 90.0):
+            raise ValueError("диапазон от -90 до 90")
+        return v
+
+    @field_validator("longitude")
+    @classmethod
+    def _check_longitude(cls, v: float | None) -> float | None:
+        if v is not None and not (-180.0 <= v <= 180.0):
+            raise ValueError("диапазон от -180 до 180")
+        return v

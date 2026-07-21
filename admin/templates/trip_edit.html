@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Поездка #{{ trip.id }} — Yaride Admin{% endblock %}
+{% block content %}
+<h1>Поездка #{{ trip.id }} <small>{{ trip.trip_date or 'без даты' }} {{ trip.departure_time }}</small></h1>
+
+<div class="card req">
+    <div class="req-head">
+        <strong>Системные данные</strong>
+        <span class="muted">только чтение</span>
+    </div>
+    <table>
+        <tbody>
+            <tr><td>id</td><td>{{ trip.id }}</td></tr>
+            <tr><td>Водитель</td><td><a href="/admin/users/{{ trip.driver_id }}">#{{ trip.driver_id }} {{ trip.driver_name }}</a></td></tr>
+            <tr><td>Мест забронировано</td><td>{{ trip.seats_booked }}</td></tr>
+            <tr><td>Броней</td><td>{{ trip.bookings_n }}</td></tr>
+            <tr><td>Оценок</td><td>{{ trip.ratings_n }}</td></tr>
+            <tr><td>Создана</td><td>{{ trip.created_at }}</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card req">
+    <div class="req-head">
+        <strong>Редактирование</strong>
+        <span class="muted">пустое поле = очистить значение</span>
+    </div>
+    <form method="post" action="/admin/trips/{{ trip.id }}">
+        <table>
+            <tbody>
+                <tr>
+                    <td><label for="start_point_id">Точка отправления</label></td>
+                    <td>
+                        <select id="start_point_id" name="start_point_id">
+                            {% for p in points %}
+                            <option value="{{ p.id }}" {% if values.start_point_id|string == p.id|string %}selected{% endif %}>#{{ p.id }} {{ p.locality }}{% if p.district %} / {{ p.district }}{% endif %} — {{ p.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td><label for="end_point_id">Точка назначения</label></td>
+                    <td>
+                        <select id="end_point_id" name="end_point_id">
+                            {% for p in points %}
+                            <option value="{{ p.id }}" {% if values.end_point_id|string == p.id|string %}selected{% endif %}>#{{ p.id }} {{ p.locality }}{% if p.district %} / {{ p.district }}{% endif %} — {{ p.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td><label for="trip_date">Дата поездки</label></td>
+                    <td><input type="text" id="trip_date" name="trip_date" value="{{ values.trip_date or '' }}" placeholder="YYYY-MM-DD"></td>
+                </tr>
+                <tr>
+                    <td><label for="departure_time">Время выезда</label></td>
+                    <td><input type="text" id="departure_time" name="departure_time" value="{{ values.departure_time or '' }}" placeholder="HH:MM"></td>
+                </tr>
+                <tr>
+                    <td><label for="time_slot">Слот</label></td>
+                    <td>
+                        <select id="time_slot" name="time_slot">
+                            {% for opt in slot_options %}
+                            <option value="{{ opt }}" {% if values.time_slot == opt %}selected{% endif %}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td><label for="price_rub">Цена, ₽</label></td>
+                    <td><input type="text" id="price_rub" name="price_rub" value="{{ values.price_rub if values.price_rub is not none else '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="seats_total">Мест всего</label></td>
+                    <td><input type="text" id="seats_total" name="seats_total" value="{{ values.seats_total if values.seats_total is not none else '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="comment">Комментарий</label></td>
+                    <td><input type="text" id="comment" name="comment" value="{{ values.comment or '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="car_model">Марка авто</label></td>
+                    <td><input type="text" id="car_model" name="car_model" value="{{ values.car_model or '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="car_color">Цвет авто</label></td>
+                    <td><input type="text" id="car_color" name="car_color" value="{{ values.car_color or '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="plate">Госномер</label></td>
+                    <td><input type="text" id="plate" name="plate" value="{{ values.plate or '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="status">Статус</label></td>
+                    <td>
+                        <select id="status" name="status">
+                            {% for opt in status_options %}
+                            <option value="{{ opt }}" {% if values.status == opt %}selected{% endif %}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="actions">
+            <button class="btn ok" type="submit">Сохранить</button>
+            <a class="btn" href="/admin/trips">К списку</a>
+        </div>
+    </form>
+</div>
+
+<div class="card req">
+    <div class="req-head">
+        <strong>Удаление</strong>
+        <span class="muted">только без броней и оценок</span>
+    </div>
+    <div class="actions">
+        <form method="post" action="/admin/trips/{{ trip.id }}/delete"
+              onsubmit="return confirm('Удалить поездку #{{ trip.id }}? Действие необратимо.')">
+            <button class="btn danger" type="submit">Удалить поездку</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

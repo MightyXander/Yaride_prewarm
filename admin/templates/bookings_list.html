@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Брони — Yaride Admin{% endblock %}
+{% block content %}
+<h1>Брони <small>всего: {{ total }}</small></h1>
+
+<form method="get" action="/admin/bookings" class="actions">
+    <label for="status">Статус</label>
+    <select id="status" name="status">
+        <option value="">— все —</option>
+        {% for opt in status_options %}
+        <option value="{{ opt }}" {% if status == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+    </select>
+    <button class="btn" type="submit">Фильтровать</button>
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th><th>Поездка</th><th>Пассажир</th><th>Мест</th>
+            <th>Статус</th><th>Причина отмены</th><th>Создана</th>
+            <th>Смена статуса</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for b in bookings %}
+        <tr>
+            <td>{{ b.id }}</td>
+            <td><a href="/admin/trips/{{ b.trip_id }}">#{{ b.trip_id }}</a> {{ b.start_title }} → {{ b.end_title }}, {{ b.trip_date or '—' }} {{ b.departure_time }}</td>
+            <td><a href="/admin/users/{{ b.passenger_id }}">{{ b.passenger_name }}</a></td>
+            <td>{{ b.seats }}</td>
+            <td>{{ b.status }}</td>
+            <td>{{ b.cancel_reason or '—' }}</td>
+            <td>{{ b.created_at }}</td>
+            <td>
+                <form method="post" action="/admin/bookings/{{ b.id }}/status" class="actions">
+                    <select name="status">
+                        {% for opt in status_options %}
+                        <option value="{{ opt }}" {% if b.status == opt %}selected{% endif %}>{{ opt }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn" type="submit">Сменить</button>
+                </form>
+            </td>
+            <td>
+                <form method="post" action="/admin/bookings/{{ b.id }}/delete"
+                      onsubmit="return confirm('Удалить бронь #{{ b.id }}? Действие необратимо.')">
+                    <button class="btn danger" type="submit">Удалить</button>
+                </form>
+            </td>
+        </tr>
+    {% else %}
+        <tr><td colspan="9" class="empty">Пусто.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if pages > 1 %}
+<div class="actions">
+    {% if page > 1 %}<a class="btn" href="/admin/bookings?status={{ status }}&page={{ page - 1 }}">← Назад</a>{% endif %}
+    <span class="muted">стр. {{ page }} из {{ pages }}</span>
+    {% if page < pages %}<a class="btn" href="/admin/bookings?status={{ status }}&page={{ page + 1 }}">Вперёд →</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

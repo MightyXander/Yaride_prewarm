@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Ошибки — Yaride Admin{% endblock %}
+{% block content %}
+<h1>Ошибки <small>всего: {{ total }}</small></h1>
+
+<div class="actions">
+    <form method="get" action="/admin/errors" class="actions">
+        <label for="source">Источник</label>
+        <select id="source" name="source">
+            <option value="">— все —</option>
+            {% for opt in source_options %}
+            <option value="{{ opt }}" {% if source == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+        </select>
+        <label for="days">За последние, дней</label>
+        <input type="number" id="days" name="days" min="0" value="{{ days or '' }}" placeholder="0 = все">
+        <button class="btn" type="submit">Фильтровать</button>
+    </form>
+    <form method="post" action="/admin/errors/purge?days=7"
+          onsubmit="return confirm('Удалить все трейсы старше 7 дней?')">
+        <button class="btn danger" type="submit">Очистить старше 7 дней</button>
+    </form>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th><th>Когда</th><th>Источник</th><th>Пользователь</th>
+            <th>Тип</th><th>Сообщение</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for e in traces %}
+        <tr>
+            <td>{{ e.id }}</td>
+            <td>{{ e.created_at }}</td>
+            <td>{{ e.source }}</td>
+            <td>{% if e.user_id %}<a href="/admin/users/{{ e.user_id }}">#{{ e.user_id }} {{ e.user_name or '' }}</a>{% else %}—{% endif %}</td>
+            <td>{{ e.error_type or '—' }}</td>
+            <td>
+                {{ e.message }}
+                {% if e.stack or e.context %}
+                <details>
+                    <summary class="muted">stack / context</summary>
+                    {% if e.stack %}<pre>{{ e.stack }}</pre>{% endif %}
+                    {% if e.context %}<pre>{{ e.context }}</pre>{% endif %}
+                </details>
+                {% endif %}
+            </td>
+            <td>
+                <form method="post" action="/admin/errors/{{ e.id }}/delete"
+                      onsubmit="return confirm('Удалить трейс #{{ e.id }}?')">
+                    <button class="btn danger" type="submit">Удалить</button>
+                </form>
+            </td>
+        </tr>
+    {% else %}
+        <tr><td colspan="7" class="empty">Пусто.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if pages > 1 %}
+<div class="actions">
+    {% if page > 1 %}<a class="btn" href="/admin/errors?source={{ source }}&days={{ days }}&page={{ page - 1 }}">← Назад</a>{% endif %}
+    <span class="muted">стр. {{ page }} из {{ pages }}</span>
+    {% if page < pages %}<a class="btn" href="/admin/errors?source={{ source }}&days={{ days }}&page={{ page + 1 }}">Вперёд →</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

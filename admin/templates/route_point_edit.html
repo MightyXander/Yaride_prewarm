@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}{% if point %}Точка #{{ point.id }}{% else %}Новая точка{% endif %} — Yaride Admin{% endblock %}
+{% block content %}
+{% if point %}
+<h1>Точка #{{ point.id }} <small>{{ point.locality }} — {{ point.title }}</small></h1>
+{% else %}
+<h1>Новая точка маршрута</h1>
+{% endif %}
+
+{% if point %}
+<div class="card req">
+    <div class="req-head">
+        <strong>Связи</strong>
+        <span class="muted">только чтение</span>
+    </div>
+    <table>
+        <tbody>
+            <tr><td>Поездок с этой точкой</td><td>{{ point.trips_n }}</td></tr>
+            <tr><td>Дочерних точек</td><td>{{ point.children_n }}</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="card req">
+    <div class="req-head">
+        <strong>{% if point %}Редактирование{% else %}Создание{% endif %}</strong>
+        <span class="muted">район и округ можно оставить пустыми</span>
+    </div>
+    <form method="post" action="{% if point %}/admin/route-points/{{ point.id }}{% else %}/admin/route-points/new{% endif %}">
+        <table>
+            <tbody>
+                <tr>
+                    <td><label for="locality">Населённый пункт</label></td>
+                    <td><input type="text" id="locality" name="locality" value="{{ values.locality or '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="district">Район</label></td>
+                    <td><input type="text" id="district" name="district" value="{{ values.district or '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="admin_area">Адм. округ</label></td>
+                    <td><input type="text" id="admin_area" name="admin_area" value="{{ values.admin_area or '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="title">Название</label></td>
+                    <td><input type="text" id="title" name="title" value="{{ values.title or '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="latitude">Широта</label></td>
+                    <td><input type="text" id="latitude" name="latitude" value="{{ values.latitude if values.latitude is not none else '' }}" placeholder="55.75"></td>
+                </tr>
+                <tr>
+                    <td><label for="longitude">Долгота</label></td>
+                    <td><input type="text" id="longitude" name="longitude" value="{{ values.longitude if values.longitude is not none else '' }}" placeholder="37.62"></td>
+                </tr>
+                <tr>
+                    <td><label for="kind">Тип точки</label></td>
+                    <td>
+                        <select id="kind" name="kind">
+                            {% for opt in kind_options %}
+                            <option value="{{ opt }}" {% if values.kind == opt %}selected{% endif %}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td><label for="parent_point_id">Родительская точка</label></td>
+                    <td>
+                        <select id="parent_point_id" name="parent_point_id">
+                            <option value="">— нет —</option>
+                            {% for p in parents %}
+                            <option value="{{ p.id }}" {% if values.parent_point_id|string == p.id|string %}selected{% endif %}>#{{ p.id }} {{ p.locality }}{% if p.district %} / {{ p.district }}{% endif %} — {{ p.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="actions">
+            <button class="btn ok" type="submit">{% if point %}Сохранить{% else %}Создать{% endif %}</button>
+            <a class="btn" href="/admin/route-points">К списку</a>
+        </div>
+    </form>
+</div>
+
+{% if point %}
+<div class="card req">
+    <div class="req-head">
+        <strong>Удаление</strong>
+        <span class="muted">только если на точку не ссылаются поездки и дочерние точки</span>
+    </div>
+    <div class="actions">
+        <form method="post" action="/admin/route-points/{{ point.id }}/delete"
+              onsubmit="return confirm('Удалить точку #{{ point.id }}? Действие необратимо.')">
+            <button class="btn danger" type="submit">Удалить точку</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

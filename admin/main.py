@@ -10,9 +10,11 @@
 
 from __future__ import annotations
 
+import json
+import math
 import os
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import quote
 
@@ -649,6 +651,869 @@ def user_delete(request: Request, user_id: int, admin: str = Depends(require_log
             )
     return RedirectResponse(
         "/admin/users?msg=" + quote(f"Пользователь #{user_id} удалён."), status_code=303
+    )
+
+
+# --- Поездки, брони, точки маршрута, ошибки (issue #471) -----------------------
+
+_PAGE_SIZE = 50
+
+
+def _recount_user_trip_counters(conn: psycopg.Connection, user_ids: list[int]) -> None:
+    """Пересчёт денормализованных счётчиков поездок из источников.
+
+    Зеркало recountUserTripCounters (src/server/repo/_shared.ts:39-58):
+    trips_driver_count — неотменённые поездки водителя; trips_passenger_count —
+    активные брони пассажира. Вызывается ВНУТРИ транзакции после мутаций.
+    """
+    if not user_ids:
+        return
+    conn.execute(
+        """
+        UPDATE users u SET
+          trips_driver_count = (
+            SELECT COUNT(*) FROM trips t
+            WHERE t.driver_id = u.id AND t.status <> 'cancelled'
+          ),
+          trips_passenger_count = (
+            SELECT COUNT(*) FROM bookings b
+            WHERE b.passenger_id = u.id AND b.status = 'active'
+          )
+        WHERE u.id = ANY(%s)
+        """,
+        (user_ids,),
+    )
+
+
+def _recount_trip_seats(conn: psycopg.Connection, trip_id: int) -> None:
+    """Пересчёт trips.seats_booked из активных броней (денормализация)."""
+    conn.execute(
+        """
+        UPDATE trips SET seats_booked = (
+          SELECT COALESCE(SUM(seats), 0) FROM bookings
+          WHERE trip_id = %s AND status = 'active'
+        )
+        WHERE id = %s
+        """,
+        (trip_id, trip_id),
+    )
+
+
+def _point_options(conn: psycopg.Connection) -> list[dict]:
+    """Точки маршрута для <select> в формах поездок/точек."""
+    rows = conn.execute(
+        """
+        SELECT id, title, locality, district, kind
+        FROM route_points ORDER BY locality, district, kind DESC, title
+        """
+    ).fetchall()
+    return [
+        {"id": r[0], "title": r[1], "locality": r[2], "district": r[3], "kind": r[4]}
+        for r in rows
+    ]
+
+
+def _pages(total: int) -> int:
+    return max(1, math.ceil(total / _PAGE_SIZE))
+
+
+# --- Поездки --------------------------------------------------------------------
+
+_TRIP_EDIT_FIELDS = (
+    "start_point_id", "end_point_id", "trip_date", "departure_time", "time_slot",
+    "price_rub", "seats_total", "comment", "car_model", "car_color", "plate", "status",
+)
+
+
+@app.get("/admin/trips", response_class=HTMLResponse)
+def trips_list(
+    request: Request,
+    status: str = "",
+    days: int = 0,
+    page: int = 1,
+    error: str | None = None,
+    msg: str | None = None,
+    admin: str = Depends(require_login),
+):
+    page = max(page, 1)
+    where, params = [], []
+    if status not in {s.value for s in validation.TripStatus}:
+        status = ""
+    if status:
+        where.append("t.status = %s")
+        params.append(status)
+    if days > 0:
+        # trip_date — TEXT 'YYYY-MM-DD': лексикографическое сравнение = хронологическое.
+        where.append("t.trip_date >= %s")
+        params.append((date.today() - timedelta(days=days)).isoformat())
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+    with _conn() as conn:
+        total = conn.execute(
+            f"SELECT count(*) FROM trips t {where_sql}", params
+        ).fetchone()[0]
+        rows = conn.execute(
+            f"""
+            SELECT t.id, t.trip_date, t.departure_time, t.time_slot, t.status,
+                   t.price_rub, t.seats_total, t.seats_booked,
+                   t.driver_id, u.name, sp.title, ep.title,
+                   (SELECT count(*) FROM bookings b WHERE b.trip_id = t.id)
+            FROM trips t
+            JOIN users u ON u.id = t.driver_id
+            JOIN route_points sp ON sp.id = t.start_point_id
+            JOIN route_points ep ON ep.id = t.end_point_id
+            {where_sql}
+            ORDER BY t.id DESC
+            LIMIT %s OFFSET %s
+            """,
+            (*params, _PAGE_SIZE, (page - 1) * _PAGE_SIZE),
+        ).fetchall()
+    trips = [
+        {
+            "id": r[0], "trip_date": r[1], "departure_time": r[2], "time_slot": r[3],
+            "status": r[4], "price_rub": r[5], "seats_total": r[6], "seats_booked": r[7],
+            "driver_id": r[8], "driver_name": r[9], "start_title": r[10],
+            "end_title": r[11], "bookings_n": r[12],
+        }
+        for r in rows
+    ]
+    return render(
+        request, "trips_list.html", active="trips",
+        trips=trips, total=total, page=page, pages=_pages(total),
+        status=status, days=days,
+        status_options=[s.value for s in validation.TripStatus],
+        error=error, msg=msg,
+    )
+
+
+def _fetch_trip(conn: psycopg.Connection, trip_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT t.id, t.driver_id, u.name, t.start_point_id, t.end_point_id,
+               t.trip_date, t.departure_time, t.time_slot, t.price_rub,
+               t.seats_total, t.seats_booked, t.comment, t.car_model,
+               t.car_color, t.plate, t.status, t.created_at,
+               (SELECT count(*) FROM bookings b WHERE b.trip_id = t.id),
+               (SELECT count(*) FROM ratings r WHERE r.trip_id = t.id)
+        FROM trips t JOIN users u ON u.id = t.driver_id
+        WHERE t.id = %s
+        """,
+        (trip_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "id": row[0], "driver_id": row[1], "driver_name": row[2],
+        "start_point_id": row[3], "end_point_id": row[4], "trip_date": row[5],
+        "departure_time": row[6], "time_slot": row[7], "price_rub": row[8],
+        "seats_total": row[9], "seats_booked": row[10], "comment": row[11],
+        "car_model": row[12], "car_color": row[13], "plate": row[14],
+        "status": row[15], "created_at": row[16], "bookings_n": row[17],
+        "ratings_n": row[18],
+    }
+
+
+def _render_trip_edit(
+    request: Request,
+    trip: dict,
+    values: dict,
+    points: list[dict],
+    *,
+    error: str | None = None,
+    msg: str | None = None,
+    status_code: int = 200,
+):
+    resp = render(
+        request, "trip_edit.html", active="trips",
+        trip=trip, values=values, points=points, error=error, msg=msg,
+        slot_options=[s.value for s in validation.TimeSlot],
+        status_options=[s.value for s in validation.TripStatus],
+    )
+    resp.status_code = status_code
+    return resp
+
+
+@app.get("/admin/trips/{trip_id}", response_class=HTMLResponse)
+def trip_edit_form(
+    request: Request,
+    trip_id: int,
+    error: str | None = None,
+    msg: str | None = None,
+    admin: str = Depends(require_login),
+):
+    with _conn() as conn:
+        trip = _fetch_trip(conn, trip_id)
+        if trip is None:
+            return RedirectResponse(
+                "/admin/trips?error=" + quote("Поездка не найдена."), status_code=303
+            )
+        points = _point_options(conn)
+    values = {f: trip[f] for f in _TRIP_EDIT_FIELDS}
+    return _render_trip_edit(request, trip, values, points, error=error, msg=msg)
+
+
+@app.post("/admin/trips/{trip_id}", response_class=HTMLResponse)
+def trip_edit_save(
+    request: Request,
+    trip_id: int,
+    start_point_id: str = Form(""),
+    end_point_id: str = Form(""),
+    trip_date: str = Form(""),
+    departure_time: str = Form(""),
+    time_slot: str = Form(""),
+    price_rub: str = Form(""),
+    seats_total: str = Form(""),
+    comment: str = Form(""),
+    car_model: str = Form(""),
+    car_color: str = Form(""),
+    plate: str = Form(""),
+    status: str = Form(""),
+    admin: str = Depends(require_login),
+):
+    """Сохранение поездки: validation.TripEditForm + UPDATE изменённых полей
+    в одной транзакции; при смене статуса — пересчёт счётчиков водителя
+    (trips_driver_count учитывает только неотменённые поездки)."""
+    submitted = {
+        "start_point_id": start_point_id, "end_point_id": end_point_id,
+        "trip_date": trip_date, "departure_time": departure_time,
+        "time_slot": time_slot, "price_rub": price_rub, "seats_total": seats_total,
+        "comment": comment, "car_model": car_model, "car_color": car_color,
+        "plate": plate, "status": status,
+    }
+    with _conn() as conn:
+        trip = _fetch_trip(conn, trip_id)
+        if trip is None:
+            return RedirectResponse(
+                "/admin/trips?error=" + quote("Поездка не найдена."), status_code=303
+            )
+        points = _point_options(conn)
+        try:
+            form = validation.TripEditForm(**submitted)
+        except ValidationError as exc:
+            return _render_trip_edit(
+                request, trip, submitted, points,
+                error=validation.format_validation_errors(exc), status_code=422,
+            )
+        if form.seats_total < trip["seats_booked"]:
+            return _render_trip_edit(
+                request, trip, submitted, points,
+                error=f"Мест всего не может быть меньше уже забронированных ({trip['seats_booked']}).",
+                status_code=422,
+            )
+        new_values = {
+            "start_point_id": form.start_point_id,
+            "end_point_id": form.end_point_id,
+            # Колонки TEXT NOT NULL DEFAULT '': пустое поле формы = ''.
+            "trip_date": form.trip_date or "",
+            "departure_time": form.departure_time or "",
+            "time_slot": form.time_slot.value,
+            "price_rub": form.price_rub,
+            "seats_total": form.seats_total,
+            "comment": form.comment,
+            "car_model": form.car_model,
+            "car_color": form.car_color,
+            "plate": form.plate,
+            "status": form.status.value,
+        }
+        changed = {f: v for f, v in new_values.items() if v != trip[f]}
+        if not changed:
+            return _render_trip_edit(request, trip, submitted, points, msg="Изменений нет.")
+        # FK-проверка изменённых точек отдельным SELECT до UPDATE (issue #471).
+        for f in ("start_point_id", "end_point_id"):
+            if f in changed:
+                row = conn.execute(
+                    "SELECT 1 FROM route_points WHERE id = %s", (changed[f],)
+                ).fetchone()
+                if row is None:
+                    return _render_trip_edit(
+                        request, trip, submitted, points,
+                        error=f"Точка #{changed[f]} не существует.", status_code=422,
+                    )
+        sets = [f"{f} = %s" for f in changed]
+        try:
+            with conn.transaction():
+                conn.execute(
+                    f"UPDATE trips SET {', '.join(sets)} WHERE id = %s",
+                    (*changed.values(), trip_id),
+                )
+                if "status" in changed:
+                    _recount_user_trip_counters(conn, [trip["driver_id"]])
+        except psycopg.Error as exc:
+            return _render_trip_edit(
+                request, trip, submitted, points,
+                error=validation.db_error_message(exc, "trips"), status_code=422,
+            )
+    return RedirectResponse(
+        f"/admin/trips/{trip_id}?msg=" + quote("Изменения сохранены."), status_code=303
+    )
+
+
+@app.post("/admin/trips/{trip_id}/delete")
+def trip_delete(request: Request, trip_id: int, admin: str = Depends(require_login)):
+    """Удаление поездки — только без броней (решение issue #471); FK ratings
+    тоже проверяем заранее, чтобы отказ был с причиной, а не ошибкой БД."""
+    with _conn() as conn:
+        trip = _fetch_trip(conn, trip_id)
+        if trip is None:
+            return RedirectResponse(
+                "/admin/trips?error=" + quote("Поездка не найдена."), status_code=303
+            )
+        reasons = []
+        if trip["bookings_n"]:
+            reasons.append(f"брони: {trip['bookings_n']}")
+        if trip["ratings_n"]:
+            reasons.append(f"оценки: {trip['ratings_n']}")
+        if reasons:
+            err = "Удаление запрещено — есть связанные записи (" + "; ".join(reasons) + ")."
+            return RedirectResponse(
+                f"/admin/trips/{trip_id}?error=" + quote(err), status_code=303
+            )
+        try:
+            with conn.transaction():
+                conn.execute("DELETE FROM trips WHERE id = %s", (trip_id,))
+                # Денормализованный trips_driver_count водителя — в той же транзакции.
+                _recount_user_trip_counters(conn, [trip["driver_id"]])
+        except psycopg.Error as exc:
+            return RedirectResponse(
+                f"/admin/trips/{trip_id}?error="
+                + quote(validation.db_error_message(exc, "trips")),
+                status_code=303,
+            )
+    return RedirectResponse(
+        "/admin/trips?msg=" + quote(f"Поездка #{trip_id} удалена."), status_code=303
+    )
+
+
+# --- Брони ----------------------------------------------------------------------
+
+@app.get("/admin/bookings", response_class=HTMLResponse)
+def bookings_list(
+    request: Request,
+    status: str = "",
+    page: int = 1,
+    error: str | None = None,
+    msg: str | None = None,
+    admin: str = Depends(require_login),
+):
+    page = max(page, 1)
+    where, params = [], []
+    if status not in {s.value for s in validation.BookingStatus}:
+        status = ""
+    if status:
+        where.append("b.status = %s")
+        params.append(status)
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+    with _conn() as conn:
+        total = conn.execute(
+            f"SELECT count(*) FROM bookings b {where_sql}", params
+        ).fetchone()[0]
+        rows = conn.execute(
+            f"""
+            SELECT b.id, b.trip_id, b.passenger_id, u.name, b.seats, b.status,
+                   b.cancel_reason, b.created_at, b.cancelled_at,
+                   t.trip_date, t.departure_time, sp.title, ep.title
+            FROM bookings b
+            JOIN users u ON u.id = b.passenger_id
+            JOIN trips t ON t.id = b.trip_id
+            JOIN route_points sp ON sp.id = t.start_point_id
+            JOIN route_points ep ON ep.id = t.end_point_id
+            {where_sql}
+            ORDER BY b.id DESC
+            LIMIT %s OFFSET %s
+            """,
+            (*params, _PAGE_SIZE, (page - 1) * _PAGE_SIZE),
+        ).fetchall()
+    bookings = [
+        {
+            "id": r[0], "trip_id": r[1], "passenger_id": r[2], "passenger_name": r[3],
+            "seats": r[4], "status": r[5], "cancel_reason": r[6], "created_at": r[7],
+            "cancelled_at": r[8], "trip_date": r[9], "departure_time": r[10],
+            "start_title": r[11], "end_title": r[12],
+        }
+        for r in rows
+    ]
+    return render(
+        request, "bookings_list.html", active="bookings",
+        bookings=bookings, total=total, page=page, pages=_pages(total),
+        status=status, status_options=[s.value for s in validation.BookingStatus],
+        error=error, msg=msg,
+    )
+
+
+@app.post("/admin/bookings/{booking_id}/status")
+def booking_set_status(
+    request: Request,
+    booking_id: int,
+    status: str = Form(""),
+    admin: str = Depends(require_login),
+):
+    """Смена статуса брони + пересчёт trips_passenger_count пассажира и
+    trips.seats_booked поездки в той же транзакции (оба денормализованы)."""
+    try:
+        form = validation.BookingEditForm(status=status)
+    except ValidationError as exc:
+        return RedirectResponse(
+            "/admin/bookings?error=" + quote(validation.format_validation_errors(exc)),
+            status_code=303,
+        )
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT trip_id, passenger_id, status FROM bookings WHERE id = %s",
+            (booking_id,),
+        ).fetchone()
+        if row is None:
+            return RedirectResponse(
+                "/admin/bookings?error=" + quote("Бронь не найдена."), status_code=303
+            )
+        trip_id, passenger_id, old_status = row
+        if form.status.value == old_status:
+            return RedirectResponse(
+                "/admin/bookings?msg=" + quote("Изменений нет."), status_code=303
+            )
+        try:
+            with conn.transaction():
+                if form.status is validation.BookingStatus.active:
+                    conn.execute(
+                        """
+                        UPDATE bookings
+                        SET status = %s, cancelled_at = NULL, cancel_reason = NULL
+                        WHERE id = %s
+                        """,
+                        (form.status.value, booking_id),
+                    )
+                else:
+                    conn.execute(
+                        """
+                        UPDATE bookings
+                        SET status = %s, cancelled_at = COALESCE(cancelled_at, now())
+                        WHERE id = %s
+                        """,
+                        (form.status.value, booking_id),
+                    )
+                _recount_trip_seats(conn, trip_id)
+                _recount_user_trip_counters(conn, [passenger_id])
+        except psycopg.Error as exc:
+            return RedirectResponse(
+                "/admin/bookings?error="
+                + quote(validation.db_error_message(exc, "bookings")),
+                status_code=303,
+            )
+    return RedirectResponse(
+        "/admin/bookings?msg=" + quote(f"Статус брони #{booking_id} обновлён."),
+        status_code=303,
+    )
+
+
+@app.post("/admin/bookings/{booking_id}/delete")
+def booking_delete(request: Request, booking_id: int, admin: str = Depends(require_login)):
+    """Удаление брони + пересчёт денормализованных счётчиков в той же транзакции."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT trip_id, passenger_id FROM bookings WHERE id = %s", (booking_id,)
+        ).fetchone()
+        if row is None:
+            return RedirectResponse(
+                "/admin/bookings?error=" + quote("Бронь не найдена."), status_code=303
+            )
+        trip_id, passenger_id = row
+        try:
+            with conn.transaction():
+                conn.execute("DELETE FROM bookings WHERE id = %s", (booking_id,))
+                _recount_trip_seats(conn, trip_id)
+                _recount_user_trip_counters(conn, [passenger_id])
+        except psycopg.Error as exc:
+            return RedirectResponse(
+                "/admin/bookings?error="
+                + quote(validation.db_error_message(exc, "bookings")),
+                status_code=303,
+            )
+    return RedirectResponse(
+        "/admin/bookings?msg=" + quote(f"Бронь #{booking_id} удалена."), status_code=303
+    )
+
+
+# --- Точки маршрута ---------------------------------------------------------------
+
+_POINT_EDIT_FIELDS = (
+    "locality", "district", "admin_area", "title", "latitude", "longitude",
+    "kind", "parent_point_id",
+)
+
+
+@app.get("/admin/route-points", response_class=HTMLResponse)
+def route_points_list(
+    request: Request,
+    error: str | None = None,
+    msg: str | None = None,
+    admin: str = Depends(require_login),
+):
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT p.id, p.locality, p.district, p.admin_area, p.title,
+                   p.latitude, p.longitude, p.kind, p.parent_point_id, par.title,
+                   (SELECT count(*) FROM trips t
+                    WHERE t.start_point_id = p.id OR t.end_point_id = p.id),
+                   (SELECT count(*) FROM route_points c WHERE c.parent_point_id = p.id)
+            FROM route_points p
+            LEFT JOIN route_points par ON par.id = p.parent_point_id
+            ORDER BY p.locality, p.district, p.kind DESC, p.id
+            """
+        ).fetchall()
+    points = [
+        {
+            "id": r[0], "locality": r[1], "district": r[2], "admin_area": r[3],
+            "title": r[4], "latitude": r[5], "longitude": r[6], "kind": r[7],
+            "parent_point_id": r[8], "parent_title": r[9],
+            "trips_n": r[10], "children_n": r[11],
+        }
+        for r in rows
+    ]
+    return render(
+        request, "route_points.html", active="route_points",
+        points=points, error=error, msg=msg,
+    )
+
+
+def _fetch_point(conn: psycopg.Connection, point_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT p.id, p.locality, p.district, p.admin_area, p.title,
+               p.latitude, p.longitude, p.kind, p.parent_point_id,
+               (SELECT count(*) FROM trips t
+                WHERE t.start_point_id = p.id OR t.end_point_id = p.id),
+               (SELECT count(*) FROM route_points c WHERE c.parent_point_id = p.id)
+        FROM route_points p WHERE p.id = %s
+        """,
+        (point_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "id": row[0], "locality": row[1], "district": row[2], "admin_area": row[3],
+        "title": row[4], "latitude": row[5], "longitude": row[6], "kind": row[7],
+        "parent_point_id": row[8], "trips_n": row[9], "children_n": row[10],
+    }
+
+
+def _render_point_edit(
+    request: Request,
+    point: dict | None,
+    values: dict,
+    parents: list[dict],
+    *,
+    error: str | None = None,
+    msg: str | None = None,
+    status_code: int = 200,
+):
+    resp = render(
+        request, "route_point_edit.html", active="route_points",
+        point=point, values=values, parents=parents, error=error, msg=msg,
+        kind_options=[k.value for k in validation.PointKind],
+    )
+    resp.status_code = status_code
+    return resp
+
+
+def _validate_point_form(
+    conn: psycopg.Connection, submitted: dict, point_id: int | None
+) -> tuple[validation.RoutePointForm | None, str | None]:
+    """Форма + FK-проверка parent_point_id отдельным SELECT (issue #471).
+    Возвращает (form, None) или (None, текст ошибки)."""
+    try:
+        form = validation.RoutePointForm(**submitted)
+    except ValidationError as exc:
+        return None, validation.format_validation_errors(exc)
+    if form.parent_point_id is not None:
+        if point_id is not None and form.parent_point_id == point_id:
+            return None, "Точка не может быть родителем самой себя."
+        row = conn.execute(
+            "SELECT 1 FROM route_points WHERE id = %s", (form.parent_point_id,)
+        ).fetchone()
+        if row is None:
+            return None, f"Родительская точка #{form.parent_point_id} не существует."
+    return form, None
+
+
+# ВАЖНО: маршрут /new объявлен раньше /{point_id}, иначе «new» уйдёт в int-парсер.
+@app.get("/admin/route-points/new", response_class=HTMLResponse)
+def route_point_new_form(
+    request: Request,
+    error: str | None = None,
+    admin: str = Depends(require_login),
+):
+    with _conn() as conn:
+        parents = _point_options(conn)
+    values = {f: None for f in _POINT_EDIT_FIELDS}
+    values["kind"] = validation.PointKind.stop.value
+    return _render_point_edit(request, None, values, parents, error=error)
+
+
+@app.post("/admin/route-points/new", response_class=HTMLResponse)
+def route_point_create(
+    request: Request,
+    locality: str = Form(""),
+    district: str = Form(""),
+    admin_area: str = Form(""),
+    title: str = Form(""),
+    latitude: str = Form(""),
+    longitude: str = Form(""),
+    kind: str = Form(""),
+    parent_point_id: str = Form(""),
+    admin: str = Depends(require_login),
+):
+    submitted = {
+        "locality": locality, "district": district, "admin_area": admin_area,
+        "title": title, "latitude": latitude, "longitude": longitude,
+        "kind": kind, "parent_point_id": parent_point_id,
+    }
+    with _conn() as conn:
+        parents = _point_options(conn)
+        form, err = _validate_point_form(conn, submitted, None)
+        if form is None:
+            return _render_point_edit(
+                request, None, submitted, parents, error=err, status_code=422
+            )
+        try:
+            with conn.transaction():
+                row = conn.execute(
+                    """
+                    INSERT INTO route_points
+                      (locality, district, admin_area, title, latitude, longitude,
+                       kind, parent_point_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (form.locality, form.district, form.admin_area, form.title,
+                     form.latitude, form.longitude, form.kind.value,
+                     form.parent_point_id),
+                ).fetchone()
+        except psycopg.Error as exc:
+            return _render_point_edit(
+                request, None, submitted, parents,
+                error=validation.db_error_message(exc, "route_points"), status_code=422,
+            )
+    return RedirectResponse(
+        "/admin/route-points?msg=" + quote(f"Точка #{row[0]} создана."), status_code=303
+    )
+
+
+@app.get("/admin/route-points/{point_id}", response_class=HTMLResponse)
+def route_point_edit_form(
+    request: Request,
+    point_id: int,
+    error: str | None = None,
+    msg: str | None = None,
+    admin: str = Depends(require_login),
+):
+    with _conn() as conn:
+        point = _fetch_point(conn, point_id)
+        if point is None:
+            return RedirectResponse(
+                "/admin/route-points?error=" + quote("Точка не найдена."), status_code=303
+            )
+        parents = [p for p in _point_options(conn) if p["id"] != point_id]
+    values = {f: point[f] for f in _POINT_EDIT_FIELDS}
+    return _render_point_edit(request, point, values, parents, error=error, msg=msg)
+
+
+@app.post("/admin/route-points/{point_id}", response_class=HTMLResponse)
+def route_point_edit_save(
+    request: Request,
+    point_id: int,
+    locality: str = Form(""),
+    district: str = Form(""),
+    admin_area: str = Form(""),
+    title: str = Form(""),
+    latitude: str = Form(""),
+    longitude: str = Form(""),
+    kind: str = Form(""),
+    parent_point_id: str = Form(""),
+    admin: str = Depends(require_login),
+):
+    submitted = {
+        "locality": locality, "district": district, "admin_area": admin_area,
+        "title": title, "latitude": latitude, "longitude": longitude,
+        "kind": kind, "parent_point_id": parent_point_id,
+    }
+    with _conn() as conn:
+        point = _fetch_point(conn, point_id)
+        if point is None:
+            return RedirectResponse(
+                "/admin/route-points?error=" + quote("Точка не найдена."), status_code=303
+            )
+        parents = [p for p in _point_options(conn) if p["id"] != point_id]
+        form, err = _validate_point_form(conn, submitted, point_id)
+        if form is None:
+            return _render_point_edit(
+                request, point, submitted, parents, error=err, status_code=422
+            )
+        new_values = {
+            "locality": form.locality, "district": form.district,
+            "admin_area": form.admin_area, "title": form.title,
+            "latitude": form.latitude, "longitude": form.longitude,
+            "kind": form.kind.value, "parent_point_id": form.parent_point_id,
+        }
+        changed = {f: v for f, v in new_values.items() if v != point[f]}
+        if not changed:
+            return _render_point_edit(request, point, submitted, parents, msg="Изменений нет.")
+        sets = [f"{f} = %s" for f in changed]
+        try:
+            with conn.transaction():
+                conn.execute(
+                    f"UPDATE route_points SET {', '.join(sets)} WHERE id = %s",
+                    (*changed.values(), point_id),
+                )
+        except psycopg.Error as exc:
+            return _render_point_edit(
+                request, point, submitted, parents,
+                error=validation.db_error_message(exc, "route_points"), status_code=422,
+            )
+    return RedirectResponse(
+        f"/admin/route-points/{point_id}?msg=" + quote("Изменения сохранены."),
+        status_code=303,
+    )
+
+
+@app.post("/admin/route-points/{point_id}/delete")
+def route_point_delete(request: Request, point_id: int, admin: str = Depends(require_login)):
+    """Удаление точки — только если на неё не ссылаются поездки, дочерние точки,
+    шаблоны поездок и алерты (решение issue #471: отказ с причиной)."""
+    with _conn() as conn:
+        point = _fetch_point(conn, point_id)
+        if point is None:
+            return RedirectResponse(
+                "/admin/route-points?error=" + quote("Точка не найдена."), status_code=303
+            )
+        extra = conn.execute(
+            """
+            SELECT (SELECT count(*) FROM trip_templates
+                    WHERE start_point_id = %(id)s OR end_point_id = %(id)s),
+                   (SELECT count(*) FROM route_alerts
+                    WHERE from_point_id = %(id)s OR to_point_id = %(id)s)
+            """,
+            {"id": point_id},
+        ).fetchone()
+        templates_n, alerts_n = extra
+        reasons = []
+        if point["trips_n"]:
+            reasons.append(f"поездки: {point['trips_n']}")
+        if point["children_n"]:
+            reasons.append(f"дочерние точки: {point['children_n']}")
+        if templates_n:
+            reasons.append(f"шаблоны поездок: {templates_n}")
+        if alerts_n:
+            reasons.append(f"алерты маршрутов: {alerts_n}")
+        if reasons:
+            err = "Удаление запрещено — на точку ссылаются (" + "; ".join(reasons) + ")."
+            return RedirectResponse(
+                f"/admin/route-points/{point_id}?error=" + quote(err), status_code=303
+            )
+        try:
+            with conn.transaction():
+                conn.execute("DELETE FROM route_points WHERE id = %s", (point_id,))
+        except psycopg.Error as exc:
+            return RedirectResponse(
+                f"/admin/route-points/{point_id}?error="
+                + quote(validation.db_error_message(exc, "route_points")),
+                status_code=303,
+            )
+    return RedirectResponse(
+        "/admin/route-points?msg=" + quote(f"Точка #{point_id} удалена."), status_code=303
+    )
+
+
+# --- Ошибки (error_traces, issue #470/#471) --------------------------------------
+
+@app.get("/admin/errors", response_class=HTMLResponse)
+def errors_list(
+    request: Request,
+    source: str = "",
+    days: int = 0,
+    page: int = 1,
+    error: str | None = None,
+    msg: str | None = None,
+    admin: str = Depends(require_login),
+):
+    """Чтение трейсов с фильтром по source и периоду; записи не редактируются."""
+    page = max(page, 1)
+    where, params = [], []
+    if source not in {s.value for s in validation.ErrorSource}:
+        source = ""
+    if source:
+        where.append("e.source = %s")
+        params.append(source)
+    if days > 0:
+        where.append("e.created_at >= now() - make_interval(days => %s)")
+        params.append(days)
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+    with _conn() as conn:
+        total = conn.execute(
+            f"SELECT count(*) FROM error_traces e {where_sql}", params
+        ).fetchone()[0]
+        rows = conn.execute(
+            f"""
+            SELECT e.id, e.source, e.user_id, u.name, e.error_type, e.message,
+                   e.stack, e.context, e.created_at
+            FROM error_traces e
+            LEFT JOIN users u ON u.id = e.user_id
+            {where_sql}
+            ORDER BY e.created_at DESC, e.id DESC
+            LIMIT %s OFFSET %s
+            """,
+            (*params, _PAGE_SIZE, (page - 1) * _PAGE_SIZE),
+        ).fetchall()
+    traces = [
+        {
+            "id": r[0], "source": r[1], "user_id": r[2], "user_name": r[3],
+            "error_type": r[4], "message": r[5], "stack": r[6],
+            "context": json.dumps(r[7], ensure_ascii=False) if r[7] else "",
+            "created_at": r[8],
+        }
+        for r in rows
+    ]
+    return render(
+        request, "errors_list.html", active="errors",
+        traces=traces, total=total, page=page, pages=_pages(total),
+        source=source, days=days,
+        source_options=[s.value for s in validation.ErrorSource],
+        error=error, msg=msg,
+    )
+
+
+@app.post("/admin/errors/{trace_id}/delete")
+def error_trace_delete(request: Request, trace_id: int, admin: str = Depends(require_login)):
+    with _conn() as conn:
+        with conn.transaction():
+            row = conn.execute(
+                "DELETE FROM error_traces WHERE id = %s RETURNING id", (trace_id,)
+            ).fetchone()
+    if row is None:
+        return RedirectResponse(
+            "/admin/errors?error=" + quote("Запись не найдена."), status_code=303
+        )
+    return RedirectResponse(
+        "/admin/errors?msg=" + quote(f"Трейс #{trace_id} удалён."), status_code=303
+    )
+
+
+@app.post("/admin/errors/purge")
+def error_traces_purge(request: Request, days: int = 7, admin: str = Depends(require_login)):
+    """Очистка трейсов старше N дней (кнопка «очистить старше 7 дней»)."""
+    if days < 1:
+        return RedirectResponse(
+            "/admin/errors?error=" + quote("Период очистки — минимум 1 день."),
+            status_code=303,
+        )
+    with _conn() as conn:
+        with conn.transaction():
+            cur = conn.execute(
+                "DELETE FROM error_traces WHERE created_at < now() - make_interval(days => %s)",
+                (days,),
+            )
+            purged = cur.rowcount
+    return RedirectResponse(
+        "/admin/errors?msg=" + quote(f"Удалено трейсов: {purged} (старше {days} дн.)."),
+        status_code=303,
     )
 
 
