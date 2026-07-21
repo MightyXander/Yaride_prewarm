@@ -1,16 +1,19 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { motion } from 'framer-motion';
 import Button from './ui/Button';
 import { showToast } from '../lib/toast';
 import { hapticNotify } from '../lib/haptics';
 import { shareToTelegram, nativeShare, copyToClipboard } from '../lib/share';
+import { durationsMs, easings, prefersReducedMotion, springs } from '../lib/motion';
 
 /**
  * Safety-share: отдаём доверенному человеку ПОЛНУЮ инфу о поездке для контроля
  * безопасности (в отличие от вирального «Позвать попутчиков»). Каркас —
  * ThemeModeSheet.tsx один-в-один: портал в body, role="dialog" aria-modal,
- * слайд снизу + затемнение, закрытие по фону/Esc, drag-handle, safe-area,
- * respect prefers-reduced-motion. Меняется только контент.
+ * spring снизу + fade затемнения (токены lib/motion, issue #467), закрытие
+ * по фону/Esc, drag-handle, safe-area, respect prefers-reduced-motion.
+ * Меняется только контент.
  */
 
 export interface SafetyShareRow {
@@ -35,11 +38,7 @@ interface SafetyShareSheetProps {
   onAddContact: () => void;
 }
 
-const prefersReducedMotion =
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-const EASE = 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+// (prefers-reduced-motion и токены анимаций — из ../lib/motion, issue #467)
 
 const SafetyShareSheet: React.FC<SafetyShareSheetProps> = ({
   open,
@@ -50,19 +49,16 @@ const SafetyShareSheet: React.FC<SafetyShareSheetProps> = ({
   trustedContact,
   onAddContact,
 }) => {
-  // mounted — держим в DOM во время анимации закрытия; shown — целевое состояние (слайд).
+  // mounted — держим в DOM во время анимации закрытия (уход шита вниз).
   const [mounted, setMounted] = useState(open);
-  const [shown, setShown] = useState(false);
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (open) {
       setMounted(true);
-      const r = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)));
-      return () => cancelAnimationFrame(r);
+      return;
     }
-    setShown(false);
     // Сброс «Скопировано», чтобы при следующем открытии кнопка была idle.
     setCopied(false);
     clearTimeout(copiedTimer.current);
@@ -70,7 +66,7 @@ const SafetyShareSheet: React.FC<SafetyShareSheetProps> = ({
       setMounted(false);
       return;
     }
-    const t = setTimeout(() => setMounted(false), 220);
+    const t = setTimeout(() => setMounted(false), durationsMs.sheetUnmount);
     return () => clearTimeout(t);
   }, [open]);
 
@@ -125,13 +121,30 @@ const SafetyShareSheet: React.FC<SafetyShareSheetProps> = ({
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'center',
-        background: `rgba(0,0,0,${shown ? 0.5 : 0})`,
-        transition: reduce ? 'none' : `background 220ms ${EASE}`,
       }}
     >
-      <div
+      {/* Затемнение — отдельный слой с fade (issue #467). */}
+      <motion.div
+        aria-hidden
+        initial={{ opacity: 0 }}
+        animate={{ opacity: open ? 1 : 0 }}
+        transition={reduce ? { duration: 0 } : { duration: durationsMs.sheetBackdrop / 1000, ease: easings.inOut }}
+        style={{ position: 'absolute', inset: 0, background: 'rgba(0, 0, 0, 0.5)' }}
+      />
+      {/* Шит: spring на подъёме, tween на уходе (соразмерен sheetUnmount). */}
+      <motion.div
         onClick={(e) => e.stopPropagation()}
+        initial={reduce ? false : { y: '100%' }}
+        animate={{ y: open ? 0 : '100%' }}
+        transition={
+          reduce
+            ? { duration: 0 }
+            : open
+              ? springs.sheet
+              : { duration: durationsMs.sheetExit / 1000, ease: easings.inOut }
+        }
         style={{
+          position: 'relative',
           width: '100%',
           maxWidth: '430px',
           background: 'var(--card)',
@@ -139,8 +152,6 @@ const SafetyShareSheet: React.FC<SafetyShareSheetProps> = ({
           borderTopRightRadius: 'var(--radius-xl)',
           boxShadow: 'var(--shadow-elevated)',
           padding: '10px 16px calc(env(safe-area-inset-bottom) + 16px)',
-          transform: reduce || shown ? 'translateY(0)' : 'translateY(100%)',
-          transition: reduce ? 'none' : `transform 260ms ${EASE}`,
           willChange: reduce ? 'auto' : 'transform',
         }}
       >
@@ -230,7 +241,7 @@ const SafetyShareSheet: React.FC<SafetyShareSheetProps> = ({
         <div aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
           {copied ? 'Скопировано' : ''}
         </div>
-      </div>
+      </motion.div>
     </div>,
     document.body,
   );

@@ -7,6 +7,7 @@ import { ToastHost } from './components/ToastHost';
 import Splash from './components/Splash';
 import ErrorBoundary from './components/ErrorBoundary';
 import ScreenSkeleton from './components/ScreenSkeleton';
+import ScreenSuspense from './components/ScreenSuspense';
 import { FloatingNav, FLOATING_NAV_CONTENT_PADDING } from './components/FloatingNav';
 import { DesktopSidebar } from './components/DesktopSidebar';
 import { useNavigation } from './hooks/useNavigation';
@@ -30,6 +31,7 @@ import { shouldGateBrowserAuth, isTelegramContext } from './lib/auth';
 import { showToast } from './lib/toast';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { prewarmInitial, prewarmAround } from './lib/appPrefetch';
+import { durations, springs } from './lib/motion';
 import { screenRegistry } from './lib/screenRegistry';
 import { initAnalytics, trackScreenView } from './lib/analytics';
 import type { ScreenCtx } from './lib/screenRegistry';
@@ -713,8 +715,8 @@ function App() {
         exit={prefersReducedMotion ? 'reducedExit' : 'exit'}
         transition={
           prefersReducedMotion
-            ? { duration: 0.12 }
-            : { type: 'spring', stiffness: 520, damping: 42, mass: 0.9 }
+            ? { duration: durations.reducedScreen }
+            : springs.screen
         }
         style={{
           display: 'flex',
@@ -732,9 +734,9 @@ function App() {
         }}
       >
         <ErrorBoundary resetKey={currentScreen}>
-        <Suspense fallback={<ScreenSkeleton />}>
-        {screenRegistry[currentScreen]?.(screenCtx)}
-        </Suspense>
+          <ScreenSuspense>
+            {screenRegistry[currentScreen]?.(screenCtx)}
+          </ScreenSuspense>
         </ErrorBoundary>
       </motion.div>
     </AnimatePresence>

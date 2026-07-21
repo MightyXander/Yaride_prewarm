@@ -333,8 +333,11 @@ body {
 }
 
 /* ===== Splash (первый запуск — без белой вспышки) ===== */
+/* Кривые hide (issue #467): easeInOut для fade и scale — симметричный мягкий
+   уход без резкого старта; тайминги 0.5s/0.55s не меняем (гейт splash в
+   useSplashGate/Splash.tsx рассчитан на 550ms). Токен: cssEase.inOut (lib/motion.ts). */
 .splash {
-  transition: opacity 0.5s ease, transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 0.5s cubic-bezier(0.45, 0, 0.55, 1), transform 0.55s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .splash.is-hidden {

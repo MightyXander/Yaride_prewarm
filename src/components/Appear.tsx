@@ -2,8 +2,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import type { ReactNode, CSSProperties } from 'react';
 
-// prefers-reduced-motion: отключаем анимацию
-const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Токены анимаций и статический prefers-reduced-motion — из общего модуля (issue #467).
+import { durations, easings, listStaggerMs, prefersReducedMotion } from '../lib/motion';
 
 interface AppearProps {
   children: ReactNode;
@@ -49,8 +49,8 @@ export const Appear: React.FC<AppearProps> = ({
   style,
   className,
 }) => {
-  const duration = prefersReducedMotion || instant ? 0 : 0.21; // 210ms
-  const exitDuration = prefersReducedMotion || instant ? 0 : 0.15; // exit короче enter
+  const duration = prefersReducedMotion || instant ? 0 : durations.base;
+  const exitDuration = prefersReducedMotion || instant ? 0 : durations.fast; // exit короче enter
 
   // `initial={false}` (а не только duration: 0) — компонент монтируется сразу в
   // конечном состоянии "visible", без единого кадра со значениями "hidden"
@@ -67,7 +67,7 @@ export const Appear: React.FC<AppearProps> = ({
       transition={{
         duration,
         delay: prefersReducedMotion ? 0 : delay / 1000, // ms → s; при reduced-motion без stagger-задержки
-        ease: [0.25, 0.1, 0.25, 1], // ease-out
+        ease: easings.out,
       }}
       style={{ willChange: prefersReducedMotion ? 'auto' : 'opacity, transform', ...style }}
       className={className}
@@ -88,7 +88,7 @@ export const Appear: React.FC<AppearProps> = ({
           variants={appearVariants}
           transition={{
             duration: exitDuration,
-            ease: [0.25, 0.1, 0.25, 1],
+            ease: easings.out,
           }}
           style={{ willChange: prefersReducedMotion ? 'auto' : 'opacity, transform', ...style }}
           className={className}
@@ -120,7 +120,7 @@ interface AppearListProps {
  */
 export const AppearList: React.FC<AppearListProps> = ({
   children,
-  stagger = 40, // 40ms по умолчанию
+  stagger = listStaggerMs,
   animateKey,
   style,
   className,
@@ -146,8 +146,8 @@ export const AppearList: React.FC<AppearListProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: prefersReducedMotion ? 1 : 0 }}
           transition={{
-            duration: prefersReducedMotion ? 0 : 0.15,
-            ease: [0.25, 0.1, 0.25, 1],
+            duration: prefersReducedMotion ? 0 : durations.fast,
+            ease: easings.out,
           }}
           style={style}
           className={className}

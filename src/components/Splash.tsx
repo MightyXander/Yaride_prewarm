@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
+import { durationsMs } from '../lib/motion';
 
 interface SplashProps {
   /** Когда true, splash начинает уход (fade out) */
@@ -25,11 +26,11 @@ const Splash: React.FC<SplashProps> = ({ onHide, onHidden }) => {
         setIsGone(true);
         onHidden?.();
       } else {
-        // Ждём завершения анимации (0.5s transition)
+        // Ждём завершения CSS-анимации ухода (transform 550ms, index.css)
         const timer = setTimeout(() => {
           setIsGone(true);
           onHidden?.();
-        }, 550);
+        }, durationsMs.splashHide);
         return () => clearTimeout(timer);
       }
     }
