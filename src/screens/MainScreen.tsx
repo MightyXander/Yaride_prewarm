@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import WhenSheet, { ANY_TIME } from '../components/WhenSheet';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Icon } from '../components/Icons';
 import Card from '../components/ui/Card';
@@ -76,9 +78,27 @@ function minutesUntil(time: string, now: Date = new Date()): number {
   return Math.round((dep.getTime() - now.getTime()) / 60000);
 }
 
+/** Минуты от полуночи для времени HH:MM (сравнение слотов, issue #465). */
+function toMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// Названия месяцев в родительном падеже — для чипа выбранной даты «21 июля».
+const GEN_MONTHS = [
+  'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+];
+
+/** «YYYY-MM-DD» → «21 июля». */
+function formatDayMonth(dateStr: string): string {
+  const [, m, d] = dateStr.split('-').map(Number);
+  return `${d} ${GEN_MONTHS[(m - 1) % 12]}`;
+}
+
 // ── Мелкие презентационные компоненты ──────────────────────────────────────
 
-const GreetingHeader: React.FC<{ greeting: string; name: string }> = ({ greeting, name }) => (
+const GreetingHeader: React.FC<{ greeting: string; name: string; onAvatarClick?: () => void }> = ({ greeting, name, onAvatarClick }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '2px 2px 0' }}>
     <div style={{ minWidth: 0 }}>
       <div style={{ fontSize: '15px', color: 'var(--muted-foreground)' }}>{greeting}{name ? ',' : ''}</div>
@@ -97,7 +117,31 @@ const GreetingHeader: React.FC<{ greeting: string; name: string }> = ({ greeting
         </div>
       )}
     </div>
-    {name && <Avatar label={getInitials(name)} hideRating size={44} />}
+    {name && (
+      <button
+        type="button"
+        aria-label="Профиль"
+        onClick={() => {
+          hapticImpact('light');
+          onAvatarClick?.();
+        }}
+        className="focus-ring pressable"
+        style={{
+          flexShrink: 0,
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          minWidth: '44px',
+          minHeight: '44px',
+          display: 'grid',
+          placeItems: 'center',
+          cursor: 'pointer',
+          borderRadius: '16px',
+        }}
+      >
+        <Avatar label={getInitials(name)} hideRating size={44} />
+      </button>
+    )}
   </div>
 );
 
@@ -138,7 +182,7 @@ const Segmented: React.FC<{ direction: Direction; onToggleDirection?: () => void
               cursor: 'pointer',
               fontFamily: 'var(--font-sans)',
               fontWeight: 700,
-              fontSize: '15px',
+              fontSize: '16px',
               background: active ? 'var(--elevated)' : 'transparent',
               color: active ? 'var(--foreground)' : 'var(--muted-foreground)',
               boxShadow: active ? 'var(--shadow-card)' : 'none',
@@ -160,10 +204,10 @@ const RouteDayLine: React.FC<{
   window: string;
   isTomorrow: boolean;
   dayLabel: string;
-  onToggleDay?: () => void;
-}> = ({ from, to, window: win, isTomorrow, dayLabel, onToggleDay }) => (
+  onOpenWhen?: () => void;
+}> = ({ from, to, window: win, isTomorrow, dayLabel, onOpenWhen }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '0 2px' }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, fontSize: '13px', color: 'var(--foreground)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, fontSize: '14px', color: 'var(--foreground)', overflow: 'hidden' }}>
       <span style={{ width: '7px', height: '7px', borderRadius: '50%', border: '2px solid var(--muted-foreground)', flexShrink: 0 }} />
       <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{isTomorrow ? 'Завтра · ' : ''}{from}</span>
       <Icon id="i-arrow-r" style={{ width: '14px', height: '14px', color: 'var(--muted-foreground)', flexShrink: 0 }} />
@@ -171,24 +215,25 @@ const RouteDayLine: React.FC<{
       <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{to}</span>
       <span style={{ color: 'var(--muted-foreground)', whiteSpace: 'nowrap', flexShrink: 0 }}>· {win}</span>
     </div>
-    {onToggleDay && (
+    {onOpenWhen && (
       <button
         type="button"
-        onClick={onToggleDay}
+        onClick={onOpenWhen}
+        aria-haspopup="dialog"
         className="focus-ring pressable"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: '4px',
-          height: '32px',
-          padding: '0 8px',
+          minHeight: '32px',
+          padding: '0 10px',
           borderRadius: '12px',
           border: '1px solid var(--border)',
           background: 'var(--elevated)',
           color: 'var(--foreground)',
           fontFamily: 'var(--font-sans)',
           fontWeight: 700,
-          fontSize: '12px',
+          fontSize: '13.5px',
           cursor: 'pointer',
           flexShrink: 0,
         }}
@@ -269,7 +314,7 @@ const TimelineRow: React.FC<{
       <div style={{ paddingTop: `${DOT_Y - 10}px`, textAlign: 'right', paddingRight: '4px' }}>
         <span
           style={{
-            fontSize: '14px',
+            fontSize: '16px',
             fontWeight: nearest ? 800 : 600,
             fontVariantNumeric: 'tabular-nums',
             color: nearest ? 'var(--foreground)' : 'var(--muted-foreground)',
@@ -322,13 +367,15 @@ const TimelineRow: React.FC<{
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
-              <span style={{ fontWeight: 800, fontSize: '15px', flexShrink: 0, whiteSpace: 'nowrap' }}>
+              <span style={{ fontWeight: 800, fontSize: '16.5px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {trip.driver.name}
               </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--muted-foreground)', fontSize: '13px', fontWeight: 700, flexShrink: 0 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--muted-foreground)', fontSize: '13.5px', fontWeight: 700, flexShrink: 0 }}>
                 <Icon id="i-star" fill style={{ width: '13px', height: '13px', color: 'var(--star)' }} />
                 {rating}
               </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, marginTop: '2px' }}>
               {badge && (
                 <span
                   style={{
@@ -344,17 +391,17 @@ const TimelineRow: React.FC<{
                   {badge}
                 </span>
               )}
-            </div>
-            <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
-              {from} → {to} · {durationLabel}
+              <span style={{ fontSize: '14px', color: 'var(--muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                {from} → {to} · {durationLabel}
+              </span>
             </div>
             {disabledReason && (
               <div style={{ fontSize: '11.5px', color: 'var(--muted-foreground)', marginTop: '2px' }}>{disabledReason}</div>
             )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
-            <span style={{ fontWeight: 800, fontSize: '15px', fontVariantNumeric: 'tabular-nums' }}>{trip.price} ₽</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--muted-foreground)', fontSize: '12px', fontWeight: 600 }}>
+            <span style={{ fontWeight: 800, fontSize: '16.5px', fontVariantNumeric: 'tabular-nums' }}>{trip.price} ₽</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--muted-foreground)', fontSize: '13px', fontWeight: 600 }}>
               <Icon id="i-seat" style={{ width: '14px', height: '14px' }} />
               {seatsLabel}
             </span>
@@ -413,28 +460,37 @@ const Timeline: React.FC<{
   period: string;
   dimmed?: boolean;
   disabledReason?: string;
+  preferredTime?: string;
   onTripClick: (trip: Trip) => void;
   onOpenProfile?: (userId: number) => void;
   onLeaveRequest?: () => void;
-}> = ({ trips, isToday, highlightFirst, showTail, period, dimmed = false, disabledReason, onTripClick, onOpenProfile, onLeaveRequest }) => (
-  <div style={{ display: 'flex', flexDirection: 'column' }}>
-    {trips.map((trip, index) => (
-      <TimelineRow
-        key={trip.id}
-        trip={trip}
-        nearest={highlightFirst && index === 0}
-        isFirst={index === 0}
-        isLast={!showTail && index === trips.length - 1}
-        isToday={isToday}
-        dimmed={dimmed}
-        disabledReason={disabledReason}
-        onTripClick={onTripClick}
-        onOpenProfile={onOpenProfile}
-      />
-    ))}
-    {showTail && <TimelineTail period={period} onLeaveRequest={onLeaveRequest} />}
-  </div>
-);
+}> = ({ trips, isToday, highlightFirst, showTail, period, dimmed = false, disabledReason, preferredTime, onTripClick, onOpenProfile, onLeaveRequest }) => {
+  // Якорь подсветки «ближайшей»: при заданном preferredTime — первый слот ≥ него,
+  // иначе первая поездка (список приходит с сервера отсортированным по времени, #465).
+  const anchorIndex =
+    preferredTime && preferredTime !== ANY_TIME
+      ? Math.max(0, trips.findIndex((t) => toMinutes(t.time) >= toMinutes(preferredTime)))
+      : 0;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {trips.map((trip, index) => (
+        <TimelineRow
+          key={trip.id}
+          trip={trip}
+          nearest={highlightFirst && index === anchorIndex}
+          isFirst={index === 0}
+          isLast={!showTail && index === trips.length - 1}
+          isToday={isToday}
+          dimmed={dimmed}
+          disabledReason={disabledReason}
+          onTripClick={onTripClick}
+          onOpenProfile={onOpenProfile}
+        />
+      ))}
+      {showTail && <TimelineTail period={period} onLeaveRequest={onLeaveRequest} />}
+    </div>
+  );
+};
 
 const TimelineSkeleton: React.FC = () => (
   <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -485,11 +541,11 @@ const DriverBanner: React.FC<{ warmDest: string; onPublish: () => void }> = ({ w
     }}
   >
     <span style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'rgba(0, 0, 0, .08)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-      <Icon id="i-seat" style={{ width: '20px', height: '20px' }} />
+      <Icon id="i-wheel" style={{ width: '20px', height: '20px' }} />
     </span>
     <span style={{ flex: 1, minWidth: 0 }}>
-      <span style={{ display: 'block', fontWeight: 800, fontSize: '15px' }}>Сам за рулём?</span>
-      <span style={{ display: 'block', fontSize: '13px', opacity: 0.72 }}>Возьми попутчиков {warmDest}</span>
+      <span style={{ display: 'block', fontWeight: 800, fontSize: '16px' }}>Сам за рулём?</span>
+      <span style={{ display: 'block', fontSize: '13.5px', opacity: 0.72 }}>Возьми попутчиков {warmDest}</span>
     </span>
     <span style={{ width: '34px', height: '34px', borderRadius: '50%', background: '#18170f', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
       <Icon id="i-arrow-r" style={{ width: '18px', height: '18px' }} />
@@ -508,8 +564,8 @@ const ScenarioEmpty: React.FC<{
       <Icon id="i-clock" style={{ width: '30px', height: '30px' }} />
     </div>
     <div>
-      <div style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.01em' }}>{title}</div>
-      <div style={{ fontSize: '14.5px', color: 'var(--muted-foreground)', marginTop: '6px', lineHeight: 1.5, maxWidth: '260px' }}>
+      <div style={{ fontWeight: 800, fontSize: '19px', letterSpacing: '-0.01em' }}>{title}</div>
+      <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', marginTop: '6px', lineHeight: 1.5, maxWidth: '260px' }}>
         Оставь заявку — водители на маршруте увидят и подхватят тебя.
       </div>
     </div>
@@ -547,6 +603,7 @@ interface MainScreenProps {
   onToggleDirection?: () => void;
   userRole?: UserRole;
   onOpenProfile?: (userId: number) => void;
+  onOpenProfileTab?: () => void;
   selectedDate?: string;
   onSelectDate?: (date: string) => void;
 }
@@ -567,10 +624,13 @@ const MainScreen: React.FC<MainScreenProps> = ({
   onOpenProfile,
   selectedDate,
   onSelectDate,
+  onOpenProfileTab,
 }) => {
   const prefersReduced = useReducedMotion();
   const { profile } = useProfile();
   const isDesktop = useMediaQuery(DESKTOP_BREAKPOINT);
+  const [whenOpen, setWhenOpen] = useState(false);
+  const [preferredTime, setPreferredTime] = useState(ANY_TIME);
 
   // Кнопку публикации показываем водителю. Источник истины — серверный статус ВУ,
   // а не только localStorage-роль (в Telegram WebView роль может теряться).
@@ -604,10 +664,25 @@ const MainScreen: React.FC<MainScreenProps> = ({
   const sectionSubtitle = `${primaryCount} ${pluralRu(primaryCount, DRIVER_WORDS)} ${primaryCount === 1 ? 'едет' : 'едут'} ${warmDest} ${isTomorrow ? 'завтра' : 'сегодня'} ${period}`;
   const emptyTitle = isTomorrow ? `Завтра ${period} поездок пока нет` : `Пока никто не едет ${warmDest} ${period}`;
 
-  const toggleDay = () => {
-    if (!onSelectDate) return;
+  const TIME_SLOTS = direction === 'morning'
+    ? ['7:30', '7:40', '7:55', '8:10']
+    : ['17:30', '17:40', '18:00', '18:30'];
+
+  // Подпись чипа даты: Сегодня/Завтра/«21 июля» (+ «, 7:40» если время выбрано).
+  const dateBase = !selectedDate || selectedDate === today
+    ? 'Сегодня'
+    : selectedDate === tomorrow
+      ? 'Завтра'
+      : formatDayMonth(selectedDate);
+  const dateChipLabel = preferredTime !== ANY_TIME ? `${dateBase}, ${preferredTime}` : dateBase;
+
+  const openWhen = () => {
     hapticSelection();
-    onSelectDate(selectedDate === today ? tomorrow : today);
+    setWhenOpen(true);
+  };
+  const applyWhen = (date: string, time: string) => {
+    onSelectDate?.(date);
+    setPreferredTime(time);
   };
 
   const D = prefersReduced ? 0 : 0.42;
@@ -617,8 +692,8 @@ const MainScreen: React.FC<MainScreenProps> = ({
 
   const sectionTitle = (
     <div style={{ padding: '2px 2px 0' }}>
-      <div style={{ fontSize: '17px', fontWeight: 800, letterSpacing: '-0.01em' }}>Ближайшие отправления</div>
-      <div style={{ fontSize: '13.5px', color: 'var(--muted-foreground)', marginTop: '2px' }}>{sectionSubtitle}</div>
+      <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.01em' }}>Ближайшие отправления</div>
+      <div style={{ fontSize: '14.5px', color: 'var(--muted-foreground)', marginTop: '2px' }}>{sectionSubtitle}</div>
     </div>
   );
 
@@ -644,15 +719,15 @@ const MainScreen: React.FC<MainScreenProps> = ({
         />
       ) : (
         <>
-          <GreetingHeader greeting={greeting} name={userName} />
+          <GreetingHeader greeting={greeting} name={userName} onAvatarClick={onOpenProfileTab} />
           <Segmented direction={direction} onToggleDirection={onToggleDirection} />
           <RouteDayLine
             from={routeFrom}
             to={routeTo}
             window={win}
             isTomorrow={isTomorrow}
-            dayLabel={dayLabel}
-            onToggleDay={onSelectDate ? toggleDay : undefined}
+            dayLabel={dateChipLabel}
+            onOpenWhen={onSelectDate ? openWhen : undefined}
           />
         </>
       )}
@@ -701,6 +776,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                         highlightFirst
                         showTail
                         period={period}
+                        preferredTime={preferredTime}
                         onTripClick={onTripClick}
                         onOpenProfile={onOpenProfile}
                         onLeaveRequest={onLeaveRequest}
@@ -735,6 +811,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                     highlightFirst
                     showTail
                     period={period}
+                    preferredTime={preferredTime}
                     onTripClick={onTripClick}
                     onOpenProfile={onOpenProfile}
                     onLeaveRequest={onLeaveRequest}
@@ -762,6 +839,19 @@ const MainScreen: React.FC<MainScreenProps> = ({
           )}
         </AnimatePresence>
       </div>
+
+      {!isDesktop && onSelectDate && (
+        <WhenSheet
+          open={whenOpen}
+          selectedDate={selectedDate ?? today}
+          preferredTime={preferredTime}
+          today={today}
+          tomorrow={tomorrow}
+          timeSlots={TIME_SLOTS}
+          onApply={applyWhen}
+          onClose={() => setWhenOpen(false)}
+        />
+      )}
     </div>
   );
 };

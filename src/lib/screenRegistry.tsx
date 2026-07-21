@@ -97,6 +97,8 @@ export interface ScreenCtx {
   gateContext: boolean;
 
   handleOpenUserProfile: (userId: number) => void;
+  /** Переход в раздел «Профиль» тем же способом, что нижний навбар (issue #465). */
+  onOpenProfileTab: () => void;
   profileStack: number[];
 
   handleOpenTripById: (tripId: number, backTo?: Screen) => Promise<void>;
@@ -182,6 +184,7 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
         window.Telegram?.WebApp.HapticFeedback?.impactOccurred('light');
         ctx.setSelectedDate(date);
       }}
+      onOpenProfileTab={ctx.onOpenProfileTab}
     />
   ),
   'main-more': (ctx) => (

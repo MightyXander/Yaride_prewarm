@@ -296,6 +296,7 @@ function App() {
     handleLogout,
     gateContext,
     handleOpenUserProfile,
+    onOpenProfileTab: () => navigateToTab('profile'),
     profileStack,
     handleOpenTripById,
     handleCancelOwnTrip,

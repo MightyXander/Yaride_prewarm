@@ -14,6 +14,11 @@ export const Icons = () => (
       <path d="M7 4h5.5a2.5 2.5 0 0 1 2.5 2.5V13H8.5A1.5 1.5 0 0 1 7 11.5V4Z" />
       <path d="M15 13h1.6A2.4 2.4 0 0 1 19 15.4V19M5 4v9.5A1.5 1.5 0 0 0 6.5 15H15M5 19v-1.6" />
     </symbol>
+    <symbol id="i-wheel" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="2.2" />
+      <path d="M12 14.2V21M10.1 11 4 8.7M13.9 11l6.1-2.3" strokeLinecap="round" />
+    </symbol>
     <symbol id="i-clock" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="8" />
       <path d="M12 8v4.3l3 1.7" />
