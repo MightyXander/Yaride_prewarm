@@ -4,27 +4,54 @@ import IntroScreen from '../screens/IntroScreen';
 import MainScreen from '../screens/MainScreen';
 // Не-стартовые экраны грузим лениво (code-splitting) — режет initial-бандл и TTI.
 // IntroScreen и MainScreen остаются в основном бандле (первый рендер).
-const TripDetailsScreen = lazy(() => import('../screens/TripDetailsScreen'));
-const BookingProfileScreen = lazy(() => import('../screens/BookingProfileScreen'));
-const DriverPublishScreen = lazy(() => import('../screens/DriverPublishScreen'));
-const BookingConfirmedScreen = lazy(() => import('../screens/BookingConfirmedScreen'));
-const ProfileScreen = lazy(() => import('../screens/ProfileScreen'));
-const BecomeDriverScreen = lazy(() => import('../screens/BecomeDriverScreen'));
-const LicenseReviewScreen = lazy(() => import('../screens/LicenseReviewScreen'));
-const SafetyScreen = lazy(() => import('../screens/SafetyScreen'));
-const PassengerRequestScreen = lazy(() => import('../screens/PassengerRequestScreen'));
-const RequestPublishedScreen = lazy(() => import('../screens/RequestPublishedScreen'));
-const MyTripsScreen = lazy(() => import('../screens/MyTripsScreen'));
-const RateTripScreen = lazy(() => import('../screens/RateTripScreen'));
-const UserProfileScreen = lazy(() => import('../screens/UserProfileScreen'));
-const NotificationsScreen = lazy(() => import('../screens/NotificationsScreen'));
-const AddCarScreen = lazy(() => import('../screens/AddCarScreen'));
-const MyCarsScreen = lazy(() => import('../screens/MyCarsScreen'));
-const PersonalDataScreen = lazy(() => import('../screens/PersonalDataScreen'));
-const MyAlertsScreen = lazy(() => import('../screens/MyAlertsScreen'));
-const AuthGateScreen = lazy(() => import('../screens/AuthGateScreen'));
-const LoginScreen = lazy(() => import('../screens/LoginScreen'));
-const RegisterScreen = lazy(() => import('../screens/RegisterScreen'));
+// Import-фабрики вынесены в screenChunkLoaders (issue #466): одни и те же фабрики
+// питают и lazy() ниже, и фоновый прогрев чанков (src/lib/appPrefetch.ts) —
+// import() каждого экрана написан ровно один раз.
+export const screenChunkLoaders = {
+  'trip-details': () => import('../screens/TripDetailsScreen'),
+  'booking-profile': () => import('../screens/BookingProfileScreen'),
+  'driver-publish': () => import('../screens/DriverPublishScreen'),
+  'booking-confirmed': () => import('../screens/BookingConfirmedScreen'),
+  profile: () => import('../screens/ProfileScreen'),
+  'become-driver': () => import('../screens/BecomeDriverScreen'),
+  'license-review': () => import('../screens/LicenseReviewScreen'),
+  safety: () => import('../screens/SafetyScreen'),
+  'passenger-request': () => import('../screens/PassengerRequestScreen'),
+  'request-published': () => import('../screens/RequestPublishedScreen'),
+  'my-trips': () => import('../screens/MyTripsScreen'),
+  'rate-trip': () => import('../screens/RateTripScreen'),
+  'user-profile': () => import('../screens/UserProfileScreen'),
+  notifications: () => import('../screens/NotificationsScreen'),
+  'add-car': () => import('../screens/AddCarScreen'),
+  'my-cars': () => import('../screens/MyCarsScreen'),
+  'personal-data': () => import('../screens/PersonalDataScreen'),
+  'my-alerts': () => import('../screens/MyAlertsScreen'),
+  'auth-gate': () => import('../screens/AuthGateScreen'),
+  login: () => import('../screens/LoginScreen'),
+  register: () => import('../screens/RegisterScreen'),
+} satisfies Partial<Record<Screen, () => Promise<unknown>>>;
+
+const TripDetailsScreen = lazy(screenChunkLoaders['trip-details']);
+const BookingProfileScreen = lazy(screenChunkLoaders['booking-profile']);
+const DriverPublishScreen = lazy(screenChunkLoaders['driver-publish']);
+const BookingConfirmedScreen = lazy(screenChunkLoaders['booking-confirmed']);
+const ProfileScreen = lazy(screenChunkLoaders.profile);
+const BecomeDriverScreen = lazy(screenChunkLoaders['become-driver']);
+const LicenseReviewScreen = lazy(screenChunkLoaders['license-review']);
+const SafetyScreen = lazy(screenChunkLoaders.safety);
+const PassengerRequestScreen = lazy(screenChunkLoaders['passenger-request']);
+const RequestPublishedScreen = lazy(screenChunkLoaders['request-published']);
+const MyTripsScreen = lazy(screenChunkLoaders['my-trips']);
+const RateTripScreen = lazy(screenChunkLoaders['rate-trip']);
+const UserProfileScreen = lazy(screenChunkLoaders['user-profile']);
+const NotificationsScreen = lazy(screenChunkLoaders.notifications);
+const AddCarScreen = lazy(screenChunkLoaders['add-car']);
+const MyCarsScreen = lazy(screenChunkLoaders['my-cars']);
+const PersonalDataScreen = lazy(screenChunkLoaders['personal-data']);
+const MyAlertsScreen = lazy(screenChunkLoaders['my-alerts']);
+const AuthGateScreen = lazy(screenChunkLoaders['auth-gate']);
+const LoginScreen = lazy(screenChunkLoaders.login);
+const RegisterScreen = lazy(screenChunkLoaders.register);
 
 import type { AsyncState } from '../hooks/useAsync';
 import type { ThemeMode } from '../hooks/useTheme';

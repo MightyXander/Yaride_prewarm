@@ -1,18 +1,25 @@
 /**
- * appPrefetch — фоновый прогрев кэшей всех разделов после холодного старта
- * (issue #414). Цель: переход на уведомления/профиль/подстраницы/детали
- * активных поездок/профили участников — мгновенный, из screenDataCache.
+ * appPrefetch — глубинно-ориентированный прогрев экранов (issue #466, заменяет
+ * idle-прогрев фиксированного списка из #414). «Прогрет» = вызвана import-фабрика
+ * код-чанка экрана (screenChunkLoaders) + prefetchScreenData для всех его
+ * фетчеров; экраны без данных — только чанк.
  *
- * Прогрев ПОСЛЕДОВАТЕЛЬНЫЙ (стаггер из вежливости к серверу — rate-limit на
- * data-GET нет, но лавину не устраиваем). Каждый ключ: guard «уже в кэше →
- * пропустить», ошибки глотаются per-key (не валят очередь). Свежесть данных —
- * забота существующего SWR (useScreenData), здесь только первичный прогрев.
+ * Дерево экранов НЕ дублируется: CHILD_SCREENS — инверсия PARENT_SCREEN из
+ * useNavigation.ts, вычисляется один раз на модульном уровне.
  *
- * НЕ префетчим (границы задачи): level-2 (профили авторов отзывов на
- * участников — комбинаторный взрыв), коридор (useCorridorTrips грузится на
- * старте App сам), профиль целиком (ProfileContext + localStorage-кэш).
+ * Два режима:
+ * - prewarmInitial(screen) — стартовый прогрев потомков глубины ≤2 параллельно
+ *   (concurrency 4, без стаггера): splash ждёт его через prewarmDone
+ *   (useSplashGate), затягивать нельзя.
+ * - prewarmAround(screen) — фоновая догрузка после навигации: requestIdleCallback
+ *   (fallback setTimeout 2s) + стаггер 250ms из вежливости к серверу.
+ *
+ * Повторный прогрев дешёвый: module-level Set прогретых чанков + дедупликация
+ * prefetchScreenData (in-flight + кэш). Ошибки глотаются per-screen: реальный
+ * заход на экран начнёт фетч заново (prefetchScreenData ошибки не кэширует).
  */
-import { useEffect } from 'react';
+import { PARENT_SCREEN } from '../hooks/useNavigation';
+import { screenChunkLoaders } from './screenRegistry';
 import { getScreenData, prefetchScreenData } from './screenDataCache';
 import {
   fetchMyTripsUpcoming,
@@ -21,136 +28,148 @@ import {
   fetchMyAlerts,
   fetchSafety,
   fetchNotifications,
-  makeUserProfileFetcher,
-  makeUserReviewsFetcher,
-  makeTripParticipantsFetcher,
-  makeTripBookingsFetcher,
 } from './screenFetchers';
-import { useProfile } from '../contexts/ProfileContext';
-import type { TripParticipant } from '../types/api';
+import type { Screen } from '../types/navigation';
 
-/** Пауза между префетчами — стаггер очереди. */
+/** Пауза между префетчами в фоновом режиме — стаггер очереди. */
 const STAGGER_MS = 250;
 
-/** Кап на чужие профили за один прогрев — защита от комбинаторики. */
-const MAX_PARTICIPANT_PROFILES = 10;
+/** Кап глубины обхода от текущего экрана. */
+const MAX_DEPTH = 2;
 
-function delay(ms: number): Promise<void> {
-  // Не Promise.withResolvers: проект собирается под lib ES2023 (tsconfig.app.json),
-  // а старые Telegram-webview его не поддерживают (ES2024).
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
-}
+/** Параллелизм стартового прогрева. */
+const INITIAL_CONCURRENCY = 4;
 
 /**
- * Прогревает один ключ: уже в кэше → пропустить (без стаггер-паузы), иначе
- * префетч + пауза. Ошибка глотается (prefetchScreenData её не кэширует —
- * реальный заход на экран начнёт фетч заново). Возвращает данные ключа,
- * если они есть (для каскада), иначе undefined.
+ * Прямой граф экранов: parent → children. Инверсия PARENT_SCREEN («назад»-графа
+ * из useNavigation) — единственного источника структуры дерева. Самоссылки
+ * корней ('auth-gate', 'intro') отбрасываются, иначе обход зациклился бы.
  */
-async function warmKey<T>(key: string, fetcher: () => Promise<T>): Promise<T | undefined> {
-  const cached = getScreenData<T>(key);
-  if (cached !== undefined) return cached;
-  try {
-    const result = await prefetchScreenData(key, fetcher);
-    await delay(STAGGER_MS);
-    return result;
-  } catch {
-    // per-key: очередь продолжается, следующий заход на экран повторит фетч
-    return undefined;
+const CHILD_SCREENS: Partial<Record<Screen, Screen[]>> = (() => {
+  const map: Partial<Record<Screen, Screen[]>> = {};
+  for (const [child, parent] of Object.entries(PARENT_SCREEN) as [Screen, Screen][]) {
+    if (child === parent) continue;
+    (map[parent] ??= []).push(child);
   }
-}
+  return map;
+})();
 
 /**
- * Фоновый прогрев всех разделов. Очередь:
- * 1) уведомления (перенесён прежний прогрев из App.tsx, issue #352);
- * 2) подстраницы профиля: my-trips:upcoming/past, my-cars, my-alerts, safety;
- * 3) свои профиль и отзывы (myUserId из ProfileContext; null — пропускаем,
- *    эффект перезапустится, когда id появится);
- * 4) каскад по активным поездкам из my-trips:upcoming: своя → брони
- *    (trip-bookings:{id}), чужая с активной бронью → участники
- *    (trip-participants:{id}) → профили+отзывы участников (кроме себя),
- *    суммарно не более MAX_PARTICIPANT_PROFILES чужих профилей.
+ * Данные экранов со статическими ключами кэша (useScreenData на самих экранах
+ * использует ровно эти же ключи — иначе прогрев мимо). Экраны с динамическими
+ * фетчерами (user-profile/trip-details: нужен id) прогреваются только чанком.
  */
-export async function warmAppCaches(myUserId: number | null): Promise<void> {
-  await warmKey('notifications', fetchNotifications);
+const SCREEN_FETCHERS: Partial<Record<Screen, Array<{ key: string; fetcher: () => Promise<unknown> }>>> = {
+  notifications: [{ key: 'notifications', fetcher: fetchNotifications }],
+  'my-trips': [
+    { key: 'my-trips:upcoming', fetcher: fetchMyTripsUpcoming },
+    { key: 'my-trips:past', fetcher: fetchMyTripsPast },
+  ],
+  'my-cars': [{ key: 'my-cars', fetcher: fetchMyCars }],
+  'my-alerts': [{ key: 'my-alerts', fetcher: fetchMyAlerts }],
+  safety: [{ key: 'safety', fetcher: fetchSafety }],
+};
 
-  const upcoming = await warmKey('my-trips:upcoming', fetchMyTripsUpcoming);
-  await warmKey('my-trips:past', fetchMyTripsPast);
-  await warmKey('my-cars', fetchMyCars);
-  await warmKey('my-alerts', fetchMyAlerts);
-  await warmKey('safety', fetchSafety);
+/** Чанки, чья import-фабрика уже вызвана (модуль в module registry браузера). */
+const warmedChunks = new Set<Screen>();
 
-  if (myUserId !== null) {
-    await warmKey(`user-profile:${myUserId}`, makeUserProfileFetcher(myUserId));
-    await warmKey(`user-reviews:${myUserId}`, makeUserReviewsFetcher(myUserId));
-  }
-
-  if (!upcoming) return;
-
-  // Каскад: участники активных поездок и их профили/отзывы.
-  const participantIds = new Set<number>();
-  for (const trip of upcoming) {
-    // Активная поездка: не завершённая и не отменённая.
-    if (trip.trip_status === 'completed' || trip.trip_status === 'cancelled') continue;
-    const tripId = trip.trip_id;
-    if (!Number.isFinite(tripId)) continue;
-
-    if (trip.role === 'driver') {
-      // Своя поездка: раздел «Брони» в TripDetailsScreen.
-      await warmKey(`trip-bookings:${tripId}`, makeTripBookingsFetcher(tripId));
-    } else if (trip.booking_status === 'active') {
-      // Чужая поездка с активной бронью: «Кто едет» (сервер отдаёт
-      // участников только участникам — без брони запрос не шлём).
-      const participants = await warmKey<TripParticipant[]>(
-        `trip-participants:${tripId}`,
-        makeTripParticipantsFetcher(tripId),
-      );
-      for (const p of participants ?? []) {
-        if (p.user_id !== myUserId) participantIds.add(p.user_id);
+/** Потомки screen на глубину ≤ maxDepth (BFS, сам screen не входит). */
+export function collectDescendants(screen: Screen, maxDepth: number = MAX_DEPTH): Screen[] {
+  const result: Screen[] = [];
+  const seen = new Set<Screen>([screen]);
+  let frontier: Screen[] = [screen];
+  for (let depth = 0; depth < maxDepth; depth++) {
+    const next: Screen[] = [];
+    for (const s of frontier) {
+      for (const child of CHILD_SCREENS[s] ?? []) {
+        if (seen.has(child)) continue;
+        seen.add(child);
+        result.push(child);
+        next.push(child);
       }
     }
+    frontier = next;
   }
-
-  let warmedProfiles = 0;
-  for (const userId of participantIds) {
-    if (warmedProfiles >= MAX_PARTICIPANT_PROFILES) break;
-    await warmKey(`user-profile:${userId}`, makeUserProfileFetcher(userId));
-    await warmKey(`user-reviews:${userId}`, makeUserReviewsFetcher(userId));
-    warmedProfiles += 1;
-  }
+  return result;
 }
 
 /**
- * Мост между App и прогревом: App рендерит ProfileProvider сам (useProfile
- * внутри App недоступен), поэтому idle-эффект живёт в этом null-компоненте
- * ВНУТРИ провайдера. requestIdleCallback не блокирует первый рендер; в
- * браузерах без него (Safari) — fallback на setTimeout 2s. Эффект
- * перезапускается при появлении profile.id (греет свои отзывы и каскад);
- * повторный запуск дёшев: guard «уже в кэше» пропускает прогретые ключи.
+ * Прогревает один экран: чанк + данные. Возвращает true, если реально ушла
+ * хоть одна асинхронная работа (для пропуска стаггер-паузы в фоне).
  */
-export function AppCacheWarmer(): null {
-  const { profile } = useProfile();
-  const myUserId = profile?.id ?? null;
+async function warmScreen(screen: Screen): Promise<boolean> {
+  const tasks: Promise<unknown>[] = [];
 
-  useEffect(() => {
-    const win = window as Window & {
-      requestIdleCallback?: (cb: () => void) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-    const warm = () => {
-      void warmAppCaches(myUserId);
-    };
+  const loadChunk = screenChunkLoaders[screen as keyof typeof screenChunkLoaders];
+  if (loadChunk && !warmedChunks.has(screen)) {
+    warmedChunks.add(screen);
+    tasks.push(
+      loadChunk().catch(() => {
+        // Сеть подвела — снимаем пометку, следующий прогрев/заход попробует снова.
+        warmedChunks.delete(screen);
+      }),
+    );
+  }
 
-    if (win.requestIdleCallback) {
-      const id = win.requestIdleCallback(warm);
-      return () => win.cancelIdleCallback?.(id);
+  for (const { key, fetcher } of SCREEN_FETCHERS[screen] ?? []) {
+    if (getScreenData(key) !== undefined) continue;
+    tasks.push(
+      prefetchScreenData(key, fetcher).catch(() => {
+        // per-screen: ошибка не валит прогрев, реальный заход повторит фетч.
+      }),
+    );
+  }
+
+  if (tasks.length === 0) return false;
+  await Promise.all(tasks);
+  return true;
+}
+
+/**
+ * Стартовый прогрев: все потомки screen глубины ≤2, параллельно с concurrency 4,
+ * без стаггера (splash ждёт prewarmDone — затягивать нельзя). Промис резолвится,
+ * когда прогреты все цели (ошибки проглочены внутри warmScreen).
+ */
+export async function prewarmInitial(screen: Screen): Promise<void> {
+  const targets = collectDescendants(screen);
+  let nextIndex = 0;
+  const worker = async (): Promise<void> => {
+    while (nextIndex < targets.length) {
+      const target = targets[nextIndex];
+      nextIndex += 1;
+      await warmScreen(target);
     }
+  };
+  const workers = Array.from({ length: Math.min(INITIAL_CONCURRENCY, targets.length) }, worker);
+  await Promise.all(workers);
+}
 
-    const timeoutId = window.setTimeout(warm, 2000);
-    return () => window.clearTimeout(timeoutId);
-  }, [myUserId]);
+/**
+ * Фоновая догрузка после навигации: потомки screen глубины ≤2, последовательно
+ * в idle-время со стаггером 250ms. Fire-and-forget: отмены нет — повторный
+ * вызов на уже прогретом поддереве дешёвый (Set чанков + дедуп данных).
+ */
+export function prewarmAround(screen: Screen): void {
+  const run = async (): Promise<void> => {
+    for (const target of collectDescendants(screen)) {
+      const didWork = await warmScreen(target);
+      if (didWork) {
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, STAGGER_MS);
+        });
+      }
+    }
+  };
 
-  return null;
+  const win = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+  if (win.requestIdleCallback) {
+    win.requestIdleCallback(() => {
+      void run();
+    });
+    return;
+  }
+  // Safari: requestIdleCallback нет — не блокируем первый рендер таймаутом.
+  window.setTimeout(() => {
+    void run();
+  }, 2000);
 }

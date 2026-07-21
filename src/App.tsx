@@ -29,7 +29,7 @@ import { loadRole, type UserRole } from './lib/role';
 import { shouldGateBrowserAuth, isTelegramContext } from './lib/auth';
 import { showToast } from './lib/toast';
 import { ProfileProvider } from './contexts/ProfileContext';
-import { AppCacheWarmer } from './lib/appPrefetch';
+import { prewarmInitial, prewarmAround } from './lib/appPrefetch';
 import { screenRegistry } from './lib/screenRegistry';
 import type { ScreenCtx } from './lib/screenRegistry';
 import type { TabRoot } from './hooks/useNavigation';
@@ -102,6 +102,9 @@ function App() {
   // meChecked — дёрнули ли уже GET /api/auth/me. В Telegram/неуверенном контексте
   // проверка не нужна → сразу true (splash не ждёт).
   const [meChecked, setMeChecked] = useState(!gateContext);
+  // Прогрет ли стартовый прогрев экранов глубины ≤2 (issue #466) — гейт splash
+  // ждёт его вместе с meChecked (cap 6с в useSplashGate, по таймауту прогрев доезжает фоном).
+  const [prewarmDone, setPrewarmDone] = useState(false);
 
   const needsAuthGate = gateContext && !authed;
 
@@ -192,6 +195,7 @@ function App() {
 
   const { splashVisible, splashHiding, setSplashVisible } = useSplashGate({
     meChecked,
+    prewarmDone,
     routePointsStatus: routePointsState.status,
     morningStatus: morningTripsState.status,
     eveningStatus: eveningTripsState.status,
@@ -245,9 +249,24 @@ function App() {
     void handleOpenTripById(tripIdNum, 'main');
   }, [needsAuthGate, handleOpenTripById, savedEntryAtMount]);
 
-  // Idle-прогрев кэшей ВСЕХ разделов (issue #414, включает прежний прогрев
-  // уведомлений из #352) — живёт в AppCacheWarmer внутри ProfileProvider
-  // (нужен profile.id из контекста), см. src/lib/appPrefetch.ts.
+  // Прогрев экранов до глубины 2 (issue #466, заменяет idle-прогрев #414/#352).
+  // Старт: как только известен стартовый экран (после meChecked — /me мог сменить
+  // auth-gate на main), греем потомков глубины ≤2 параллельно (concurrency 4) и
+  // отпускаем splash через prewarmDone. Гвард на один запуск: currentScreen в deps
+  // нужен только чтобы взять его значение на момент срабатывания meChecked.
+  const prewarmStartedRef = useRef(false);
+  useEffect(() => {
+    if (!meChecked || prewarmStartedRef.current) return;
+    prewarmStartedRef.current = true;
+    void prewarmInitial(currentScreen).finally(() => setPrewarmDone(true));
+  }, [meChecked, currentScreen]);
+
+  // После каждого перехода — фоновая догрузка потомков нового экрана до глубины 2
+  // (requestIdleCallback + стаггер 250мс). Повторный прогрев дешёвый: Set прогретых
+  // чанков + дедупликация prefetchScreenData.
+  useEffect(() => {
+    prewarmAround(currentScreen);
+  }, [currentScreen]);
 
   // На auth-экранах (login/register) back показываем ТОЛЬКО в Telegram-контексте:
   // в браузере fallback-кнопка не нужна, нативную Telegram-кнопку сохраняем (issue #412).
@@ -709,7 +728,6 @@ function App() {
 
   return (
     <ProfileProvider>
-      <AppCacheWarmer />
       <div
         className={theme}
         style={{
