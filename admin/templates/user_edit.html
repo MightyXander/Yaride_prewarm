@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Пользователь #{{ user.id }} — Yaride Admin{% endblock %}
+{% block content %}
+<h1>Пользователь #{{ user.id }} <small>{{ user.name }}</small></h1>
+
+<div class="card req">
+    <div class="req-head">
+        <strong>Системные данные</strong>
+        <span class="muted">только чтение</span>
+    </div>
+    <table>
+        <tbody>
+            <tr><td>id</td><td>{{ user.id }}</td></tr>
+            <tr><td>tg_user_id</td><td>{{ user.tg_user_id or '—' }}</td></tr>
+            <tr><td>Имя (снимок Telegram)</td><td>{{ user.name }}</td></tr>
+            <tr><td>Пароль</td><td>{{ 'установлен' if user.has_password else 'нет (вход через Telegram)' }}</td></tr>
+            <tr><td>Создан</td><td>{{ user.created_at }}</td></tr>
+            <tr><td>Рейтинг</td><td>{% if user.rating_count %}{{ '%.1f'|format(user.rating_avg) }} ({{ user.rating_count }}){% else %}—{% endif %}</td></tr>
+            <tr><td>Поездок (вод./пасс.)</td><td>{{ user.trips_driver_count }} / {{ user.trips_passenger_count }}</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card req">
+    <div class="req-head">
+        <strong>Редактирование</strong>
+        <span class="muted">пустое поле = очистить значение</span>
+    </div>
+    <form method="post" action="/admin/users/{{ user.id }}">
+        <table>
+            <tbody>
+                <tr>
+                    <td><label for="first_name">Имя</label></td>
+                    <td><input type="text" id="first_name" name="first_name" value="{{ values.first_name or '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="last_name">Фамилия</label></td>
+                    <td><input type="text" id="last_name" name="last_name" value="{{ values.last_name or '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="username">Логин</label></td>
+                    <td><input type="text" id="username" name="username" value="{{ values.username or '' }}" placeholder="латиница, цифры, _"></td>
+                </tr>
+                <tr>
+                    <td><label for="email">Email</label></td>
+                    <td><input type="text" id="email" name="email" value="{{ values.email or '' }}"></td>
+                </tr>
+                <tr>
+                    <td><label for="sex">Пол</label></td>
+                    <td>
+                        <select id="sex" name="sex">
+                            {% for opt in sex_options %}
+                            <option value="{{ opt }}" {% if values.sex == opt %}selected{% endif %}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td><label for="birth_date">Дата рождения</label></td>
+                    <td><input type="text" id="birth_date" name="birth_date" value="{{ values.birth_date or '' }}" placeholder="YYYY-MM-DD"></td>
+                </tr>
+                <tr>
+                    <td><label for="license_status">Статус ВУ</label></td>
+                    <td>
+                        <select id="license_status" name="license_status">
+                            {% for opt in license_options %}
+                            <option value="{{ opt }}" {% if values.license_status == opt %}selected{% endif %}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="actions">
+            <button class="btn ok" type="submit">Сохранить</button>
+            <a class="btn" href="/admin/users">К списку</a>
+        </div>
+    </form>
+</div>
+
+<div class="card req">
+    <div class="req-head">
+        <strong>Удаление</strong>
+        <span class="muted">только без связанных поездок, бронирований и заявок на ВУ</span>
+    </div>
+    <div class="actions">
+        <form method="post" action="/admin/users/{{ user.id }}/delete"
+              onsubmit="return confirm('Удалить пользователя #{{ user.id }}? Действие необратимо.')">
+            <button class="btn danger" type="submit">Удалить пользователя</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

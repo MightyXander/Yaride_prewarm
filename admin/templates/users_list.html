@@ -12,8 +12,8 @@
     <tbody>
     {% for u in users %}
         <tr>
-            <td>{{ u.id }}</td>
-            <td>{{ u.name }}</td>
+            <td><a href="/admin/users/{{ u.id }}">{{ u.id }}</a></td>
+            <td><a href="/admin/users/{{ u.id }}">{{ u.name }}</a></td>
             <td>{{ u.username or '—' }}</td>
             <td>{{ u.tg_user_id }}</td>
             <td>{{ u.license_status }}</td>

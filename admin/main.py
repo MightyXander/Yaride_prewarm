@@ -12,16 +12,23 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
 from urllib.parse import quote
 
 import psycopg
 from passlib.context import CryptContext
+from pydantic import ValidationError
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+
+try:  # запуск из каталога admin/ (Docker: uvicorn main:app)
+    import validation
+except ImportError:  # запуск как пакет: uvicorn admin.main:app
+    from admin import validation  # type: ignore[no-redef]
 
 _BASE = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(_BASE / "templates"))
@@ -180,7 +187,12 @@ def dashboard(request: Request, admin: str = Depends(require_login)):
 
 
 @app.get("/admin/drivers/pending", response_class=HTMLResponse)
-def drivers_pending(request: Request, admin: str = Depends(require_login)):
+def drivers_pending(
+    request: Request,
+    error: str | None = None,
+    msg: str | None = None,
+    admin: str = Depends(require_login),
+):
     with _conn() as conn:
         rows = conn.execute(
             """
@@ -202,36 +214,67 @@ def drivers_pending(request: Request, admin: str = Depends(require_login)):
         }
         for r in rows
     ]
-    return render(request, "drivers_pending.html", active="drivers", items=items, pending_count=len(items))
+    return render(
+        request, "drivers_pending.html", active="drivers",
+        items=items, pending_count=len(items), error=error, msg=msg,
+    )
 
 
 @app.post("/admin/drivers/{req_id}/approve")
 def driver_approve(request: Request, req_id: int, admin: str = Depends(require_login)):
-    _review_license(req_id, "approved", "verified", admin)
+    err = _review_license(req_id, "approved", "verified", admin)
+    if err:
+        return RedirectResponse(f"/admin/drivers/pending?error={quote(err)}", status_code=303)
     return RedirectResponse("/admin/drivers/pending", status_code=303)
 
 
 @app.post("/admin/drivers/{req_id}/reject")
 def driver_reject(request: Request, req_id: int, admin: str = Depends(require_login)):
-    _review_license(req_id, "rejected", "rejected", admin)
+    err = _review_license(req_id, "rejected", "rejected", admin)
+    if err:
+        return RedirectResponse(f"/admin/drivers/pending?error={quote(err)}", status_code=303)
     return RedirectResponse("/admin/drivers/pending", status_code=303)
 
 
-def _review_license(req_id: int, req_status: str, user_status: str, reviewer: str) -> None:
+def _review_license(req_id: int, req_status: str, user_status: str, reviewer: str) -> str | None:
+    """Решение по заявке ВУ. Возвращает текст ошибки для формы или None.
+
+    Approve предварительно валидирует серию/номер и срок действия ВУ
+    (validation.py — зеркало src/server/api.ts:1838-1874); невалидная
+    заявка остаётся pending. Оба UPDATE выполняются в одной транзакции
+    (issue #469: раньше autocommit без транзакции).
+    """
     with _conn() as conn:
         row = conn.execute(
-            "SELECT driver_id FROM license_requests WHERE id = %s AND status = 'pending'",
+            "SELECT driver_id, series_number, valid_until FROM license_requests"
+            " WHERE id = %s AND status = 'pending'",
             (req_id,),
         ).fetchone()
         if not row:
-            return
-        driver_id = row[0]
-        conn.execute(
-            "UPDATE license_requests SET status=%s, reviewed_at=CURRENT_TIMESTAMP, reviewer=%s"
-            " WHERE id=%s",
-            (req_status, reviewer, req_id),
-        )
-        conn.execute("UPDATE users SET license_status=%s WHERE id=%s", (user_status, driver_id))
+            return None
+        driver_id, series_number, valid_until = row
+        if req_status == "approved":
+            if validation.validate_series_number(series_number or "") is None:
+                return (
+                    f"Заявка #{req_id} осталась в ожидании: серия/номер ВУ"
+                    " не в формате «NNNN ЛЛ NNNNNN» (4 цифры, 2 русские буквы, 6 цифр)."
+                )
+            if validation.validate_valid_until(valid_until or "") is None:
+                return (
+                    f"Заявка #{req_id} осталась в ожидании: срок действия ВУ"
+                    " не в формате MM/YYYY или уже истёк."
+                )
+        try:
+            with conn.transaction():
+                conn.execute(
+                    "UPDATE license_requests SET status=%s, reviewed_at=CURRENT_TIMESTAMP, reviewer=%s"
+                    " WHERE id=%s",
+                    (req_status, reviewer, req_id),
+                )
+                conn.execute("UPDATE users SET license_status=%s WHERE id=%s", (user_status, driver_id))
+        except psycopg.Error as exc:
+            return validation.db_error_message(exc)
+    return None
 
 
 # --- Запросы на изменения данных профиля (issue #457) --------------------------
@@ -374,7 +417,12 @@ def _reject_profile_request(req_id: int, reviewer: str, reason: str) -> None:
 
 
 @app.get("/admin/users", response_class=HTMLResponse)
-def users_list(request: Request, admin: str = Depends(require_login)):
+def users_list(
+    request: Request,
+    error: str | None = None,
+    msg: str | None = None,
+    admin: str = Depends(require_login),
+):
     with _conn() as conn:
         rows = conn.execute(
             """
@@ -391,7 +439,217 @@ def users_list(request: Request, admin: str = Depends(require_login)):
         }
         for r in rows
     ]
-    return render(request, "users_list.html", active="users", users=users)
+    return render(request, "users_list.html", active="users", users=users, error=error, msg=msg)
+
+
+# --- Карточка пользователя: CRUD + валидация (issue #469) ----------------------
+# Редактируемые поля формы. Денормализованные (trips_*_count, rating_*) и
+# системные (id, tg_user_id, password_hash, created_at) — только чтение.
+_USER_EDIT_FIELDS = ("first_name", "last_name", "username", "email", "sex", "birth_date", "license_status")
+
+
+def _fetch_user(conn: psycopg.Connection, user_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT id, tg_user_id, name, username, email, first_name, last_name,
+               birth_date, sex, license_status, created_at,
+               rating_avg, rating_count, trips_driver_count, trips_passenger_count,
+               password_hash IS NOT NULL AS has_password
+        FROM users WHERE id = %s
+        """,
+        (user_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "id": row[0], "tg_user_id": row[1], "name": row[2], "username": row[3],
+        "email": row[4], "first_name": row[5], "last_name": row[6],
+        "birth_date": row[7].isoformat() if row[7] else None,
+        "sex": row[8], "license_status": row[9], "created_at": row[10],
+        "rating_avg": row[11], "rating_count": row[12],
+        "trips_driver_count": row[13], "trips_passenger_count": row[14],
+        "has_password": row[15],
+    }
+
+
+def _render_user_edit(
+    request: Request,
+    user: dict,
+    values: dict,
+    *,
+    error: str | None = None,
+    msg: str | None = None,
+    status_code: int = 200,
+):
+    resp = render(
+        request, "user_edit.html", active="users",
+        user=user, values=values, error=error, msg=msg,
+        sex_options=[s.value for s in validation.Sex],
+        license_options=[s.value for s in validation.LicenseStatus],
+    )
+    resp.status_code = status_code
+    return resp
+
+
+@app.get("/admin/users/{user_id}", response_class=HTMLResponse)
+def user_edit_form(
+    request: Request,
+    user_id: int,
+    error: str | None = None,
+    msg: str | None = None,
+    admin: str = Depends(require_login),
+):
+    with _conn() as conn:
+        user = _fetch_user(conn, user_id)
+    if user is None:
+        return RedirectResponse(
+            "/admin/users?error=" + quote("Пользователь не найден."), status_code=303
+        )
+    values = {f: user[f] for f in _USER_EDIT_FIELDS}
+    return _render_user_edit(request, user, values, error=error, msg=msg)
+
+
+@app.post("/admin/users/{user_id}", response_class=HTMLResponse)
+def user_edit_save(
+    request: Request,
+    user_id: int,
+    first_name: str = Form(""),
+    last_name: str = Form(""),
+    username: str = Form(""),
+    email: str = Form(""),
+    sex: str = Form(""),
+    birth_date: str = Form(""),
+    license_status: str = Form(""),
+    admin: str = Depends(require_login),
+):
+    """Сохранение карточки пользователя.
+
+    Валидация — validation.UserEditForm; UPDATE только изменённых полей в одной
+    транзакции. Любая ошибка (валидация, занятость email/username, SQLSTATE)
+    рендерит форму с русским сообщением и статусом 422 — никаких 500.
+    """
+    submitted = {
+        "first_name": first_name, "last_name": last_name, "username": username,
+        "email": email, "sex": sex, "birth_date": birth_date,
+        "license_status": license_status,
+    }
+    with _conn() as conn:
+        user = _fetch_user(conn, user_id)
+        if user is None:
+            return RedirectResponse(
+                "/admin/users?error=" + quote("Пользователь не найден."), status_code=303
+            )
+        try:
+            form = validation.UserEditForm(**submitted)
+        except ValidationError as exc:
+            return _render_user_edit(
+                request, user, submitted,
+                error=validation.format_validation_errors(exc), status_code=422,
+            )
+        new_values = {
+            "first_name": form.first_name,
+            "last_name": form.last_name,
+            "username": form.username,
+            "email": form.email,
+            "sex": form.sex.value if form.sex else None,
+            "birth_date": form.birth_date,
+            "license_status": form.license_status.value if form.license_status else None,
+        }
+        changed: dict[str, object] = {}
+        for f in ("first_name", "last_name", "username", "email", "birth_date"):
+            if new_values[f] != user[f]:
+                changed[f] = new_values[f]
+        # sex/license_status в БД NOT NULL: пустое значение формы = «не менять».
+        for f in ("sex", "license_status"):
+            if new_values[f] is not None and new_values[f] != user[f]:
+                changed[f] = new_values[f]
+        if not changed:
+            return _render_user_edit(request, user, submitted, msg="Изменений нет.")
+        # Предварительная проверка занятости (уникальные индексы по lower()).
+        if changed.get("email") is not None:
+            row = conn.execute(
+                "SELECT id FROM users WHERE lower(email) = lower(%s) AND id <> %s",
+                (changed["email"], user_id),
+            ).fetchone()
+            if row:
+                return _render_user_edit(
+                    request, user, submitted,
+                    error=f"Email уже занят пользователем #{row[0]}.", status_code=422,
+                )
+        # Уникальность username — только среди веб-аккаунтов (частичный индекс
+        # uq_users_username_lower WHERE password_hash IS NOT NULL).
+        if changed.get("username") is not None and user["has_password"]:
+            row = conn.execute(
+                "SELECT id FROM users WHERE lower(username) = lower(%s) AND id <> %s"
+                " AND password_hash IS NOT NULL",
+                (changed["username"], user_id),
+            ).fetchone()
+            if row:
+                return _render_user_edit(
+                    request, user, submitted,
+                    error=f"Логин уже занят пользователем #{row[0]}.", status_code=422,
+                )
+        sets, vals = [], []
+        for f, v in changed.items():
+            sets.append(f"{f} = %s")
+            vals.append(date.fromisoformat(v) if f == "birth_date" and v is not None else v)
+        try:
+            with conn.transaction():
+                conn.execute(
+                    f"UPDATE users SET {', '.join(sets)} WHERE id = %s",
+                    (*vals, user_id),
+                )
+        except psycopg.Error as exc:
+            return _render_user_edit(
+                request, user, submitted,
+                error=validation.db_error_message(exc), status_code=422,
+            )
+    return RedirectResponse(
+        f"/admin/users/{user_id}?msg=" + quote("Изменения сохранены."), status_code=303
+    )
+
+
+@app.post("/admin/users/{user_id}/delete")
+def user_delete(request: Request, user_id: int, admin: str = Depends(require_login)):
+    """Удаление пользователя — только без связанной истории.
+
+    FK trips.driver_id / bookings.passenger_id / license_requests.driver_id
+    без ON DELETE: удаление с историей сломало бы целостность, поэтому guard
+    перечисляет причины отказа.
+    """
+    with _conn() as conn:
+        counts = conn.execute(
+            """
+            SELECT (SELECT count(*) FROM trips WHERE driver_id = %(id)s),
+                   (SELECT count(*) FROM bookings WHERE passenger_id = %(id)s),
+                   (SELECT count(*) FROM license_requests WHERE driver_id = %(id)s)
+            """,
+            {"id": user_id},
+        ).fetchone()
+        trips_n, bookings_n, lic_n = counts
+        reasons = []
+        if trips_n:
+            reasons.append(f"поездки как водитель: {trips_n}")
+        if bookings_n:
+            reasons.append(f"бронирования как пассажир: {bookings_n}")
+        if lic_n:
+            reasons.append(f"заявки на ВУ: {lic_n}")
+        if reasons:
+            err = "Удаление запрещено — есть связанные записи (" + "; ".join(reasons) + ")."
+            return RedirectResponse(
+                f"/admin/users/{user_id}?error=" + quote(err), status_code=303
+            )
+        try:
+            with conn.transaction():
+                conn.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        except psycopg.Error as exc:
+            return RedirectResponse(
+                f"/admin/users/{user_id}?error=" + quote(validation.db_error_message(exc)),
+                status_code=303,
+            )
+    return RedirectResponse(
+        "/admin/users?msg=" + quote(f"Пользователь #{user_id} удалён."), status_code=303
+    )
 
 
 def _gate_color(value: float, green_threshold: float, yellow_threshold: float, higher_is_better: bool) -> str:
