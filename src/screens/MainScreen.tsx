@@ -63,13 +63,6 @@ function getInitials(name: string): string {
   return (a + b).toUpperCase();
 }
 
-/** Окно отправлений из subtitle («…, утро 7:30–8:40» → «7:30–8:40»); fallback — по направлению. */
-function extractWindow(subtitle: string | undefined, direction: Direction): string {
-  const m = subtitle?.match(/(\d{1,2}:\d{2}\s*[–—-]\s*\d{1,2}:\d{2})/);
-  if (m) return m[1].replace(/\s+/g, '');
-  return direction === 'morning' ? '7:30–8:40' : '17:00–18:30';
-}
-
 /** Минут до времени HH:MM от «сейчас» (в рамках сегодняшнего дня). */
 function minutesUntil(time: string, now: Date = new Date()): number {
   const [h, m] = time.split(':').map(Number);
@@ -201,19 +194,16 @@ const Segmented: React.FC<{ direction: Direction; onToggleDirection?: () => void
 const RouteDayLine: React.FC<{
   from: string;
   to: string;
-  window: string;
-  datePrefix: string;
   dayLabel: string;
   onOpenWhen?: () => void;
-}> = ({ from, to, window: win, datePrefix, dayLabel, onOpenWhen }) => (
+}> = ({ from, to, dayLabel, onOpenWhen }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '0 2px' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, fontSize: '14px', color: 'var(--foreground)', overflow: 'hidden' }}>
       <span style={{ width: '7px', height: '7px', borderRadius: '50%', border: '2px solid var(--muted-foreground)', flexShrink: 0 }} />
-      <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{datePrefix}{from}</span>
+      <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{from}</span>
       <Icon id="i-arrow-r" style={{ width: '14px', height: '14px', color: 'var(--muted-foreground)', flexShrink: 0 }} />
       <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--brand)', flexShrink: 0 }} />
       <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{to}</span>
-      <span style={{ color: 'var(--muted-foreground)', whiteSpace: 'nowrap', flexShrink: 0 }}>· {win}</span>
     </div>
     {onOpenWhen && (
       <button
@@ -657,7 +647,6 @@ const MainScreen: React.FC<MainScreenProps> = ({
   const period = direction === 'morning' ? 'утром' : 'вечером';
   const routeFrom = direction === 'morning' ? 'Брагино' : 'Центр';
   const routeTo = direction === 'morning' ? 'Центр' : 'Брагино';
-  const win = extractWindow(subtitle, direction);
   const greeting = greetingByHour(new Date().getHours());
   const userName = profile?.name?.trim() || '';
 
@@ -722,8 +711,6 @@ const MainScreen: React.FC<MainScreenProps> = ({
           <RouteDayLine
             from={routeFrom}
             to={routeTo}
-            window={win}
-            datePrefix={isToday ? '' : `${dayLabelCap} · `}
             dayLabel={dateChipLabel}
             onOpenWhen={onSelectDate ? openWhen : undefined}
           />
