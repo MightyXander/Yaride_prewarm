@@ -19,7 +19,7 @@ import { useProfile } from '../contexts/ProfileContext';
 import { useScreenData } from '../hooks/useScreenData';
 import { fetchSafety, DEFAULT_SAFETY } from '../lib/screenFetchers';
 import type { GetMySafetyResponse } from '../types/api';
-import { dayWord, localDateStr } from '../lib/dateLocal';
+import { localDateStr } from '../lib/dateLocal';
 import { hapticSelection, hapticImpact } from '../lib/haptics';
 
 // Причина недоступности мужских/unknown поездок в режиме женских поездок (issue #448).
@@ -202,14 +202,14 @@ const RouteDayLine: React.FC<{
   from: string;
   to: string;
   window: string;
-  isTomorrow: boolean;
+  datePrefix: string;
   dayLabel: string;
   onOpenWhen?: () => void;
-}> = ({ from, to, window: win, isTomorrow, dayLabel, onOpenWhen }) => (
+}> = ({ from, to, window: win, datePrefix, dayLabel, onOpenWhen }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '0 2px' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, fontSize: '14px', color: 'var(--foreground)', overflow: 'hidden' }}>
       <span style={{ width: '7px', height: '7px', borderRadius: '50%', border: '2px solid var(--muted-foreground)', flexShrink: 0 }} />
-      <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{isTomorrow ? 'Завтра · ' : ''}{from}</span>
+      <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{datePrefix}{from}</span>
       <Icon id="i-arrow-r" style={{ width: '14px', height: '14px', color: 'var(--muted-foreground)', flexShrink: 0 }} />
       <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--brand)', flexShrink: 0 }} />
       <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{to}</span>
@@ -648,9 +648,11 @@ const MainScreen: React.FC<MainScreenProps> = ({
   // Сценарные значения
   const today = localDateStr();
   const tomorrow = localDateStr(new Date(Date.now() + 86_400_000));
-  const dayLabel = selectedDate ? dayWord(selectedDate) : 'Сегодня';
-  const isTomorrow = dayLabel === 'Завтра';
-  const isToday = !isTomorrow;
+  const isToday = !selectedDate || selectedDate === today;
+  const isTomorrow = !isToday && selectedDate === tomorrow;
+  // Ярлык выбранного дня: Сегодня/Завтра словами, произвольная дата — «25 июля» (issue #465).
+  const dayLabelCap = isToday ? 'Сегодня' : isTomorrow ? 'Завтра' : formatDayMonth(selectedDate ?? today);
+  const dayLabelLower = isToday ? 'сегодня' : isTomorrow ? 'завтра' : dayLabelCap;
   const warmDest = direction === 'morning' ? 'в центр' : 'домой';
   const period = direction === 'morning' ? 'утром' : 'вечером';
   const routeFrom = direction === 'morning' ? 'Брагино' : 'Центр';
@@ -661,19 +663,15 @@ const MainScreen: React.FC<MainScreenProps> = ({
 
   const primaryTrips = womenOnly ? femaleTrips : trips;
   const primaryCount = primaryTrips.length;
-  const sectionSubtitle = `${primaryCount} ${pluralRu(primaryCount, DRIVER_WORDS)} ${primaryCount === 1 ? 'едет' : 'едут'} ${warmDest} ${isTomorrow ? 'завтра' : 'сегодня'} ${period}`;
-  const emptyTitle = isTomorrow ? `Завтра ${period} поездок пока нет` : `Пока никто не едет ${warmDest} ${period}`;
+  const sectionSubtitle = `${primaryCount} ${pluralRu(primaryCount, DRIVER_WORDS)} ${primaryCount === 1 ? 'едет' : 'едут'} ${warmDest} ${dayLabelLower} ${period}`;
+  const emptyTitle = isToday ? `Пока никто не едет ${warmDest} ${period}` : `${dayLabelCap} ${period} поездок пока нет`;
 
   const TIME_SLOTS = direction === 'morning'
     ? ['7:30', '7:40', '7:55', '8:10']
     : ['17:30', '17:40', '18:00', '18:30'];
 
   // Подпись чипа даты: Сегодня/Завтра/«21 июля» (+ «, 7:40» если время выбрано).
-  const dateBase = !selectedDate || selectedDate === today
-    ? 'Сегодня'
-    : selectedDate === tomorrow
-      ? 'Завтра'
-      : formatDayMonth(selectedDate);
+  const dateBase = dayLabelCap;
   const dateChipLabel = preferredTime !== ANY_TIME ? `${dateBase}, ${preferredTime}` : dateBase;
 
   const openWhen = () => {
@@ -725,7 +723,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
             from={routeFrom}
             to={routeTo}
             window={win}
-            isTomorrow={isTomorrow}
+            datePrefix={isToday ? '' : `${dayLabelCap} · `}
             dayLabel={dateChipLabel}
             onOpenWhen={onSelectDate ? openWhen : undefined}
           />
