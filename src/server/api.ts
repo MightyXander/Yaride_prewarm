@@ -90,6 +90,7 @@ import {
   UserConflictError,
   CredentialsAlreadySetError,
   logEvent,
+  insertErrorTrace,
   createLinkToken,
   countRecentLinkTokens,
   type FindTripsParams,
@@ -2063,4 +2064,89 @@ export async function handleClearNotifications(req: ApiRequest): Promise<ApiResp
   const deletedCount = await clearNotificationsByUserId(userId);
 
   return { status: 200, body: { success: true, deletedCount } };
+}
+
+/**
+ * Rate-limit репортов ошибок фронта (issue #470): in-memory скользящее окно
+ * 30 репортов/мин на IP. Сверх лимита — молча дропаем (ответ всё равно 202,
+ * чтобы не давать спамеру сигнал). Карта чистится лениво при переполнении.
+ */
+const ERROR_REPORTS_PER_MINUTE = 30;
+const ERROR_REPORT_WINDOW_MS = 60_000;
+const errorReportBuckets = new Map<string, { windowStart: number; count: number }>();
+
+function allowErrorReport(ip: string): boolean {
+  const now = Date.now();
+  if (errorReportBuckets.size > 1000) {
+    for (const [key, bucket] of errorReportBuckets) {
+      if (now - bucket.windowStart >= ERROR_REPORT_WINDOW_MS) {
+        errorReportBuckets.delete(key);
+      }
+    }
+  }
+  const bucket = errorReportBuckets.get(ip);
+  if (bucket === undefined || now - bucket.windowStart >= ERROR_REPORT_WINDOW_MS) {
+    errorReportBuckets.set(ip, { windowStart: now, count: 1 });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= ERROR_REPORTS_PER_MINUTE;
+}
+
+/**
+ * POST /api/errors/report — трейс необработанной ошибки фронта (issue #470).
+ *
+ * БЕЗ обязательной авторизации: ошибки случаются и до логина. userId пишется,
+ * если удалось опознать пользователя (initData или cookie-сессия) — по образцу
+ * опциональной аутентификации handleGetTrip. Ответ ВСЕГДА 202: репортер на
+ * фронте fire-and-forget, а спамер не должен отличать «записано» от «дропнуто»
+ * (rate-limit 30/мин на IP, мусор без message тоже молча игнорируется).
+ */
+export async function handleReportError(req: ApiRequest): Promise<ApiResponse> {
+  const accepted: ApiResponse = { status: 202, body: { accepted: true } };
+
+  if (!allowErrorReport(req.ip ?? 'unknown')) {
+    return accepted;
+  }
+
+  const body = asRecord(req.body);
+  const message = typeof body.message === 'string' ? body.message.trim() : '';
+  if (message === '') {
+    return accepted;
+  }
+
+  // Опциональная аутентификация: initData → cookie-сессия → null. Любой сбой
+  // резолва (битый initData, недоступная БД) не должен ронять приём репорта.
+  let userId: number | null = null;
+  try {
+    const authResult = authenticate(req, req.headers['x-telegram-init-data']);
+    if ('user' in authResult) {
+      const userProfile = await ensureUser({
+        tgUserId: authResult.user.id,
+        name: telegramDisplayName(authResult.user),
+        username: authResult.user.username ?? null,
+      });
+      userId = userProfile.id;
+    } else {
+      const webUser = await getSessionUserFromRequest(req);
+      if (webUser !== null) {
+        userId = webUser.id;
+      }
+    }
+  } catch {
+    // Репорт ценнее опознания — пишем анонимно.
+  }
+
+  // Fire-and-forget: insertErrorTrace никогда не бросает, обрезку полей
+  // (message ≤ 2000, stack ≤ 8000, context ≤ 2048 байт) делает сам.
+  void insertErrorTrace({
+    source: 'frontend',
+    userId,
+    errorType: typeof body.errorType === 'string' ? body.errorType : null,
+    message,
+    stack: typeof body.stack === 'string' ? body.stack : null,
+    context: asRecord(body.context),
+  });
+
+  return accepted;
 }

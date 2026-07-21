@@ -25,6 +25,8 @@ export {
   cancelTripByDriver,
   createNotification,
   markNotificationRead,
+  insertErrorTrace,
+  deleteTracesOlderThan,
 } from './repo.ts';
 export type {
   TimeSlot,
@@ -88,6 +90,7 @@ export {
   handleListMyCars,
   handleAddCar,
   handleCancelTrip,
+  handleReportError,
 } from './api.ts';
 export type { ApiRequest, ApiResponse, SetCookieInstruction } from './api.ts';
 

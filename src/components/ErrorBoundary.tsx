@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { reportError } from '../lib/errorReporter.ts';
 
 /**
  * Страховка от «чёрного экрана» (баг-репорт: чёрный экран после публикации поездки).
@@ -43,6 +44,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   componentDidCatch(error: Error, info: ErrorInfo): void {
     // eslint-disable-next-line no-console
     console.error('[ErrorBoundary] Необработанная ошибка рендера экрана:', error, info.componentStack);
+    // Issue #470: трейс в БД (error_traces) — дебаг чёрных экранов без консоли клиента.
+    reportError(error, { handler: 'ErrorBoundary', componentStack: info.componentStack });
   }
 
   componentDidUpdate(prevProps: ErrorBoundaryProps): void {

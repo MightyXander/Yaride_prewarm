@@ -13,7 +13,7 @@
 import type { Pool } from 'pg';
 
 /** Текущая версия схемы кода prewarm-слоя данных. */
-export const CURRENT_SCHEMA_VERSION = 20;
+export const CURRENT_SCHEMA_VERSION = 21;
 
 /** Полный bootstrap схемы для свежей БД (идемпотентно). */
 const BOOTSTRAP_SQL = `
@@ -332,6 +332,23 @@ const BOOTSTRAP_SQL = `
   );
   CREATE UNIQUE INDEX IF NOT EXISTS uq_pcr_pending
     ON profile_change_requests (user_id) WHERE status = 'pending';
+
+  -- Трейсы ошибок (issue #470, наблюдаемость): необработанные ошибки фронта
+  -- (window.onerror/unhandledrejection/ErrorBoundary -> POST /api/errors/report)
+  -- и 500-е бэка (wrap()/uncaughtException/unhandledRejection в server.js).
+  -- Дебаг по БД без доступа к stdout; ретенция 30 дней — server.js.
+  CREATE TABLE IF NOT EXISTS error_traces (
+    id BIGSERIAL PRIMARY KEY,
+    source TEXT NOT NULL CHECK (source IN ('frontend', 'backend')),
+    user_id INT NULL REFERENCES users(id) ON DELETE SET NULL,
+    error_type TEXT,
+    message TEXT NOT NULL,
+    stack TEXT,
+    context JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS idx_error_traces_created ON error_traces (created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_error_traces_source_created ON error_traces (source, created_at DESC);
 `;
 
 /**
@@ -381,6 +398,9 @@ const BOOTSTRAP_SQL = `
  *        profile_change_requests (заявки на изменение личных данных) с частичным
  *        уникальным индексом uq_pcr_pending (один pending на пользователя).
  *        Аддитивно: ADD COLUMN/CREATE TABLE/CREATE INDEX IF NOT EXISTS.
+ * v20→v21: трейсы ошибок (issue #470, наблюдаемость) — таблица error_traces
+ *        (source frontend/backend, message/stack/context JSONB) + индексы по
+ *        (created_at DESC) и (source, created_at DESC). Аддитивно.
  */
 async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<void> {
   if (fromV === 1 && toV === 2) {
@@ -768,6 +788,26 @@ async function applyMigration(pool: Pool, fromV: number, toV: number): Promise<v
 
       CREATE UNIQUE INDEX IF NOT EXISTS uq_pcr_pending
         ON profile_change_requests (user_id) WHERE status = 'pending';
+    `);
+    return;
+  }
+  if (fromV === 20 && toV === 21) {
+    // Трейсы ошибок (issue #470, наблюдаемость). Аддитивно — новая таблица,
+    // ничего существующего не трогает. Идемпотентно (IF NOT EXISTS).
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS error_traces (
+        id BIGSERIAL PRIMARY KEY,
+        source TEXT NOT NULL CHECK (source IN ('frontend', 'backend')),
+        user_id INT NULL REFERENCES users(id) ON DELETE SET NULL,
+        error_type TEXT,
+        message TEXT NOT NULL,
+        stack TEXT,
+        context JSONB NOT NULL DEFAULT '{}',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_error_traces_created ON error_traces (created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_error_traces_source_created ON error_traces (source, created_at DESC);
     `);
     return;
   }

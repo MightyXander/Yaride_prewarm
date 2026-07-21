@@ -35,6 +35,7 @@ export * from './notifications.ts';
 export * from './debug.ts';
 export * from './merge.ts';
 export * from './events.ts';
+export * from './errorTraces.ts';
 export * from './sms-verification.ts';
 export * from './safety.ts';
 export * from './telegram-link.ts';

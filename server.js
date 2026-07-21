@@ -16,11 +16,16 @@ let pingDb = null;
 let api = null;
 let dbSchema = null;
 let telegram = null;
+// Issue #470: трейсы ошибок в БД (error_traces). null до инициализации слоя данных.
+let insertErrorTrace = null;
+let deleteTracesOlderThan = null;
 try {
   const mod = await import('./dist-server/index.js');
   await mod.initDb();
   pingDb = mod.pingDb;
   dbSchema = mod.getSchemaName?.() ?? null;
+  insertErrorTrace = mod.insertErrorTrace;
+  deleteTracesOlderThan = mod.deleteTracesOlderThan;
   api = {
     listTrips: mod.handleListTrips,
     getTrip: mod.handleGetTrip,
@@ -67,6 +72,7 @@ try {
     authLogin: mod.handleLogin,
     authLogout: mod.handleLogout,
     authMe: mod.handleMe,
+    reportError: mod.handleReportError,
   };
   telegram = {
     sendMessage: mod.sendMessage,
@@ -250,6 +256,17 @@ function wrap(handler) {
       res.status(result.status).json(result.body);
     } catch (err) {
       console.error('API handler error:', err?.message ?? err);
+      // Issue #470: трейс 500-й ошибки в БД (fire-and-forget, insertErrorTrace
+      // сам никогда не бросает; console.error выше остаётся как было).
+      if (insertErrorTrace) {
+        void insertErrorTrace({
+          source: 'backend',
+          errorType: err?.name ?? null,
+          message: String(err?.message ?? err),
+          stack: err?.stack ?? null,
+          context: { path: req.path, method: req.method },
+        });
+      }
       res.status(500).json({ error: 'Внутренняя ошибка сервера' });
     }
   };
@@ -310,6 +327,10 @@ app.get('/api/route-points', wrap(api?.listRoutePoints));
 
 // Issue #54: debug endpoint для проверки наполнения БД (dev/прод demo-seed).
 app.get('/api/_debug/counts', wrap(api?.debugCounts));
+
+// Issue #470: трейсы необработанных ошибок фронта. Без обязательной авторизации
+// (ошибки случаются до логина); rate-limit и обрезка полей — внутри хендлера.
+app.post('/api/errors/report', wrap(api?.reportError));
 
 // Issue #198: публичный профиль пользователя и его отзывы.
 app.get('/api/users/:id/profile', wrap(api?.getUserProfile));
@@ -378,6 +399,41 @@ app.use(express.static(path.join(__dirname, 'dist')));
 app.get(/^(?!\/api|\/webhook|\/health).*$/, (req, res) => {
   res.sendFile('index.html', { root: path.join(__dirname, 'dist') });
 });
+
+// Issue #470: фатальные ошибки процесса — трейс в БД + прежняя семантика
+// завершения. ВАЖНО: сама регистрация обработчика uncaughtException/
+// unhandledRejection отключает дефолтное аварийное падение Node, поэтому
+// поведение по умолчанию (печать в stderr + exit(1)) воспроизводим вручную,
+// дав вставке трейса не более 1500 мс.
+function crashWithTrace(kind, err) {
+  console.error(`${kind}:`, err);
+  const insert = insertErrorTrace
+    ? insertErrorTrace({
+        source: 'backend',
+        errorType: err?.name ?? kind,
+        message: String(err?.message ?? err),
+        stack: err?.stack ?? null,
+        context: { kind },
+      })
+    : Promise.resolve();
+  Promise.race([insert, sleep(1500)]).finally(() => process.exit(1));
+}
+process.on('uncaughtException', (err) => crashWithTrace('uncaughtException', err));
+process.on('unhandledRejection', (reason) => crashWithTrace('unhandledRejection', reason));
+
+// Issue #470: ретенция error_traces — при старте и раз в 24 часа удаляем трейсы
+// старше 30 дней. unref(): фоновый таймер не держит процесс живым.
+if (deleteTracesOlderThan) {
+  const runErrorTraceRetention = () => {
+    deleteTracesOlderThan(30)
+      .then((n) => {
+        if (n > 0) console.log(`error_traces: удалено ${n} трейсов старше 30 дней`);
+      })
+      .catch((e) => console.error('Ошибка ретенции error_traces:', e?.message ?? e));
+  };
+  runErrorTraceRetention();
+  setInterval(runErrorTraceRetention, 24 * 60 * 60 * 1000).unref();
+}
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
