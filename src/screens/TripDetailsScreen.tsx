@@ -280,6 +280,10 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
     }
 
     spotlightPlayedRef.current = true;
+    // Прокручиваем карточку в центр вьюпорта ДО снятия координат: если она у
+    // нижнего края списка, клон-фокус (и кнопки «Подтвердить/Отклонить») иначе
+    // уезжает за экран, а скролл под блюр-оверлеем заблокирован (issue #339).
+    el.scrollIntoView({ block: 'center', behavior: 'auto' });
     setSpotlightRect(el.getBoundingClientRect());
     setSpotlightBooking(target);
   }, [bookingFocusUserId, trip.isOwn, loadingBookings, bookings, prefersReducedMotion, onClearBookingFocus]);
