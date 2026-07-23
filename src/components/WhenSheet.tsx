@@ -205,16 +205,30 @@ const WhenSheet: React.FC<WhenSheetProps> = ({
           })}
         </div>
 
-        {/* Календарь для «Другая дата» */}
-        {quick === 'other' && (
-          <div style={{ marginTop: '16px' }}>
+        {/* Календарь для «Другая дата» — плавное раскрытие (grid-rows 0fr→1fr +
+            opacity/margin, тот же приём, что у DriverPublishScreen; respect
+            reduced-motion). Блок всегда в DOM, чтобы анимировать и открытие, и
+            сворачивание при переключении на «Сегодня/Завтра». */}
+        <div
+          aria-hidden={quick !== 'other'}
+          style={{
+            display: 'grid',
+            gridTemplateRows: quick === 'other' ? '1fr' : '0fr',
+            opacity: quick === 'other' ? 1 : 0,
+            marginTop: quick === 'other' ? '16px' : 0,
+            transition: reduce
+              ? 'none'
+              : 'grid-template-rows 0.28s ease-out, opacity 0.28s ease-out, margin-top 0.28s ease-out',
+          }}
+        >
+          <div style={{ overflow: 'hidden', minHeight: 0 }}>
             <Calendar
               value={draftDate}
               onChange={(date) => setDraftDate(date)}
               minDate={new Date(`${today}T00:00:00`)}
             />
           </div>
-        )}
+        </div>
 
         {/* Время отправления */}
         <div style={{ marginTop: '18px' }}>
