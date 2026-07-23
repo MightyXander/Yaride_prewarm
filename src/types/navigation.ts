@@ -34,6 +34,16 @@ export type Screen =
 // Откуда пришли на экран подтверждения (бронь пассажира или публикация водителя)
 export type ConfirmKind = 'booking' | 'publish';
 
+/**
+ * Префилл формы публикации при переходе с экрана спроса (RouteDemandScreen):
+ * направление, дата и время выбранного слота. null — обычная публикация.
+ */
+export interface PublishPrefill {
+  reverse: boolean;
+  date: string;
+  time: string;
+}
+
 export interface Trip {
   id: string;
   driver: {

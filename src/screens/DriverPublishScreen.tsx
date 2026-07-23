@@ -28,6 +28,8 @@ interface DriverPublishScreenProps {
   routeLabel?: string;
   defaultPickup?: string;
   reverse?: boolean;
+  /** Префилл даты (YYYY-MM-DD) при переходе со спроса. По умолчанию — сегодня. */
+  defaultDate?: string;
   /** Открыть экран «Добавить машину» (из выпадающего списка машин). */
   onAddCar?: () => void;
 }
@@ -86,6 +88,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   defaultTime = '7:40',
   routeLabel = 'Маршрут · из шаблона',
   reverse = false,
+  defaultDate,
   onAddCar,
 }) => {
   const [time, setTime] = useState<string>(defaultTime);
@@ -99,7 +102,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
   // КАКОЙ группы показывать в from-/to-Select. Swap меняет группы и точки местами.
   const [startAnchorId, setStartAnchorId] = useState<number | undefined>(undefined);
   const [endAnchorId, setEndAnchorId] = useState<number | undefined>(undefined);
-  const [date, setDate] = useState<string>(localDateStr());
+  const [date, setDate] = useState<string>(defaultDate ?? localDateStr());
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [template, setTemplate] = useState<GetMyTemplateResponse | null>(null);
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
@@ -540,7 +543,7 @@ const DriverPublishScreen: React.FC<DriverPublishScreenProps> = ({
       <div role="group" aria-labelledby={timeLabelId}>
         <div id={timeLabelId} style={sectionLabelStyle}>Когда выезжаешь?</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {timeOptions.map((t) => (
+          {(timeOptions.includes(defaultTime) ? timeOptions : [defaultTime, ...timeOptions]).map((t) => (
             <SelectableChip key={t} label={t} active={time === t} onClick={() => setTime(t)} />
           ))}
         </div>

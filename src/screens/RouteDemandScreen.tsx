@@ -25,7 +25,7 @@ import { ResponsiveColumn } from '../components/ui/ResponsiveColumn';
 
 interface RouteDemandScreenProps {
   /** Опубликовать поездку (переход на форму водителя). */
-  onPublish?: () => void;
+  onPublish?: (slot?: DemandSlot) => void;
 }
 
 // Дата спроса: Сегодня/Завтра/дд мес + точное время (или «любое время») —
@@ -102,10 +102,10 @@ const RouteDemandScreen: React.FC<RouteDemandScreenProps> = ({ onPublish }) => {
   const hero = demand[0];
   const rest = demand.slice(1);
 
-  const handlePublish = () => {
+  const handlePublish = (slot?: DemandSlot) => {
     if (!onPublish) return;
     hapticImpact('light');
-    onPublish();
+    onPublish(slot);
   };
 
   return (
@@ -148,7 +148,7 @@ const RouteDemandScreen: React.FC<RouteDemandScreenProps> = ({ onPublish }) => {
               />
               {onPublish && (
                 <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '320px', margin: '16px auto 0' }}>
-                  <Button variant="primary" onClick={handlePublish}>
+                  <Button variant="primary" onClick={() => handlePublish()}>
                     Опубликовать поездку
                   </Button>
                 </div>
@@ -170,7 +170,7 @@ const RouteDemandScreen: React.FC<RouteDemandScreenProps> = ({ onPublish }) => {
                 </div>
                 <AvatarStack names={hero.sampleNames} total={hero.count} />
                 {onPublish && (
-                  <Button variant="primary" onClick={handlePublish}>
+                  <Button variant="primary" onClick={() => handlePublish(hero)}>
                     Опубликовать поездку
                   </Button>
                 )}
@@ -185,7 +185,7 @@ const RouteDemandScreen: React.FC<RouteDemandScreenProps> = ({ onPublish }) => {
                   key={i}
                   type="button"
                   className="focus-ring pressable"
-                  onClick={handlePublish}
+                  onClick={() => handlePublish(slot)}
                   style={{
                     width: '100%',
                     textAlign: 'left',

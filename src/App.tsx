@@ -36,7 +36,7 @@ import { screenRegistry } from './lib/screenRegistry';
 import { initAnalytics, trackScreenView } from './lib/analytics';
 import type { ScreenCtx } from './lib/screenRegistry';
 import type { TabRoot } from './hooks/useNavigation';
-import type { Screen } from './types/navigation';
+import type { Screen, PublishPrefill } from './types/navigation';
 
 // Смена экрана: переходы между разделами карусели (tab=true, issue #415) — полноэкранный
 // направленный слайд без fade (старый уезжает, новый въезжает одновременно); прочие
@@ -166,6 +166,16 @@ function App() {
   // Пассажир, чью бронь подсветить блюр-сценкой в TripDetailsScreen при заходе
   // из уведомления о новой брони (issue #339). null — сценка не играется.
   const [bookingFocusUserId, setBookingFocusUserId] = useState<number | null>(null);
+  // Префилл формы публикации из слота спроса (RouteDemandScreen). null — обычная публикация.
+  const [publishPrefill, setPublishPrefill] = useState<PublishPrefill | null>(null);
+  // Префилл живёт только на флоу публикации: при уходе с driver-publish (и его
+  // child add-car) очищаем, чтобы обычный вход в создание поездки не подхватывал
+  // устаревшие параметры слота спроса.
+  useEffect(() => {
+    if (currentScreen !== 'driver-publish' && currentScreen !== 'add-car') {
+      setPublishPrefill(null);
+    }
+  }, [currentScreen]);
 
   const { handleRoleSelect, handleBecomeDriver } = useRoleHandlers({ setUserRole, navigate });
 
@@ -339,6 +349,8 @@ function App() {
     handleNotificationNavigate,
     bookingFocusUserId,
     setBookingFocusUserId,
+    publishPrefill,
+    setPublishPrefill,
   };
 
   // --- Живой скраб карусели: СКВОЗНОЙ непрерывный offset (issue #422, паритет с

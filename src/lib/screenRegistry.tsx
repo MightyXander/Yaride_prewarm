@@ -146,6 +146,8 @@ export interface ScreenCtx {
    */
   bookingFocusUserId: number | null;
   setBookingFocusUserId: (userId: number | null) => void;
+  publishPrefill: { reverse: boolean; date: string; time: string } | null;
+  setPublishPrefill: (prefill: { reverse: boolean; date: string; time: string } | null) => void;
 }
 
 type ScreenRenderer = (ctx: ScreenCtx) => ReactNode;
@@ -248,7 +250,13 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       <BookingProfileScreen trip={ctx.selectedTrip} onConfirm={ctx.handleBookingConfirm} />
     ) : null,
   'driver-publish': (ctx) => (
-    <DriverPublishScreen onPublish={ctx.handlePublish} onAddCar={() => ctx.navigate('add-car')} />
+    <DriverPublishScreen
+      onPublish={ctx.handlePublish}
+      onAddCar={() => ctx.navigate('add-car')}
+      reverse={ctx.publishPrefill?.reverse}
+      defaultDate={ctx.publishPrefill?.date}
+      defaultTime={ctx.publishPrefill?.time || undefined}
+    />
   ),
   'booking-confirmed': (ctx) => (
     <BookingConfirmedScreen
@@ -375,7 +383,18 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
   ),
   'route-demand': (ctx) => (
     <RouteDemandScreen
-      onPublish={() => ctx.navigate(ctx.mainDirection === 'evening' ? 'evening-publish' : 'driver-publish')}
+      onPublish={(slot) => {
+        if (slot) {
+          ctx.setPublishPrefill({
+            reverse: slot.fromTitle.toLowerCase().includes('центр'),
+            date: slot.desiredDate,
+            time: slot.desiredTime ?? '',
+          });
+        } else {
+          ctx.setPublishPrefill(null);
+        }
+        ctx.navigate('driver-publish');
+      }}
     />
   ),
 };
