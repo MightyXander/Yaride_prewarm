@@ -26,6 +26,7 @@ export const screenChunkLoaders = {
   'my-cars': () => import('../screens/MyCarsScreen'),
   'personal-data': () => import('../screens/PersonalDataScreen'),
   'my-alerts': () => import('../screens/MyAlertsScreen'),
+  'route-demand': () => import('../screens/RouteDemandScreen'),
   'auth-gate': () => import('../screens/AuthGateScreen'),
   login: () => import('../screens/LoginScreen'),
   register: () => import('../screens/RegisterScreen'),
@@ -49,6 +50,7 @@ const AddCarScreen = lazy(screenChunkLoaders['add-car']);
 const MyCarsScreen = lazy(screenChunkLoaders['my-cars']);
 const PersonalDataScreen = lazy(screenChunkLoaders['personal-data']);
 const MyAlertsScreen = lazy(screenChunkLoaders['my-alerts']);
+const RouteDemandScreen = lazy(screenChunkLoaders['route-demand']);
 const AuthGateScreen = lazy(screenChunkLoaders['auth-gate']);
 const LoginScreen = lazy(screenChunkLoaders.login);
 const RegisterScreen = lazy(screenChunkLoaders.register);
@@ -212,6 +214,7 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
         ctx.setSelectedDate(date);
       }}
       onOpenProfileTab={ctx.onOpenProfileTab}
+      onOpenDemand={() => ctx.navigate('route-demand')}
     />
   ),
   'main-more': (ctx) => (
@@ -363,6 +366,11 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
         ctx.setRequestDirection(ctx.mainDirection);
         ctx.navigate('passenger-request');
       }}
+    />
+  ),
+  'route-demand': (ctx) => (
+    <RouteDemandScreen
+      onPublish={() => ctx.navigate(ctx.mainDirection === 'evening' ? 'evening-publish' : 'driver-publish')}
     />
   ),
 };

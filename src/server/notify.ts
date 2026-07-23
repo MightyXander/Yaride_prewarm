@@ -124,23 +124,20 @@ export async function notifyPassengersAboutNewTrip(params: {
 
     // Отправить каждому пассажиру (fire-and-forget)
     const promises = alertsRes.rows.map(async (row) => {
-      const buttons: Array<{ text: string; url?: string; callback_data?: string }> = [];
+      const rows: Array<Array<{ text: string; url?: string; callback_data?: string }>> = [];
+
+      // Бронь места прямо из пуша (подписка на маршрут) — без открытия приложения.
+      rows.push([{ text: '✅ Забронировать место', callback_data: `al:book:${params.tripId}` }]);
 
       if (miniAppUrl !== '') {
-        buttons.push({
-          text: 'Открыть поездку',
-          url: `${miniAppUrl}?startapp=trip-${params.tripId}`,
-        });
+        rows.push([{ text: 'Открыть поездку', url: `${miniAppUrl}?startapp=trip-${params.tripId}` }]);
       }
 
-      buttons.push({
-        text: '🔕 Снять заявку',
-        callback_data: `al:cxl:${row.alert_id}`,
-      });
+      rows.push([{ text: '🔕 Отписаться', callback_data: `al:cxl:${row.alert_id}` }]);
 
       const opts = {
         reply_markup: {
-          inline_keyboard: [buttons],
+          inline_keyboard: rows,
         },
       };
 

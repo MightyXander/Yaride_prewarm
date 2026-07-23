@@ -75,7 +75,7 @@ const MyAlertsScreen: React.FC<MyAlertsScreenProps> = ({ onCreateAlert }) => {
       {/* Десктоп (>=900px): центрированная читаемая колонка ~640px вместо растяжения
           на всю ширину десктоп-оболочки (1100px); мобиль/Telegram — passthrough (issue #373). */}
       <ResponsiveColumn style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-        <Header title="Мои заявки" />
+        <Header title="Мои подписки" />
 
         <AnimatePresence mode="wait">
           {loading ? (
@@ -100,8 +100,8 @@ const MyAlertsScreen: React.FC<MyAlertsScreenProps> = ({ onCreateAlert }) => {
             <Appear key="empty" animateKey="empty">
               <EmptyState
                 icon={<Icon id="i-bell" style={{ width: '32px', height: '32px', strokeWidth: 1.6 }} />}
-                title="Активных заявок нет"
-                subtitle="Оставь заявку на маршрут — как только водитель опубликует подходящую поездку, ты узнаешь."
+                title="Активных подписок нет"
+                subtitle="Подпишитесь на маршрут — пришлём уведомление, как только кто-то поедет. Забронировать можно прямо из него."
               />
             </Appear>
           ) : (
@@ -138,7 +138,7 @@ const MyAlertsScreen: React.FC<MyAlertsScreenProps> = ({ onCreateAlert }) => {
 
                     {cancelErrorId === alert.id && (
                       <div style={{ fontSize: '12px', color: 'var(--destructive-foreground)', background: 'var(--destructive)', borderRadius: 'var(--radius-md)', padding: '8px 10px' }}>
-                        Не удалось отменить заявку. Попробуй ещё раз.
+                        Не удалось отписаться. Попробуйте ещё раз.
                       </div>
                     )}
 
@@ -167,7 +167,7 @@ const MyAlertsScreen: React.FC<MyAlertsScreenProps> = ({ onCreateAlert }) => {
                         gap: '7px',
                       }}
                     >
-                      {isCancelling ? 'Отменяем…' : 'Отменить заявку'}
+                      {isCancelling ? 'Отписываем…' : 'Отписаться'}
                     </button>
                   </Card>
                 );
@@ -197,7 +197,7 @@ const MyAlertsScreen: React.FC<MyAlertsScreenProps> = ({ onCreateAlert }) => {
                 cursor: 'pointer',
               }}
             >
-              Оставить новую заявку
+              Новая подписка
             </button>
           </div>
         )}

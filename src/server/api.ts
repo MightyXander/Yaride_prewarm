@@ -40,6 +40,7 @@ import {
   createRouteAlertById,
   cancelRouteAlertById,
   listActiveAlertsByPassengerId,
+  listActiveDemand,
   AlertNotFoundError,
   AlertNotOwnerError,
   ensureUser,
@@ -671,6 +672,20 @@ export async function handleGetMyAlerts(req: ApiRequest): Promise<ApiResponse> {
 
   const alerts = await listActiveAlertsByPassengerId(userId);
   return { status: 200, body: { alerts } };
+}
+
+/**
+ * GET /api/demand — агрегированный спрос по коридору (подписки на маршрут).
+ * Для водителя: сколько пассажиров ждут поездку по направлению/дате/времени.
+ */
+export async function handleGetDemand(req: ApiRequest): Promise<ApiResponse> {
+  const userId = await resolveCurrentUserId(req);
+  if (typeof userId !== 'number') {
+    return userId;
+  }
+
+  const demand = await listActiveDemand();
+  return { status: 200, body: { demand } };
 }
 
 /** POST /api/trips — публикация поездки из шаблона водителя (опционально). */

@@ -461,7 +461,7 @@ const TimelineTail: React.FC<{ period: string; onLeaveRequest?: () => void }> = 
             whiteSpace: 'nowrap',
           }}
         >
-          Оставить заявку →
+          Подписаться на маршрут →
         </button>
       )}
     </div>
@@ -532,42 +532,53 @@ const TimelineSkeleton: React.FC = () => (
   </div>
 );
 
-const DriverBanner: React.FC<{ warmDest: string; onPublish: () => void }> = ({ warmDest, onPublish }) => (
-  <button
-    type="button"
-    onClick={() => {
-      hapticImpact('light');
-      onPublish();
-    }}
-    className="focus-ring pressable"
-    style={{
-      width: '100%',
-      textAlign: 'left',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      padding: '14px 16px',
-      borderRadius: 'var(--radius-xl)',
-      border: 'none',
-      background: 'var(--gradient-brand)',
-      color: 'var(--brand-foreground)',
-      boxShadow: 'var(--shadow-hero)',
-      cursor: 'pointer',
-      fontFamily: 'var(--font-sans)',
-    }}
-  >
-    <span style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'rgba(0, 0, 0, .08)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-      <Icon id="i-wheel" style={{ width: '20px', height: '20px' }} />
-    </span>
-    <span style={{ flex: 1, minWidth: 0 }}>
-      <span style={{ display: 'block', fontWeight: 800, fontSize: '16px' }}>Сам за рулём?</span>
-      <span style={{ display: 'block', fontSize: '13.5px', opacity: 0.72 }}>Возьми попутчиков {warmDest}</span>
-    </span>
-    <span style={{ width: '34px', height: '34px', borderRadius: '50%', background: '#18170f', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-      <Icon id="i-arrow-r" style={{ width: '18px', height: '18px' }} />
-    </span>
-  </button>
-);
+const DriverBanner: React.FC<{ warmDest: string; onPublish: () => void; onOpenDemand?: () => void }> = ({
+  warmDest,
+  onPublish,
+  onOpenDemand,
+}) => {
+  const showsDemand = onOpenDemand !== undefined;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        hapticImpact('light');
+        (onOpenDemand ?? onPublish)();
+      }}
+      className="focus-ring pressable"
+      style={{
+        width: '100%',
+        textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '14px 16px',
+        borderRadius: 'var(--radius-xl)',
+        border: 'none',
+        background: 'var(--gradient-brand)',
+        color: 'var(--brand-foreground)',
+        boxShadow: 'var(--shadow-hero)',
+        cursor: 'pointer',
+        fontFamily: 'var(--font-sans)',
+      }}
+    >
+      <span style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'rgba(0, 0, 0, .08)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+        <Icon id="i-wheel" style={{ width: '20px', height: '20px' }} />
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontWeight: 800, fontSize: '16px' }}>
+          {showsDemand ? 'Вас ждут попутчики' : 'Сам за рулём?'}
+        </span>
+        <span style={{ display: 'block', fontSize: '13.5px', opacity: 0.72 }}>
+          {showsDemand ? `Посмотрите, кто ищет поездку ${warmDest}` : `Возьми попутчиков ${warmDest}`}
+        </span>
+      </span>
+      <span style={{ width: '34px', height: '34px', borderRadius: '50%', background: '#18170f', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+        <Icon id="i-arrow-r" style={{ width: '18px', height: '18px' }} />
+      </span>
+    </button>
+  );
+};
 
 const ScenarioEmpty: React.FC<{
   title: string;
@@ -582,13 +593,13 @@ const ScenarioEmpty: React.FC<{
     <div>
       <div style={{ fontWeight: 800, fontSize: '19px', letterSpacing: '-0.01em' }}>{title}</div>
       <div style={{ fontSize: '15px', color: 'var(--muted-foreground)', marginTop: '6px', lineHeight: 1.5, maxWidth: '260px' }}>
-        Оставь заявку — водители на маршруте увидят и подхватят тебя.
+        Подпишитесь на маршрут — пришлём уведомление, как только кто-то поедет.
       </div>
     </div>
     <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', width: '100%', maxWidth: '320px' }}>
       {onLeaveRequest && (
         <Button variant="primary" onClick={onLeaveRequest}>
-          Оставить заявку
+          Подписаться на маршрут
         </Button>
       )}
       {canPublish && (
@@ -622,6 +633,7 @@ interface MainScreenProps {
   onOpenProfileTab?: () => void;
   selectedDate?: string;
   onSelectDate?: (date: string) => void;
+  onOpenDemand?: () => void;
 }
 
 const MainScreen: React.FC<MainScreenProps> = ({
@@ -641,6 +653,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
   selectedDate,
   onSelectDate,
   onOpenProfileTab,
+  onOpenDemand,
 }) => {
   const prefersReduced = useReducedMotion();
   const { profile } = useProfile();
@@ -830,7 +843,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                 </>
               )}
 
-              {canPublish && <DriverBanner warmDest={warmDest} onPublish={onPublish} />}
+              {canPublish && <DriverBanner warmDest={warmDest} onPublish={onPublish} onOpenDemand={onOpenDemand} />}
             </motion.div>
           ) : (
             <motion.div

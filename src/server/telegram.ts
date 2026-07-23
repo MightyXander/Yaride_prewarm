@@ -944,18 +944,80 @@ async function handleCallbackQuery(
       const { updateAlertStatus } = await import('./repo.ts');
       await updateAlertStatus(id, 'cancelled', from.id);
 
-      await answerCallbackQuery(callbackQuery.id, 'Заявка снята', false, botToken);
+      await answerCallbackQuery(callbackQuery.id, 'Вы отписались от маршрута', false, botToken);
 
       if (message) {
         await editMessageText(
           message.chat.id,
           message.message_id,
-          `${message.text ?? ''}\n\n🔕 Заявка снята`,
+          `${message.text ?? ''}\n\n🔕 Вы отписались`,
           { reply_markup: { inline_keyboard: [] } },
           botToken,
         );
       }
 
+      return true;
+    } else if (prefix === 'al' && action === 'book') {
+      // Бронь места прямо из пуша о новой поездке (подписка на маршрут).
+      // id здесь — tripId; from.id — Telegram-id пассажира.
+      // Динамический импорт намеренный: notify.ts статически импортирует sendMessage
+      // отсюда → статический импорт repo/notify замкнул бы цикл (как в ветках bk/al:cxl выше).
+      const { internalUserIdByTg, createBookingById } = await import('./repo.ts');
+      const passengerId = await internalUserIdByTg(from.id);
+      if (passengerId === null) {
+        await answerCallbackQuery(callbackQuery.id, 'Профиль не найден', true, botToken);
+        return true;
+      }
+      try {
+        const booking = await createBookingById(passengerId, id, 1);
+
+        // Уведомить водителя о новой брони (fire-and-forget), как POST /api/bookings.
+        void (async () => {
+          try {
+            const { getTripCard, getUserProfileById } = await import('./repo.ts');
+            const { notifyDriverAboutNewBooking } = await import('./notify.ts');
+            const tripCard = await getTripCard(id);
+            const profile = await getUserProfileById(passengerId);
+            if (tripCard !== null) {
+              await notifyDriverAboutNewBooking({
+                tripId: id,
+                bookingId: booking.bookingId,
+                driverId: tripCard.driver_id,
+                driverTgUserId: tripCard.driver_tg_user_id,
+                passengerId,
+                passengerName: profile?.name ?? 'Пассажир',
+                startTitle: tripCard.start_title,
+                endTitle: tripCard.end_title,
+                tripDate: tripCard.trip_date,
+                departureTime: tripCard.departure_time,
+                seatsBooked: 1,
+              });
+            }
+          } catch (e) {
+            console.error('[al:book] Ошибка уведомления водителя:', e);
+          }
+        })();
+
+        await answerCallbackQuery(callbackQuery.id, 'Готово! Место забронировано', false, botToken);
+
+        if (message) {
+          // Оставляем только «Открыть поездку», убираем «Забронировать» и «Отписаться».
+          const miniAppUrl = (process.env.MINIAPP_URL ?? '').trim();
+          const kb = miniAppUrl !== ''
+            ? [[{ text: 'Открыть поездку', url: `${miniAppUrl}?startapp=trip-${id}` }]]
+            : [];
+          await editMessageText(
+            message.chat.id,
+            message.message_id,
+            `${message.text ?? ''}\n\n✅ Вы забронировали место`,
+            { reply_markup: { inline_keyboard: kb } },
+            botToken,
+          );
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Не удалось забронировать место';
+        await answerCallbackQuery(callbackQuery.id, msg, true, botToken);
+      }
       return true;
     } else if (prefix === 'lic' && (action === 'ok' || action === 'no')) {
       // Модерация ВУ: подтвердить/отклонить заявку. Только админ (@mightyxander).

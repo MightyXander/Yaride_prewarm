@@ -73,6 +73,7 @@ export const SCREEN_TO_TAB: Record<Screen, NavTabRoot | 'notifications' | null> 
   notifications: 'notifications',
   'add-car': 'profile',
   'my-alerts': 'profile',
+  'route-demand': 'main',
 };
 
 /** Высота pill без внешних отступов. */

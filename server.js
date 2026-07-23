@@ -36,6 +36,7 @@ try {
     createAlert: mod.handleCreateAlert,
     cancelAlert: mod.handleCancelAlert,
     getMyAlerts: mod.handleGetMyAlerts,
+    getDemand: mod.handleGetDemand,
     publishTrip: mod.handlePublishTrip,
     getMyProfile: mod.handleGetMyProfile,
     getMyConsent: mod.handleGetMyConsent,
@@ -319,6 +320,8 @@ app.post('/api/me/push-token', wrap(api?.savePushToken));
 app.get('/api/me/trips', wrap(api?.getMyTrips));
 // Issue #321: активные заявки текущего юзера (устойчивая точка входа к отмене #319).
 app.get('/api/me/alerts', wrap(api?.getMyAlerts));
+// Подписки на маршрут: агрегированный спрос по коридору для водителя.
+app.get('/api/demand', wrap(api?.getDemand));
 app.get('/api/me/template', wrap(api?.getMyTemplate));
 app.get('/api/me/cars', wrap(api?.listMyCars));
 app.post('/api/me/cars', wrap(api?.addCar));

@@ -143,6 +143,22 @@ export interface GetMyAlertsResponse {
   alerts: MyAlertItem[];
 }
 
+// GET /api/demand — агрегированный спрос по коридору (подписки на маршрут)
+export interface DemandSlot {
+  fromPointId: number;
+  toPointId: number;
+  fromTitle: string;
+  toTitle: string;
+  desiredDate: string;
+  desiredTime: string | null;
+  count: number;
+  sampleNames: string[];
+}
+
+export interface GetDemandResponse {
+  demand: DemandSlot[];
+}
+
 // POST /api/trips
 export interface PublishTripRequest {
   templateId: number;

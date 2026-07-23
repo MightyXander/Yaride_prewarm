@@ -242,3 +242,66 @@ export async function listActiveAlertsByPassengerId(
     createdAt: r.created_at,
   }));
 }
+
+export interface DemandSlot {
+  fromPointId: number;
+  toPointId: number;
+  fromTitle: string;
+  toTitle: string;
+  desiredDate: string;
+  desiredTime: string | null;
+  count: number;
+  sampleNames: string[];
+}
+
+/**
+ * Агрегированный спрос по коридору для водителя (подписки на маршрут).
+ * Группирует активные, не просроченные route_alerts по ГРУППЕ точки
+ * (COALESCE(parent_point_id, id) — анкер района, как в notify-матчинге), дате и
+ * времени. Возвращает счётчик ждущих + до 3 имён для аватаров. Только чтение
+ * (агрегат, вне транзакции — как listActiveAlertsByPassengerId).
+ */
+export async function listActiveDemand(): Promise<DemandSlot[]> {
+  await ensureReady();
+  const pool = getPool();
+  const today = todayMskISO();
+
+  const res = await pool.query<{
+    from_group: number;
+    to_group: number;
+    from_title: string;
+    to_title: string;
+    desired_date: string;
+    desired_time: string | null;
+    cnt: number;
+    sample_names: string[] | null;
+  }>(
+    `SELECT fg.id AS from_group, tg.id AS to_group,
+            fg.title AS from_title, tg.title AS to_title,
+            ra.desired_date, ra.desired_time,
+            COUNT(*)::int AS cnt,
+            (ARRAY_AGG(COALESCE(NULLIF(u.first_name, ''), NULLIF(u.username, ''), 'П')
+                       ORDER BY ra.created_at))[1:3] AS sample_names
+     FROM route_alerts ra
+     JOIN route_points fp ON fp.id = ra.from_point_id
+     JOIN route_points tp ON tp.id = ra.to_point_id
+     JOIN route_points fg ON fg.id = COALESCE(fp.parent_point_id, fp.id)
+     JOIN route_points tg ON tg.id = COALESCE(tp.parent_point_id, tp.id)
+     JOIN users u ON u.id = ra.passenger_id
+     WHERE ra.status = 'active' AND ra.desired_date >= $1
+     GROUP BY fg.id, tg.id, ra.desired_date, ra.desired_time
+     ORDER BY ra.desired_date ASC, ra.desired_time ASC NULLS LAST, cnt DESC`,
+    [today],
+  );
+
+  return res.rows.map((r) => ({
+    fromPointId: r.from_group,
+    toPointId: r.to_group,
+    fromTitle: r.from_title,
+    toTitle: r.to_title,
+    desiredDate: r.desired_date,
+    desiredTime: r.desired_time,
+    count: r.cnt,
+    sampleNames: r.sample_names ?? [],
+  }));
+}

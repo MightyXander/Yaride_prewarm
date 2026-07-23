@@ -182,7 +182,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
       onPublish?.(response.alert.alertId);
     } catch (err) {
       console.error('Ошибка публикации заявки:', err);
-      let errorMessage = 'Не удалось опубликовать заявку';
+      let errorMessage = 'Не удалось оформить подписку';
       if (err instanceof ApiException) {
         errorMessage = err.message;
       } else if (err instanceof Error) {
@@ -216,10 +216,10 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
       {/* Десктоп (>=900px): центрированная читаемая колонка ~520px вместо растяжения
           на всю ширину десктоп-оболочки; мобиль/Telegram — passthrough (issue #375, эпик #364). */}
       <ResponsiveColumn maxWidth={520} style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-      <Header title="Оставить заявку" />
+      <Header title="Подписка на маршрут" />
 
       <div style={{ fontSize: '15px', color: 'var(--muted-foreground)' }}>
-        Поездок сейчас нет — оставь заявку, и водители этого маршрута увидят, что ты ищешь.
+        Подпишитесь на маршрут — пришлём уведомление, как только кто-то поедет. Забронировать можно прямо из него.
       </div>
 
       <div>
@@ -549,7 +549,7 @@ const PassengerRequestScreen: React.FC<PassengerRequestScreenProps> = ({
         }}
       >
         <Button variant="primary" onClick={handlePublish} disabled={isPublishing}>
-          {isPublishing ? 'Публикуем...' : 'Опубликовать заявку'}
+          {isPublishing ? 'Оформляем…' : 'Подписаться на маршрут'}
         </Button>
         <div
           style={{

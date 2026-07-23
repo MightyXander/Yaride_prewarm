@@ -55,6 +55,7 @@ export {
   handleCreateAlert,
   handleCancelAlert,
   handleGetMyAlerts,
+  handleGetDemand,
   handlePublishTrip,
   handleGetMyProfile,
   handleGetMyConsent,

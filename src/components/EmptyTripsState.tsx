@@ -25,7 +25,7 @@ const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ onLeaveRequest, onPub
       </svg>
     }
     title="Поездок пока нет"
-    subtitle="На это время по маршруту никто не едет. Оставь заявку — водители увидят, что ты ищешь."
+    subtitle="На это время по маршруту никто не едет. Подпишитесь на маршрут — пришлём уведомление, как только кто-то поедет. Забронировать можно прямо из него."
     action={
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '9px' }}>
         {onLeaveRequest && (
@@ -47,7 +47,7 @@ const EmptyTripsState: React.FC<EmptyTripsStateProps> = ({ onLeaveRequest, onPub
               boxShadow: 'var(--shadow-hero)',
             }}
           >
-            Оставить заявку
+            Подписаться на маршрут
           </button>
         )}
         {onToggleDirection && (

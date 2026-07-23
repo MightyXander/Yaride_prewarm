@@ -10,6 +10,7 @@ import {
   getMyTrips,
   getMyCars,
   getMyAlerts,
+  getDemand,
   getMySafety,
   getNotifications,
   getUserProfile,
@@ -22,6 +23,7 @@ import type {
   UserTripItem,
   Car,
   MyAlertItem,
+  DemandSlot,
   GetMySafetyResponse,
   NotificationItem,
   PublicUserProfile,
@@ -182,6 +184,34 @@ export async function fetchMyAlerts(): Promise<MyAlertItem[]> {
     return res.alerts;
   } catch (err) {
     if (err instanceof ApiException && err.status === 401) return getDemoAlerts();
+    throw err;
+  }
+}
+
+// ---- Спрос по коридору (подписки на маршрут) --------------------------------
+
+// Демо-спрос для браузера без Telegram (graceful fallback при 401) — тот же
+// приём, что fetchMyAlerts/fetchMyCars (issue #244).
+function getDemoDemand(): DemandSlot[] {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const y = tomorrow.getFullYear();
+  const m = String(tomorrow.getMonth() + 1).padStart(2, '0');
+  const d = String(tomorrow.getDate()).padStart(2, '0');
+  const date = `${y}-${m}-${d}`;
+  return [
+    { fromPointId: 1, toPointId: 2, fromTitle: 'Брагино', toTitle: 'Центр', desiredDate: date, desiredTime: '08:00', count: 3, sampleNames: ['Мария', 'Дмитрий', 'Иван'] },
+    { fromPointId: 1, toPointId: 2, fromTitle: 'Брагино', toTitle: 'Центр', desiredDate: date, desiredTime: '09:00', count: 1, sampleNames: ['Кирилл'] },
+    { fromPointId: 2, toPointId: 1, fromTitle: 'Центр', toTitle: 'Брагино', desiredDate: date, desiredTime: null, count: 2, sampleNames: ['Сергей', 'Роман'] },
+  ];
+}
+
+export async function fetchDemand(): Promise<DemandSlot[]> {
+  try {
+    const res = await getDemand();
+    return res.demand;
+  } catch (err) {
+    if (err instanceof ApiException && err.status === 401) return getDemoDemand();
     throw err;
   }
 }

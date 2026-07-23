@@ -53,7 +53,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
       // сбрасывать isCancelling не нужно, компонент вот-вот размонтируется.
     } catch (err) {
       console.error('Ошибка отмены заявки:', err);
-      setCancelError('Не удалось отменить заявку. Попробуй ещё раз.');
+      setCancelError('Не удалось отписаться. Попробуйте ещё раз.');
       setIsCancelling(false);
       hapticNotify('error');
     }
@@ -70,7 +70,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
         gap: '12px',
       }}
     >
-      <Header title="Заявка" />
+      <Header title="Вы подписались на маршрут" />
 
       {/* Успех-иконка */}
       <div
@@ -114,7 +114,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
             marginTop: '6px',
           }}
         >
-          Заявка опубликована
+          Вы подписались на маршрут
         </div>
         <div style={{ fontSize: '15px', color: 'var(--muted-foreground)' }}>
           ищем тебе попутку
@@ -223,7 +223,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
           <Icon id="i-bell" style={{ width: '18px', height: '18px', strokeWidth: 2 }} />
         </div>
         <div style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--foreground)' }}>
-          Водители маршрута видят заявку. Пуш придёт, как только выложат подходящую поездку.
+          Мы уведомим вас, как только кто-то поедет по маршруту. Забронировать место можно прямо из уведомления.
         </div>
       </div>
 
@@ -276,7 +276,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
           disabled={isCancelling}
           onClick={handleShare}
         >
-          Поделиться заявкой
+          Поделиться
         </Button>
         <Button
           variant="ghost"
@@ -286,7 +286,7 @@ const RequestPublishedScreen: React.FC<RequestPublishedScreenProps> = ({ onEdit,
             onEdit?.();
           }}
         >
-          Изменить заявку
+          Изменить подписку
         </Button>
         <button
           type="button"

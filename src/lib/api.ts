@@ -66,6 +66,7 @@ import type {
   GetMyPersonalResponse,
   PersonalChangeRequestBody,
   RequestPersonalChangeResponse,
+  GetDemandResponse,
 } from '../types/api.ts';
 
 const API_BASE = '/api';
@@ -180,6 +181,11 @@ export async function cancelAlert(alertId: number): Promise<CancelAlertResponse>
 /** GET /api/me/alerts — активные заявки текущего юзера (issue #321). */
 export async function getMyAlerts(): Promise<GetMyAlertsResponse> {
   return apiFetch<GetMyAlertsResponse>('/me/alerts');
+}
+
+/** GET /api/demand — агрегированный спрос по коридору (подписки на маршрут). */
+export async function getDemand(): Promise<GetDemandResponse> {
+  return apiFetch<GetDemandResponse>('/demand');
 }
 
 /** POST /api/trips */

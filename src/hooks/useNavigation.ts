@@ -41,6 +41,7 @@ export const PARENT_SCREEN: Record<Screen, Screen> = {
   'personal-data': 'profile',
   'add-car': 'driver-publish',
   'my-alerts': 'profile',
+  'route-demand': 'main',
 };
 
 // Максимальная глубина стека истории «назад».
@@ -65,6 +66,7 @@ const SCREEN_TAB: Partial<Record<Screen, TabRoot>> = {
   'personal-data': 'profile',
   'my-alerts': 'profile',
   safety: 'profile',
+  'route-demand': 'main',
 };
 
 export const useNavigation = (initialScreen: Screen = 'intro') => {
@@ -99,6 +101,7 @@ export const useNavigation = (initialScreen: Screen = 'intro') => {
       'passenger-request': 0,
       'request-published': 0,
       'alert-push': 0,
+      'route-demand': 0,
       'my-trips': 0,
       'rate-trip': 0,
       'evening-main': 0,

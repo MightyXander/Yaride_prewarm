@@ -28,7 +28,8 @@ export type Screen =
   | 'my-cars'
   | 'personal-data'
   | 'add-car'
-  | 'my-alerts';
+  | 'my-alerts'
+  | 'route-demand';
 
 // Откуда пришли на экран подтверждения (бронь пассажира или публикация водителя)
 export type ConfirmKind = 'booking' | 'publish';

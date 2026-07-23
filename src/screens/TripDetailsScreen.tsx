@@ -723,7 +723,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
             marginBottom: '6px',
           }}
         >
-          Маршрут · ~{trip.route?.duration || '22 мин'}
+          Маршрут · {trip.route?.duration || '22 мин'}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', margin: '4px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minHeight: '24px', fontSize: '15px', fontWeight: 600 }}>
