@@ -22,6 +22,8 @@ export interface BookingCardProps {
   declining: boolean;
   onConfirm: (bookingId: number) => void;
   onDecline: (bookingId: number) => void;
+  /** Прошедшая/завершённая поездка — действия недоступны, показываем только статус. */
+  readOnly?: boolean;
 }
 
 const linkBtnStyle: React.CSSProperties = {
@@ -95,6 +97,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
   declining,
   onConfirm,
   onDecline,
+  readOnly = false,
 }) => {
   const isActive = booking.status === 'active';
 
@@ -130,7 +133,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
             flexWrap: 'wrap',
           }}
         >
-          {!isActive ? (
+          {!isActive || readOnly ? (
             statusPill(booking.status)
           ) : confirmed ? (
             <>

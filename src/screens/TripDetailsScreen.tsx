@@ -948,6 +948,20 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
                 {seatsLeft === 0 && bookings.length > 0 ? ' · все места заняты' : ''}
               </div>
             </div>
+            {isPast && (
+              <div
+                style={{
+                  fontSize: '12.5px',
+                  color: 'var(--muted-foreground)',
+                  background: 'var(--muted)',
+                  borderRadius: '10px',
+                  padding: '8px 10px',
+                  marginBottom: '10px',
+                }}
+              >
+                Поездка завершена — брони уже нельзя подтвердить или отклонить.
+              </div>
+            )}
             {loadingBookings && bookings.length === 0 ? (
               <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Загрузка…</div>
             ) : activeBookings.length === 0 ? (
@@ -967,6 +981,7 @@ const TripDetailsScreen: React.FC<TripDetailsScreenProps> = ({
                     declining={decliningId === b.booking_id}
                     onConfirm={handleConfirmBooking}
                     onDecline={handleDeclineBooking}
+                    readOnly={isPast}
                   />
                 ))}
               </div>

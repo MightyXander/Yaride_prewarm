@@ -302,6 +302,17 @@ export interface CancelTripResult {
 }
 
 /**
+ * Момент выезда (trip_date YYYY-MM-DD + departure_time HH:MM, МСК = UTC+3)
+ * уже в прошлом? Пустое/битое время → false (не блокируем на некорректных данных).
+ * Гейтит подтверждение/отклонение броней прошедшей поездки (в т.ч. по кнопкам
+ * из старого Telegram-пуша, минующим UI).
+ */
+function isDeparturePast(tripDate: string, departureTime: string): boolean {
+  const t = Date.parse(`${tripDate}T${departureTime}:00+03:00`);
+  return Number.isFinite(t) && t < Date.now();
+}
+
+/**
  * Отменить бронь водителем (PATCH /api/bookings/:id action='cancel_by_driver').
  * Переводит бронь в status='cancelled_by_driver', освобождает seats в trips.seats_booked.
  * Бросает Error если бронь не найдена или уже отменена.
@@ -352,6 +363,9 @@ export async function cancelBookingByDriver(
     }
     if (booking.status !== 'active') {
       throw new Error('Бронь уже отменена или недоступна.');
+    }
+    if (isDeparturePast(booking.trip_date, booking.departure_time)) {
+      throw new Error('Поездка уже прошла — брони изменить нельзя.');
     }
 
     // Отменить бронь
@@ -540,6 +554,9 @@ export async function confirmBookingByDriver(
     }
     if (booking.status !== 'active') {
       throw new Error('Бронь уже отменена или недоступна.');
+    }
+    if (isDeparturePast(booking.trip_date, booking.departure_time)) {
+      throw new Error('Поездка уже прошла — брони изменить нельзя.');
     }
 
     // В текущей схеме нет статуса 'confirmed', поэтому просто возвращаем подтверждение
