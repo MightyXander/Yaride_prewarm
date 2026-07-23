@@ -235,62 +235,9 @@ const RouteDayLine: React.FC<{
   </div>
 );
 
-const DOT_Y = 30; // px от верха слота до центра узла — выравнивает узел и время с телом карточки
-
-const TimelineNode: React.FC<{ nearest?: boolean; dashed?: boolean; isFirst?: boolean; isLast?: boolean }> = ({
-  nearest = false,
-  dashed = false,
-  isFirst = false,
-  isLast = false,
-}) => (
-  <div style={{ position: 'relative' }}>
-    <div
-      style={{
-        position: 'absolute',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '2px',
-        top: isFirst ? `${DOT_Y}px` : 0,
-        bottom: isLast ? `calc(100% - ${DOT_Y}px)` : 0,
-        background: 'var(--border)',
-      }}
-    />
-    <div
-      style={{
-        position: 'absolute',
-        left: '50%',
-        top: `${DOT_Y}px`,
-        transform: 'translate(-50%, -50%)',
-        width: nearest ? '14px' : '11px',
-        height: nearest ? '14px' : '11px',
-        borderRadius: '50%',
-        background: nearest ? 'var(--brand)' : dashed ? 'var(--background)' : 'var(--elevated)',
-        border: dashed ? '2px dashed var(--muted-foreground)' : nearest ? 'none' : '2px solid var(--border)',
-        boxShadow: nearest ? '0 0 0 4px rgba(255, 221, 45, .28)' : 'none',
-      }}
-    />
-  </div>
-);
-
-// Время отправления «17⁴⁰»: часы крупно, минуты приподняты и мельче (issue #476).
-// Через <sup>+стили, НЕ unicode-надстрочные (иначе часть цифр не отрисовалась бы).
-const DepartureTime: React.FC<{ time: string; nearest: boolean }> = ({ time, nearest }) => {
-  const [hours, minutes] = time.split(':');
-  return (
-    <span
-      style={{
-        fontVariantNumeric: 'tabular-nums',
-        fontWeight: nearest ? 800 : 600,
-        color: nearest ? 'var(--foreground)' : 'var(--muted-foreground)',
-        lineHeight: 1,
-      }}
-    >
-      <span style={{ fontSize: '19px' }}>{hours}</span>
-      <sup style={{ fontSize: '11px', fontWeight: 700, marginLeft: '1px', verticalAlign: 'super', lineHeight: 0 }}>{minutes}</sup>
-    </span>
-  );
-};
-
+// Билет-карточка отправления (редизайн, Вариант B): слева «корешок» с точным
+// временем, справа — маршрут (с переносом, без обрезки), водитель и цена/места.
+// Устойчиво к крупному шрифту: минимум nowrap, карточка тянется по высоте.
 const TimelineRow: React.FC<{
   trip: Trip;
   nearest: boolean;
@@ -301,16 +248,14 @@ const TimelineRow: React.FC<{
   disabledReason?: string;
   onTripClick: (trip: Trip) => void;
   onOpenProfile?: (userId: number) => void;
-}> = ({ trip, nearest, isFirst, isLast, isToday, dimmed, disabledReason, onTripClick, onOpenProfile }) => {
+}> = ({ trip, nearest, isToday, dimmed, disabledReason, onTripClick, onOpenProfile }) => {
   const rating = trip.driver.rating.toFixed(1).replace('.', ',');
   const from = trip.route?.from || `Брагино, ${trip.address}`.split(',')[0];
   const to = trip.route?.to || 'Центр';
   const duration = trip.route?.duration || '22 мин';
   const mins = minutesUntil(trip.time);
-  const durationLabel = nearest && isToday && mins >= 0 && mins < 60 ? `через ${mins} мин` : duration;
+  const durationLabel = nearest && isToday && mins >= 0 && mins < 60 ? `через ${mins} мин` : `в пути ${duration}`;
   const seatsLabel = trip.seats === 0 ? 'мест нет' : `${trip.seats} ${pluralRu(trip.seats, SEAT_WORDS)}`;
-  // #476: бейдж «твоя поездка» убран; свою поездку помечаем нейтрально-серым фоном (isOwn) без бейджа.
-  const badge = trip.booked ? 'ты едешь' : null;
   const isOwn = trip.isOwn;
 
   const handleAvatar = (e: React.MouseEvent) => {
@@ -320,151 +265,147 @@ const TimelineRow: React.FC<{
     }
   };
 
+  const stubBg = isOwn ? 'var(--muted)' : nearest ? 'var(--gradient-brand)' : 'var(--accent)';
+  const stubColor = isOwn ? 'var(--muted-foreground)' : 'var(--brand-foreground)';
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '48px 22px minmax(0, 1fr)', columnGap: '4px', paddingBottom: isLast ? 0 : '12px' }}>
-      <div style={{ paddingTop: `${DOT_Y - 13}px`, textAlign: 'right', paddingRight: '4px' }}>
-        <DepartureTime time={trip.time} nearest={nearest} />
-      </div>
-      <TimelineNode nearest={nearest} isFirst={isFirst} isLast={isLast} />
-      <div style={{ minWidth: 0, ...(dimmed ? { filter: 'grayscale(60%)', opacity: 0.6 } : null) }}>
-        <Card
-          role="button"
-          tabIndex={0}
-          aria-label={`${trip.driver.name}, ${trip.time}, ${from} → ${to}, ${trip.price} ₽, ${seatsLabel}${disabledReason ? `. ${disabledReason}` : ''}`}
-          onClick={() => onTripClick(trip)}
-          onKeyDown={(e: React.KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onTripClick(trip);
-            }
-          }}
-          variant={nearest && !isOwn ? 'accent' : 'default'}
+    <div style={dimmed ? { filter: 'grayscale(60%)', opacity: 0.6 } : undefined}>
+      <Card
+        role="button"
+        tabIndex={0}
+        aria-label={`${trip.driver.name}, ${trip.time}, ${from} → ${to}, ${trip.price} ₽, ${seatsLabel}${disabledReason ? `. ${disabledReason}` : ''}`}
+        onClick={() => onTripClick(trip)}
+        onKeyDown={(e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onTripClick(trip);
+          }
+        }}
+        style={{
+          padding: 0,
+          overflow: 'hidden',
+          display: 'grid',
+          gridTemplateColumns: 'auto minmax(0, 1fr)',
+          alignItems: 'stretch',
+          cursor: 'pointer',
+          border: isOwn ? '1px solid var(--border)' : nearest ? '1.5px solid var(--brand)' : '1px solid var(--border)',
+        }}
+      >
+        {/* Корешок билета: точное время по центру, пунктирный «отрыв» справа */}
+        <div
           style={{
-            padding: '12px 12px',
+            background: stubBg,
+            color: stubColor,
             display: 'flex',
-            alignItems: 'flex-start',
-            gap: '10px',
-            cursor: 'pointer',
-            ...(isOwn
-              ? { background: 'var(--muted)', border: '1px solid var(--border)' }
-              : { border: nearest ? '1.5px solid var(--brand)' : '1px solid var(--border)' }),
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '0 14px',
+            minWidth: '58px',
+            borderRight: '2px dashed color-mix(in srgb, var(--brand-foreground) 22%, transparent)',
           }}
         >
-          <div onClick={handleAvatar} style={{ cursor: trip.driver.id && onOpenProfile ? 'pointer' : 'default' }}>
+          <span style={{ fontWeight: 800, fontSize: '19px', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+            {trip.time}
+          </span>
+        </div>
+
+        {/* Тело: маршрут (перенос по словам), водитель, цена/места */}
+        <div style={{ minWidth: 0, padding: '11px 13px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, lineHeight: 1.3, overflowWrap: 'break-word', wordBreak: 'normal' }}>
+            <span style={{ color: 'var(--muted-foreground)', fontWeight: 600 }}>{from}</span>
+            {' '}
+            <span style={{ color: 'var(--brand-dark)', fontWeight: 800 }}>→</span>
+            {' '}
+            <span>{to}</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
             <div
+              onClick={handleAvatar}
               aria-hidden
               style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '14px',
+                width: '24px',
+                height: '24px',
+                borderRadius: '8px',
                 background: 'var(--muted)',
                 color: 'var(--foreground)',
                 display: 'grid',
                 placeItems: 'center',
                 fontWeight: 800,
-                fontSize: '16px',
+                fontSize: '11px',
                 flexShrink: 0,
+                cursor: trip.driver.id && onOpenProfile ? 'pointer' : 'default',
               }}
             >
               {getInitials(trip.driver.name)}
             </div>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-              <span style={{ fontWeight: 800, fontSize: '18px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {trip.driver.name}
+            <span style={{ fontSize: '14px', fontWeight: 700, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {trip.driver.name}
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--muted-foreground)', fontSize: '13px', fontWeight: 700, flexShrink: 0 }}>
+              <Icon id="i-star" fill style={{ width: '13px', height: '13px', color: 'var(--star)' }} />
+              {rating}
+            </span>
+            {trip.booked && (
+              <span style={{ flexShrink: 0, fontSize: '11px', fontWeight: 800, padding: '1px 7px', borderRadius: '999px', background: 'var(--brand)', color: 'var(--brand-foreground)' }}>
+                ты едешь
               </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--muted-foreground)', fontSize: '14px', fontWeight: 700, flexShrink: 0 }}>
-                <Icon id="i-star" fill style={{ width: '14px', height: '14px', color: 'var(--star)' }} />
-                {rating}
-              </span>
-              {badge && (
-                <span
-                  style={{
-                    flexShrink: 0,
-                    fontSize: '11.5px',
-                    fontWeight: 700,
-                    padding: '1px 7px',
-                    borderRadius: '999px',
-                    background: 'var(--brand)',
-                    color: 'var(--brand-foreground)',
-                  }}
-                >
-                  {badge}
-                </span>
-              )}
-            </div>
-            {/* #476: маршрут внутри карточки — from сверху, to снизу, маркеры ○→● как в шапке. */}
-            <div style={{ display: 'flex', gap: '7px', marginTop: '6px', minWidth: 0 }}>
-              <div aria-hidden style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '5px 0 4px' }}>
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', border: '2px solid var(--muted-foreground)', flexShrink: 0 }} />
-                <span style={{ width: '2px', flex: 1, minHeight: '9px', background: 'var(--border)', margin: '2px 0' }} />
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--brand)', flexShrink: 0 }} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
-                <span style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {from}
-                </span>
-                <span style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {to}
-                  <span style={{ fontWeight: 600, color: 'var(--muted-foreground)', fontSize: '13px' }}> · {durationLabel}</span>
-                </span>
-              </div>
-            </div>
-            {disabledReason && (
-              <div style={{ fontSize: '12.5px', color: 'var(--muted-foreground)', marginTop: '4px' }}>{disabledReason}</div>
             )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
-            <span style={{ fontWeight: 800, fontSize: '18px', fontVariantNumeric: 'tabular-nums' }}>{trip.price} ₽</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--muted-foreground)', fontSize: '14px', fontWeight: 600 }}>
-              <Icon id="i-seat" style={{ width: '15px', height: '15px' }} />
+
+          {disabledReason && (
+            <div style={{ fontSize: '12.5px', color: 'var(--muted-foreground)' }}>{disabledReason}</div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontWeight: 800, fontSize: '16px', fontVariantNumeric: 'tabular-nums' }}>{trip.price} ₽</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: 700, color: 'var(--brand-dark)', background: 'var(--accent)', borderRadius: '8px', padding: '2px 8px' }}>
+              <Icon id="i-seat" style={{ width: '13px', height: '13px' }} />
               {seatsLabel}
             </span>
+            <span style={{ marginLeft: 'auto', fontSize: '12.5px', fontWeight: 600, color: 'var(--muted-foreground)', whiteSpace: 'nowrap' }}>{durationLabel}</span>
           </div>
-        </Card>
-      </div>
+        </div>
+      </Card>
     </div>
   );
 };
 
 const TimelineTail: React.FC<{ period: string; onLeaveRequest?: () => void }> = ({ period, onLeaveRequest }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: '48px 22px minmax(0, 1fr)', columnGap: '4px' }}>
-    <div />
-    <TimelineNode dashed isLast />
-    <div
-      style={{
-        border: '1px dashed var(--border)',
-        borderRadius: 'var(--radius-xl)',
-        padding: '12px 14px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '10px',
-      }}
-    >
-      <span style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Позже {period} никто не едет</span>
-      {onLeaveRequest && (
-        <button
-          type="button"
-          onClick={onLeaveRequest}
-          className="focus-ring pressable"
-          style={{
-            border: 'none',
-            background: 'transparent',
-            color: 'var(--brand-dark)',
-            fontFamily: 'var(--font-sans)',
-            fontWeight: 800,
-            fontSize: '13px',
-            cursor: 'pointer',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Подписаться на маршрут →
-        </button>
-      )}
-    </div>
+  <div
+    style={{
+      border: '1px dashed var(--border)',
+      borderRadius: 'var(--radius-xl)',
+      padding: '13px 15px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '10px 14px',
+      flexWrap: 'wrap',
+    }}
+  >
+    <span style={{ fontSize: '13.5px', color: 'var(--muted-foreground)' }}>Позже {period} никто не едет</span>
+    {onLeaveRequest && (
+      <button
+        type="button"
+        onClick={onLeaveRequest}
+        className="focus-ring pressable"
+        style={{
+          border: 'none',
+          background: 'transparent',
+          color: 'var(--brand-dark)',
+          fontFamily: 'var(--font-sans)',
+          fontWeight: 800,
+          fontSize: '13.5px',
+          cursor: 'pointer',
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+          padding: 0,
+        }}
+      >
+        Подписаться на маршрут →
+      </button>
+    )}
   </div>
 );
 
@@ -488,7 +429,7 @@ const Timeline: React.FC<{
       ? Math.max(0, trips.findIndex((t) => toMinutes(t.time) >= toMinutes(preferredTime)))
       : 0;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       {trips.map((trip, index) => (
         <TimelineRow
           key={trip.id}
@@ -509,23 +450,26 @@ const Timeline: React.FC<{
 };
 
 const TimelineSkeleton: React.FC = () => (
-  <div style={{ display: 'flex', flexDirection: 'column' }}>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
     {[0, 1, 2].map((i) => (
-      <div key={i} style={{ display: 'grid', gridTemplateColumns: '48px 22px minmax(0, 1fr)', columnGap: '4px', paddingBottom: i === 2 ? 0 : '12px' }}>
-        <div style={{ paddingTop: `${DOT_Y - 8}px`, display: 'flex', justifyContent: 'flex-end', paddingRight: '4px' }}>
-          <Skeleton w={34} h={12} />
+      <div
+        key={i}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'auto minmax(0, 1fr)',
+          overflow: 'hidden',
+          borderRadius: 'var(--radius-xl)',
+          border: '1px solid var(--border)',
+          background: 'var(--elevated)',
+        }}
+      >
+        <div style={{ background: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 14px', minWidth: '58px' }}>
+          <Skeleton w={34} h={16} r={6} />
         </div>
-        <div style={{ position: 'relative' }}>
-          <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: '2px', top: i === 0 ? `${DOT_Y}px` : 0, bottom: i === 2 ? `calc(100% - ${DOT_Y}px)` : 0, background: 'var(--border)' }} />
-          <div style={{ position: 'absolute', left: '50%', top: `${DOT_Y}px`, transform: 'translate(-50%, -50%)', width: '11px', height: '11px', borderRadius: '50%', background: 'var(--elevated)', border: '2px solid var(--border)' }} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', background: 'var(--elevated)' }}>
-          <Skeleton w={40} h={40} r={12} />
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '7px' }}>
-            <Skeleton w="55%" h={13} />
-            <Skeleton w="80%" h={11} />
-          </div>
-          <Skeleton w={44} h={13} />
+        <div style={{ padding: '11px 13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Skeleton w="80%" h={15} r={7} />
+          <Skeleton w="50%" h={12} r={6} />
+          <Skeleton w="40%" h={13} r={6} />
         </div>
       </div>
     ))}
