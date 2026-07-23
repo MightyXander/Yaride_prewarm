@@ -264,6 +264,11 @@ export const screenRegistry: Partial<Record<Screen, ScreenRenderer>> = {
       onViewBookings={
         ctx.publishedTripId ? () => void ctx.handleOpenTripById(ctx.publishedTripId!, 'main') : undefined
       }
+      onOpenTrip={
+        ctx.confirmKind === 'booking' && ctx.selectedTrip
+          ? () => void ctx.handleOpenTripById(Number(ctx.selectedTrip!.id), 'main')
+          : undefined
+      }
     />
   ),
   profile: (ctx) => (
